@@ -7,19 +7,22 @@ import { runBuild } from './build.js'
 import { runTest } from './test.js'
 import { runL4 } from './l4.js'
 import { runL5 } from './l5.js'
+import { loadCommandContext } from '../core/command-context.js'
+import type { CommandContext } from '../core/command-context.js'
 
 /** The same fail-fast verification pipeline runs locally and on CI runners. */
-export async function runCi(options: { readonly keep: boolean; readonly timeoutMs: number }): Promise<number> {
+export async function runCi(options: { readonly keep: boolean; readonly timeoutMs?: number }, context: CommandContext = loadCommandContext()): Promise<number> {
+  const testOptions = { ...options, timeoutMs: options.timeoutMs ?? context.config.test.timeoutMs }
   const base = join(repoRoot, '.tmp', 'ci')
   mkdirSync(base, { recursive: true })
   const runDir = mkdtempSync(join(base, 'run-'))
   const startedAt = new Date().toISOString()
   const steps: Array<{ name: string; exitCode: number; durationMs: number; error?: string }> = []
   const stages = [
-    { name: 'type-check', run: () => runBuild({ check: true }) },
-    { name: 'l1-l3', run: () => runTest({ kinds: [], build: true }) },
-    { name: 'l4', run: () => runL4({ ...options, home: undefined, skipTarball: false }) },
-    { name: 'l5', run: () => runL5(options) },
+    { name: 'type-check', run: () => runBuild({ check: true }, context) },
+    { name: 'l1-l3', run: () => runTest({ kinds: [], build: true }, context) },
+    { name: 'l4', run: () => runL4({ ...testOptions, home: undefined, skipTarball: false }, context) },
+    { name: 'l5', run: () => runL5(testOptions, context) },
   ]
   let exitCode = 0
   try {

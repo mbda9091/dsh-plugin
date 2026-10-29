@@ -27,11 +27,9 @@ assert.ok(url && artifacts && workspaceRoot && (mode === 'baseline' || mode === 
 mkdirSync(artifacts, { recursive: true })
 const explicit = process.env['CHROME_PATH']
 const downloaded = process.env['DSH_E2E_BROWSER'] === 'chromium'
-const executablePath = downloaded ? undefined : explicit ?? [
-  'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-].find(existsSync)
+const executablePath = downloaded ? undefined : explicit
+const suiteTimeout = Number(process.env['DSH_E2E_TIMEOUT_MS'] ?? 120_000)
+assert.ok(Number.isSafeInteger(suiteTimeout) && suiteTimeout > 0 && suiteTimeout <= 2_147_483_647, 'invalid browser suite timeout')
 const results: Array<{ name: string; ok: boolean; error?: string }> = []
 let browser: Browser | undefined
 let deadline: NodeJS.Timeout | undefined
@@ -183,10 +181,10 @@ try {
   assert.ok(downloaded || (executablePath && existsSync(executablePath)), 'set CHROME_PATH, or install Chromium and set DSH_E2E_BROWSER=chromium')
   browser = await chromium.launch({ headless: true, executablePath, timeout: 30_000 })
   deadline = setTimeout(() => {
-    results.push({ name: 'suite-deadline', ok: false, error: 'browser suite exceeded 150 seconds' })
+    results.push({ name: 'suite-deadline', ok: false, error: `browser suite exceeded ${suiteTimeout}ms` })
     process.exitCode = 1
     void browser?.close()
-  }, 150_000)
+  }, suiteTimeout)
   if (mode === 'baseline') {
     await check('no-custom-plugins', async page => {
       await open(page, true)

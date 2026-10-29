@@ -1,7 +1,8 @@
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { resolveDsh } from '../core/dsh-cli.js'
+import { checkTestBrowser, commandEnv, configuredDsh, loadCommandContext } from '../core/command-context.js'
+import type { CommandContext } from '../core/command-context.js'
 import { assertBrowserResults } from '../core/browser-results.js'
 import { runToFiles } from '../core/exec.js'
 import { writeText } from '../core/json.js'
@@ -12,11 +13,12 @@ import { runBuild } from './build.js'
 
 export interface L5Options {
   readonly keep: boolean
-  readonly timeoutMs: number
+  readonly timeoutMs?: number
 }
 
 /** Own both server and browser; never use an ambient GUI URL/profile. */
-export async function runL5(options: L5Options): Promise<number> {
+export async function runL5(input: L5Options, settings: CommandContext = loadCommandContext()): Promise<number> {
+  const options = { ...input, timeoutMs: input.timeoutMs ?? settings.config.test.timeoutMs }
   const base = join(repoRoot, '.tmp/l5')
   mkdirSync(base, { recursive: true })
   const runDir = mkdtempSync(join(base, 'run-'))
@@ -35,8 +37,9 @@ export async function runL5(options: L5Options): Promise<number> {
           ...childEnv(context, context.home), DSH_E2E_URL: url, DSH_E2E_MODE: mode,
           DSH_E2E_ARTIFACTS: join(runDir, 'artifacts', mode),
           DSH_E2E_WORKSPACE: join(runDir, 'workspace'),
+          DSH_E2E_TIMEOUT_MS: String(options.timeoutMs),
         },
-        timeoutMs: 180_000,
+        timeoutMs: Math.min(options.timeoutMs + 30_000, 2_147_483_647),
         stdoutPath: join(context.logDir, `${mode}.browser.out.log`),
         stderrPath: join(context.logDir, `${mode}.browser.err.log`),
       })
@@ -48,16 +51,17 @@ export async function runL5(options: L5Options): Promise<number> {
     console.log(`l5: PASS ${mode}`)
   }
   try {
-    const build = await runBuild({ check: false })
+    const build = await runBuild({ check: false }, settings)
     if (build !== 0) throw new Error(`build exited with ${build}`)
     phase = 'compile-browser'
-    const compiled = spawnSync(process.execPath, [join(repoRoot, 'node_modules/typescript/bin/tsc'), '-p', join(repoRoot, 'test/e2e/tsconfig.json')], { stdio: 'inherit' })
+    const compiled = spawnSync(process.execPath, [join(repoRoot, 'node_modules/typescript/bin/tsc'), '-p', join(repoRoot, 'test/e2e/tsconfig.json')], { stdio: 'inherit', env: commandEnv(settings) })
     if (compiled.error) throw compiled.error
     if (compiled.status !== 0) throw new Error(`browser compilation exited with ${compiled.status}`)
     phase = 'prerequisites'
+    checkTestBrowser(settings)
     context = {
-      runner: resolveDsh(), runDir, home: join(runDir, 'dsh-home'),
-      logDir: join(runDir, 'logs'), options,
+      runner: configuredDsh(settings, true), runDir, home: join(runDir, 'dsh-home'),
+      logDir: join(runDir, 'logs'), options, settings,
     }
     mkdirSync(join(runDir, 'workspace'), { recursive: true })
     ensurePnpmShim(context)
@@ -66,7 +70,7 @@ export async function runL5(options: L5Options): Promise<number> {
     await browser(context, 'baseline')
     phase = 'install-fixture'
     for (const [name, target] of [['web-hello', 'test/fixtures/web-hello'], ['notify-web', 'notify-web']] as const) {
-      runDsh(context, `install-${name}`, ['plugin', '--profile', 'web', 'add', join(repoRoot, target)], context.home, 240_000)
+      runDsh(context, `install-${name}`, ['plugin', '--profile', 'web', 'add', join(repoRoot, target)], context.home, context.options.timeoutMs)
     }
     await browser(context, 'fixture')
     phase = 'cleanup'

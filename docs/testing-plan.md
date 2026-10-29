@@ -9,7 +9,7 @@
 - **L5 先只做 Web**，使用真实 `dsh web` + Playwright；桌面端 L5 延期。
 - **`app-restart`、`desktop-notify` 暂不适配 Web**，保持 desktop-only；Web L5 只面向后续 Web/UI 插件。
 - **Web profile 由官方 shipped `web` 初始化**，不手工拼配置；已初始化并验证，测试使用独立的 workspace-local `DSH_HOME`。
-- **只读/构建脚本已迁到 TypeScript 并用 `tsc` 编译**，不使用 Node 类型擦除；保留极薄的 `bootstrap.mjs` 和 PowerShell 入口，安装/打包脚本尚未迁移。
+- **构建、打包和安装业务已迁到 TypeScript 并用 `tsc` 编译**，不使用 Node 类型擦除；保留极薄的 `bootstrap.mjs` 和 PowerShell 入口。配置第二阶段的当前行为见 §19.6，前文各阶段记录保留。
 - **测试 runner 不统一**：Host/脚本用 `node:test`，UI 组件用 Vitest，L5 用 Playwright；`browser-use` 只做探索式验收。
 - **M4 已落地**：L1–L3 在 `test/src/` 下用 `node:test`，当前共 210 个用例；L2 对四个正式插件实际打包、解包、检查内容并导入入口。L4 在一次性 profile 里安装、启动真实 `dsh web` 并断言 loader 输出；失败自动保留现场。覆盖边界见 §17、§19。
 - **M5 已实施**：正式 L5 验证实际 slot/交互、主题/locale 和真实 SSE 通知链路；Windows 本机通过，Windows/macOS CI 已配置，远端首跑待验证（§19）。
@@ -1015,7 +1015,7 @@ node scripts/bootstrap.mjs l5
 - 优先 PATH 上的默认 Node 版 dsh。若 PATH 只有 Electron 桌面 wrapper，需设置 `DSH_CLI` 到 npm/pnpm 安装的 dsh；不能用 Electron 版伪装 Web surface。
 - `.github/workflows/tests.yml` 在 main push、PR、手动运行时执行 Windows/macOS 矩阵：冻结 lockfile 安装、类型检查、L1–L3、L4、Chromium、L5。该 workflow 已实现，但本轮未推送或触发远端 CI；不把配置写好算作 macOS 真机通过。
 - L5 每次生成 `.tmp/l5/run-*/`，保存 `report.json`、服务/浏览器日志、每项检查的 screenshot/trace/错误列表与 `results.json`；`.tmp/l5/last-report.json` 指向最近结果。
-- 成功默认清理临时 profile、pnpm store、shim，保留浏览器证据；`--keep` 额外保留完整成功现场。失败保留全部现场。浏览器套件有主动关闭浏览器的 150 秒总截止时间，父进程 180 秒兜底。
+- 成功默认清理临时 profile、pnpm store、shim，保留浏览器证据；`--keep` 额外保留完整成功现场。失败保留全部现场。浏览器套件截止时间现由 `test.timeoutMs` / `--timeout` 控制，父进程另留 30 秒退出宽限。
 - 原始日志和 trace 可能含临时认证信息，仅留在本地或临时 CI runner，不配置 GitHub artifact 上传；控制台中的启动 token 会脱敏。自动审批审核曾因此拒绝上传配置，已采用不上传的替代方案。
 - [Playwright 官方 CI 文档](https://playwright.dev/docs/ci)用于核对浏览器安装、串行执行和超时；[BrowserContext 文档](https://playwright.dev/docs/api/class-browsercontext)用于隔离 context 与 `addInitScript`。
 
@@ -1046,3 +1046,11 @@ node scripts/bootstrap.mjs l5
 - 完整 L4 八项记录（前置检查及七阶段）通过；L5 基线及四项 fixture 检查通过，证据：`.tmp/l5/run-Bb7Ulu/`。五份非预期浏览器错误列表均为空，已查看 light/en 与 dark/zh 截图；已知宿主 Explorer 图标 404 例外继续单独记录。
 - 单独用不存在的 `CHROME_PATH` 检查启动失败：退出 1，生成 `browser-start` 失败结果，不需要启动服务或浏览器。
 - 仍仅验收 Windows / Node `24.21.0` / npm dsh `0.2.1-rc.2` / 系统 Chrome；远端 CI、macOS 真机及操作系统通知外观未验证。本轮未提交、推送或上传产物。
+
+### 19.6 本机配置第二阶段（2026-10-30）
+
+首次运行前先安装 workspace 依赖，再执行 `config init`。构建、打包、安装、状态和测试共用 `core/command-context.ts`；PowerShell 入口只负责 Node 启动与参数转发。`DSH_CLI` / `DSH_PNPM` / `DSH_E2E_BROWSER` / `CHROME_PATH` 继续兼容，优先级低于命令行、高于本机 JSON；详见 [配置方案 §12](local-configuration-design.md#12-第二阶段实现与使用)。
+
+L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profile、测试 patch 和 pnpm store。`test.timeoutMs` 控制外部操作与浏览器场景的截止时间；不读取个人 Web YAML。CI 在 runner 内通过 example 初始化，不依赖开发者的本机配置。
+
+本轮 Windows 类型检查及 249 项 L1–L3 通过；完整 L4、L5 分别通过。另用新安装入口在同一临时 profile 验证 link → tarball → link，确认 spec 与实际链接状态匹配、本机配置字节不变，测试 home/store 清理完成。L5 证据位于 `.tmp/l5/run-2owMgf/`，安装切换报告位于 `.tmp/phase2-switch-At2HTV/report.json`，均不入库。未推送或宣称远端 Windows/macOS CI 已通过。

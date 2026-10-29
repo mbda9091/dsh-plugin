@@ -1,10 +1,12 @@
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import type { DshRunner } from './dsh-cli.js'
 import { runToFiles, sleep, startToFiles, stopChild, tail, waitForHttp, waitForHttpClosed, waitForServerUrl } from './exec.js'
 import type { RunResult } from './exec.js'
 import { repoRoot } from './repo.js'
+import { commandEnv, configuredPnpm } from './command-context.js'
+import type { CommandContext } from './command-context.js'
+import { writePnpmShim } from './pnpm.js'
 
 const WEB_PROFILE = 'web'
 
@@ -24,6 +26,7 @@ export function freshHome(runDir: string, requested?: string): string {
 
 /** Shared disposable-profile lifecycle for L4 and L5. */
 export interface WebHarness {
+  readonly settings: CommandContext
   readonly runner: DshRunner
   readonly home: string
   readonly runDir: string
@@ -33,17 +36,17 @@ export interface WebHarness {
 }
 export function childEnv(context: WebHarness, home: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...commandEnv(context.settings),
     ...context.runner.env,
-    DSH_HOME: home,
-    DSH_PROFILE: WEB_PROFILE,
-    // pnpm 11 uses pnpm_config_*; older runtimes use npm_config_*.
-    // Keep SQLite's index/WAL and package writes out of the user's global store.
-    pnpm_config_store_dir: join(context.runDir, 'pnpm-store'),
-    npm_config_store_dir: join(context.runDir, 'pnpm-store'),
   }
-  delete env['DSH_PROFILE_DIR']
-  delete env['DSH_WEB_URL']
+  for (const key of Object.keys(env)) {
+    if (['DSH_HOME', 'DSH_PROFILE', 'DSH_PROFILE_DIR', 'DSH_WEB_URL', 'PNPM_CONFIG_STORE_DIR', 'NPM_CONFIG_STORE_DIR'].includes(key.toUpperCase())) delete env[key]
+  }
+  env.DSH_HOME = home
+  env.DSH_PROFILE = WEB_PROFILE
+  // Keep both pnpm 11 and older runtime stores inside this disposable run.
+  env.pnpm_config_store_dir = join(context.runDir, 'pnpm-store')
+  env.npm_config_store_dir = join(context.runDir, 'pnpm-store')
   if (context.pnpmDir !== undefined) {
     env['PATH'] = env['PATH'] === undefined ? context.pnpmDir : `${context.pnpmDir}${delimiter}${env['PATH']}`
   }
@@ -79,21 +82,9 @@ export function runDsh(
 
 /** Give the child CLI a pinned pnpm without touching the user's Corepack cache. */
 export function ensurePnpmShim(context: WebHarness): string {
-  const pnpm = resolvePnpmScript()
+  const pnpm = configuredPnpm(context.settings)
   const binDir = join(context.runDir, 'bin')
-  mkdirSync(binDir, { recursive: true })
-  const node = process.execPath
-  if (process.platform === 'win32') {
-    writeFileSync(
-      join(binDir, 'pnpm.cmd'),
-      `@echo off\r\n"${node}" "${pnpm}" %*\r\n`,
-      'utf8',
-    )
-  } else {
-    const path = join(binDir, 'pnpm')
-    writeFileSync(path, `#!/bin/sh\nexec "${node}" "${pnpm}" "$@"\n`, 'utf8')
-    chmodSync(path, 0o755)
-  }
+  writePnpmShim(binDir, pnpm)
   context.pnpmDir = binDir
   return binDir
 }
@@ -158,34 +149,4 @@ function readTextSafe(path: string): string {
   } catch {
     return ''
   }
-}
-
-
-export function resolvePnpmScript(env: NodeJS.ProcessEnv = process.env): string {
-  const explicit = env['DSH_PNPM']
-  if (explicit !== undefined && explicit !== '') {
-    if (!existsSync(explicit)) throw new Error(`DSH_PNPM does not exist: ${explicit}`)
-    return explicit
-  }
-
-  const configured = env['DSH_HOME'] !== undefined && env['DSH_HOME'] !== '' ? env['DSH_HOME'] : undefined
-  const homes = [configured, join(homedir(), '.dsh')].filter(
-    (home, index, all): home is string => home !== undefined && all.indexOf(home) === index,
-  )
-
-  const candidates: string[] = []
-  for (const home of homes) {
-    const runtimes = join(home, 'dsh-runtimes')
-    if (!existsSync(runtimes)) continue
-    for (const entry of readdirSync(runtimes, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue
-      candidates.push(join(runtimes, entry.name, 'dependencies', 'pnpm', 'bin', 'pnpm.cjs'))
-    }
-  }
-  candidates.sort()
-  const found = candidates.find((candidate) => existsSync(candidate))
-  if (found === undefined) {
-    throw new Error('cannot locate pnpm.cjs in the DSH runtime; set DSH_PNPM to the pnpm.cjs path')
-  }
-  return found
 }

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdirSync, readdirSync, readFileSync } from 'node:fs'
 import { join, matchesGlob, relative } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { resolvePnpmScript } from '../../../scripts/.build/commands/l4.js'
+import { configuredPnpm, loadCommandContext } from '../../../scripts/.build/core/command-context.js'
 import { runToFiles } from '../../../scripts/.build/core/exec.js'
 
 /** Metadata shape already validated by the package contract suite. */
@@ -31,7 +31,7 @@ export function packageFiles(root: string): string[] {
 /** Use the real package manager and archive, not a second implementation of files filtering. */
 export function packAndExtract(source: string, destination: string): string {
   mkdirSync(destination, { recursive: true })
-  const pack = runToFiles(process.execPath, [resolvePnpmScript(), 'pack', '--pack-destination', destination], {
+  const pack = runToFiles(process.execPath, [configuredPnpm(loadCommandContext()), 'pack', '--pack-destination', destination], {
     cwd: source,
     timeoutMs: 120_000,
     stdoutPath: join(destination, 'pack.out.log'),

@@ -21,12 +21,13 @@
 - Node.js **24**、pnpm **11.28.5**；下面的依赖安装命令要求 pnpm 在 PATH 中可用。
 - PowerShell **7**：用于运行仓库的 `.ps1` 入口。
 
-PowerShell 脚本会尝试定位 DSH 自带的 Node/pnpm，也支持部分环境变量覆盖。DSH 版本升级时，应同步核对插件使用的类型包与运行时接口。
+PowerShell 入口先定位 Node，再由 TypeScript 读取本机配置。首次运行 `config init` 会发现 DSH、pnpm 和浏览器位置；日常命令使用已保存的配置。DSH 版本升级时，应同步核对类型包与运行时接口。
 
 ```powershell
 git clone https://github.com/mbda9091/dsh-plugin.git
 cd dsh-plugin
 pnpm install --frozen-lockfile
+pwsh -File scripts/config.ps1 init
 pwsh -File scripts/build.ps1
 ```
 
@@ -78,7 +79,7 @@ pwsh -File profiles/web/start.ps1
 
 本机文件已被 Git 忽略。运行时读取本机文件，**不会合并 example**；重复 `init` 不覆盖已有配置。配置格式由 `scripts/config/schema.json` 校验，支持的覆盖顺序为 **命令行参数 → 环境变量 → 本机配置**。
 
-目前配置机制已接入初始化、检查和 Web 启动；构建、安装、状态及测试入口仍沿用现有工具定位逻辑。详见 [本机配置设计与实施进度](docs/local-configuration-design.md)。
+配置机制已接入 Web、构建、打包、安装、状态及测试入口。已有 `version: 1` 本机配置可继续使用，无需重新生成。L4/L5 只读取工具和测试设置，使用一次性 profile，不加载个人 Web patch。详见 [本机配置设计与实施进度](docs/local-configuration-design.md)。
 
 审批白名单默认保持观察模式，需要自行配置具体规则才会自动放行。个人路径、凭据和审批规则应留在本机配置中；带认证参数的启动地址及运行日志也不应提交。
 
@@ -113,9 +114,9 @@ pwsh -File scripts/build.ps1 -Check
 pwsh -File scripts/ci.ps1
 ```
 
-L1–L3 覆盖逻辑、包契约和集成行为；L4 使用一次性 profile 验证真实 DSH 安装与加载；L5 通过 Playwright 验证 Web 交互和通知。L4/L5 需要可用的普通 Node 版 DSH，L5 默认使用系统 Chrome。测试说明和环境覆盖参数见 [测试方案](docs/testing-plan.md)。
+L1–L3 覆盖逻辑、包契约和集成行为；L4 使用一次性 profile 验证真实 DSH 安装与加载；L5 通过 Playwright 验证 Web 交互和通知。L4/L5 需要普通 Node 版 DSH 和配置中的 pnpm，L5 使用 `test.browser` / `test.browserPath`；Chromium 需先通过 Playwright 安装。`test.timeoutMs` 控制测试操作和浏览器场景的超时。测试说明和环境覆盖参数见 [测试方案](docs/testing-plan.md)。
 
-GitHub Actions 在 Windows 和 macOS 上运行同一套检查。测试产物保存在本机或临时 CI runner 的 `.tmp/`，不自动上传日志、截图或 trace。
+GitHub Actions 在 Windows 和 macOS runner 上先初始化各自的本机配置，再运行同一套检查。测试产物保存在本机或临时 CI runner 的 `.tmp/`，不自动上传日志、截图或 trace。
 
 ## 文档
 

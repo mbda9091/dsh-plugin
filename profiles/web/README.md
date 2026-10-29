@@ -67,7 +67,7 @@ pwsh -File profiles/web/start.ps1 --no-open --port 8080
 }
 ```
 
-这是结构示例，实际文件中的 `tools.dshCli` 应由初始化填入可用路径，或在运行时显式覆盖。路径填 `null` 不表示运行时重新探测；需要使用的工具未配置会报错。`web.browser=default` 使用系统浏览器，`browserPath` 在该模式下不使用；`--no-open` 不要求浏览器可用。`test` 字段暂为第二阶段预留，现有 L4/L5 仍按原入口和环境变量运行，不加载这些本机文件。
+这是结构示例，实际文件中的 `tools.dshCli` 应由初始化填入可用路径，或在运行时显式覆盖。路径填 `null` 不表示运行时重新探测；需要使用的工具未配置会报错。`web.browser=default` 使用系统浏览器，`browserPath` 在该模式下不使用；`--no-open` 不要求浏览器可用。`test` 字段供 L4/L5 使用；测试只读取本机 JSON 中的工具和测试参数，不加载这份个人 Web patch。
 
 脚本设置优先级为 **命令行参数 > 已支持的环境变量 > 本机配置**。已有环境变量映射为 `DSH_CLI`、`DSH_PNPM`、`CHROME_PATH`、`DSH_E2E_BROWSER`；`.env` 不会自动加载。配置中的相对路径相对于仓库根目录，和终端工作目录无关。
 
@@ -83,7 +83,7 @@ dsh web --patch <仓库>/profiles/web/cordis.local.patch.yml --no-open
 
 启动器等待 DSH 输出地址，按配置打开浏览器，并等待服务结束。启动等待超时、启动失败或终端发出中断信号时会停止自己启动的 Host。为读取地址而使用的操作系统临时日志退出后清理；不在 `.tmp/web` 生成配置文件。
 
-Node 的启动定位继续使用 `DSH_NODE` 和自动发现，避免读取器自身依赖尚未读取的配置。第一阶段只接入配置命令和 Web，构建、安装和状态脚本暂沿用现有入口。
+Node 的启动定位继续使用 `DSH_NODE` 和自动发现，避免读取器自身依赖尚未读取的配置。构建、打包、安装、状态和测试已接入统一配置，原 PowerShell 入口继续兼容。
 
 本地 patch 属于最后的 `--patch` 层：bundle → profile → home → 本地 patch。同一行的 `config` **整体替换，不深合并**；个人审批规则和私有参数写在本地文件。启动参数中的 patch 是启动时读取的快照，修改后要重启服务。
 

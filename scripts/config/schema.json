@@ -34,8 +34,8 @@
       "required": ["browser", "browserPath", "timeoutMs"],
       "properties": {
         "browser": { "enum": ["chrome", "chromium"] },
-        "browserPath": { "type": ["string", "null"], "pattern": "\\S", "description": "Chrome executable. Reserved for test integration in phase 2." },
-        "timeoutMs": { "type": "integer", "minimum": 1, "maximum": 2147483647 }
+        "browserPath": { "type": ["string", "null"], "pattern": "\\S", "description": "Chrome executable. Ignored for Playwright-managed chromium." },
+        "timeoutMs": { "type": "integer", "minimum": 1, "maximum": 2147483647, "description": "Timeout per DSH harness operation and browser scenario, in milliseconds." }
       }
     }
   }

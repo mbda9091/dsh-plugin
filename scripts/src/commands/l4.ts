@@ -1,11 +1,11 @@
 import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { resolveDsh } from '../core/dsh-cli.js'
+import { configuredDsh, configuredPnpm, loadCommandContext } from '../core/command-context.js'
+import type { CommandContext } from '../core/command-context.js'
 import { fetchPage } from '../core/exec.js'
-import { ensurePnpmShim, initProfile, runDsh, childEnv, serveAndCheck, resolvePnpmScript, freshHome } from '../core/web-harness.js'
+import { ensurePnpmShim, initProfile, runDsh, childEnv, serveAndCheck, freshHome } from '../core/web-harness.js'
 import type { WebHarness } from '../core/web-harness.js'
 import { runToFiles } from '../core/exec.js'
-export { resolvePnpmScript } from '../core/web-harness.js'
 import { isRecord, readJson, stringArray, writeText } from '../core/json.js'
 import { repoRoot } from '../core/repo.js'
 
@@ -29,7 +29,7 @@ export interface L4Options {
   readonly keep: boolean
   readonly home?: string | undefined
   readonly skipTarball: boolean
-  readonly timeoutMs: number
+  readonly timeoutMs?: number
 }
 
 interface StepRecord {
@@ -46,8 +46,9 @@ interface Row {
 
 const WEB_PROFILE = 'web'
 
-export async function runL4(options: L4Options): Promise<number> {
-  const runner = resolveDsh()
+export async function runL4(input: L4Options, settings: CommandContext = loadCommandContext()): Promise<number> {
+  const options = { ...input, timeoutMs: input.timeoutMs ?? settings.config.test.timeoutMs }
+  const runner = configuredDsh(settings, true)
   const runId = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)
   const runBase = join(repoRoot, '.tmp', 'l4')
   mkdirSync(runBase, { recursive: true })
@@ -62,7 +63,7 @@ export async function runL4(options: L4Options): Promise<number> {
   console.log(`l4: home -> ${home}`)
   console.log(`l4: run  -> ${runDir}`)
 
-  const context: L4Context = { runner, home, runDir, logDir, artifactDir, options }
+  const context: L4Context = { runner, home, runDir, logDir, artifactDir, options, settings }
 
   const step = async (name: string, body: () => Promise<string | undefined>): Promise<void> => {
     const started = Date.now()
@@ -160,7 +161,7 @@ export async function runL4(options: L4Options): Promise<number> {
 
 interface L4Context extends WebHarness {
   readonly artifactDir: string
-  readonly options: L4Options
+  readonly options: L4Options & { readonly timeoutMs: number }
   tarballHome?: string | undefined
 }
 
@@ -192,7 +193,7 @@ async function installLinks(context: L4Context): Promise<string> {
       `install-link-${lastSegment(target)}`,
       ['plugin', '--profile', WEB_PROFILE, 'add', target],
       context.home,
-      240_000,
+      context.options.timeoutMs,
     )
   }
 
@@ -220,7 +221,7 @@ async function installMismatch(context: L4Context): Promise<string> {
     'install-mismatch',
     ['plugin', '--profile', WEB_PROFILE, 'add', join(repoRoot, 'test', 'fixtures', 'target-mismatch')],
     context.home,
-    240_000,
+    context.options.timeoutMs,
   )
   const rows = parseRows(dumpConfig(context, 'dump-mismatch', context.home))
   assertRow(rows, 'target-mismatch', '@local/target-mismatch')
@@ -232,13 +233,13 @@ async function installTarball(context: L4Context): Promise<string> {
   context.tarballHome = home
   await initProfile(context, 'profile-init-tarball', home)
 
-  const pnpm = resolvePnpmScript()
+  const pnpm = configuredPnpm(context.settings)
   const packDir = join(context.artifactDir, 'tarball')
   mkdirSync(packDir, { recursive: true })
   const pack = runToFiles(process.execPath, [pnpm, 'pack', '--pack-destination', packDir], {
     cwd: join(repoRoot, 'approval-allowlist'),
     env: childEnv(context, home),
-    timeoutMs: 240_000,
+    timeoutMs: context.options.timeoutMs,
     stdoutPath: join(context.logDir, 'pack.out.log'),
     stderrPath: join(context.logDir, 'pack.err.log'),
   })
@@ -253,7 +254,7 @@ async function installTarball(context: L4Context): Promise<string> {
   const tarball = tarballs[0]
   if (tarball === undefined) throw new Error('packed tarball path is missing')
 
-  runDsh(context, 'install-tarball', ['plugin', '--profile', WEB_PROFILE, 'add', tarball], home, 240_000)
+  runDsh(context, 'install-tarball', ['plugin', '--profile', WEB_PROFILE, 'add', tarball], home, context.options.timeoutMs)
 
   const profile = readProfile(home)
   const dependencies = isRecord(profile['dependencies']) ? profile['dependencies'] : {}

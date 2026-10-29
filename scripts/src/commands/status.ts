@@ -3,8 +3,9 @@ import { join } from 'node:path'
 import { profileDir, profileName, readProfileManifest, resolveInstallMode } from '../core/dsh.js'
 import { isRecord, stringArray } from '../core/json.js'
 import { discoverPlugins } from '../core/plugins.js'
-import { repoRoot } from '../core/repo.js'
 import { formatPluginTarget, isTargetCompatible, resolveTarget } from '../core/targets.js'
+import { loadCommandContext } from '../core/command-context.js'
+import type { CommandContext } from '../core/command-context.js'
 
 export interface StatusOptions {
   readonly profile?: string | undefined
@@ -16,22 +17,22 @@ export interface StatusOptions {
  * Shows how every plugin in this repo is installed in the profile. Reads the
  * profile's package.json only: no writes, no approval.
  */
-export function runStatus(options: StatusOptions): number {
-  const profile = options.profile !== undefined && options.profile !== '' ? options.profile : profileName()
-  const manifest = readProfileManifest(profile)
+export function runStatus(options: StatusOptions, context: CommandContext = loadCommandContext()): number {
+  const profile = options.profile !== undefined && options.profile !== '' ? options.profile : profileName(context.env)
+  const manifest = readProfileManifest(profile, context.env)
 
   const dsh = manifest['dsh']
   const profileSection = isRecord(dsh) ? dsh['profile'] : undefined
   const bundles = stringArray(isRecord(profileSection) ? profileSection['bundles'] : undefined)
   const dependencies = isRecord(manifest['dependencies']) ? manifest['dependencies'] : {}
-  const profileDirectory = profileDir(profile)
+  const profileDirectory = profileDir(profile, context.env)
 
   const target = resolveTarget({ surface: options.surface, platform: options.platform, profile })
 
   console.log(`profile: ${profile}`)
   console.log(`target:  ${target.surface}/${target.platform}`)
 
-  for (const plugin of discoverPlugins(repoRoot)) {
+  for (const plugin of discoverPlugins(context.root)) {
     const declared = dependencies[plugin.packageName]
     const spec = typeof declared === 'string' ? declared : null
 

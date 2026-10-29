@@ -46,7 +46,7 @@ export function initializeConfig(
   else if (config.test.browser === 'chrome') {
     config.test.browserPath = discoverBrowser('chrome', env)
     if (config.test.browserPath !== null) sources['test.browserPath'] = 'browser discovery'
-    else warnings.push('Chrome not found; test configuration is reserved for phase 2')
+    else warnings.push('Chrome not found; configure test.browserPath or select chromium before running L5')
   }
   const patch = renderWebPatch(readFileSync(paths.patchExample, 'utf8'), root, paths.patchExample)
   if (options.dryRun) return { state: 'preview', resolved, warnings }
@@ -81,7 +81,7 @@ export function checkConfig(root: string = repoRoot, env: NodeJS.ProcessEnv = pr
 
 export function runConfig(action: string, options: ConfigOverrides & { dryRun?: boolean }): number {
   if (action === '--help' || action === '-h') {
-    console.log('Usage: scripts/config.ps1 init [--dry-run] | check [--dsh-cli <path>] [--pnpm-script <path>] [--browser edge|default] [--browser-path <path>] [--test-browser chrome|chromium] [--test-browser-path <path>]')
+    console.log('Usage: scripts/config.ps1 init [--dry-run] | check [--dsh-cli <path>] [--pnpm-script <path>] [--browser edge|default] [--browser-path <path>] [--test-browser chrome|chromium] [--test-browser-path <path>] [--test-timeout <ms>]')
     return 0
   }
   if (action === 'init') {

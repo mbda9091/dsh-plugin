@@ -20,6 +20,7 @@ export interface ConfigOverrides {
   startupTimeoutMs?: number
   testBrowser?: string
   testBrowserPath?: string
+  testTimeoutMs?: number
 }
 
 export interface ResolvedConfig {
@@ -117,7 +118,7 @@ export function resolveConfig(
   config.web.startupTimeoutMs = assign('web.startupTimeoutMs', config.web.startupTimeoutMs, undefined, overrides.startupTimeoutMs)
   config.test.browser = assign<string>('test.browser', config.test.browser, 'DSH_E2E_BROWSER', overrides.testBrowser) as RepoConfig['test']['browser']
   config.test.browserPath = assign('test.browserPath', config.test.browserPath, 'CHROME_PATH', overrides.testBrowserPath)
-  sources['test.timeoutMs'] = source
+  config.test.timeoutMs = assign('test.timeoutMs', config.test.timeoutMs, undefined, overrides.testTimeoutMs)
   validate(config, json(schemaPath), 'effective configuration')
   const path = (value: string | null): string | null => {
     if (value === null) return null

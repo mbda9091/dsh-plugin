@@ -30,7 +30,7 @@
 本机可用的运行时工具（`node`/`pnpm` 未加入 PATH）：
 
 ```powershell
-# 构建 / 类型检查（脚本会自动找 DSH 运行时的 node 和 pnpm）
+# 首次使用先 config.ps1 init；薄壳定位 Node，其他工具读取本机配置
 pwsh -File .\scripts\build.ps1
 pwsh -File .\scripts\build.ps1 -Check
 
@@ -69,7 +69,7 @@ dsh-plugin/
 │   ├── status.ps1            # 薄壳 → bootstrap.mjs status
 │   ├── check-targets.ps1     # 薄壳 → bootstrap.mjs check-targets
 │   ├── catalog.ps1           # 薄壳 → bootstrap.mjs catalog
-│   └── common.ps1            # 仍由 pack / dev-install / stable-install 使用
+│   └── common.ps1            # 只保留 Node 启动定位，业务与配置都在 TS
 ├── profiles/web/             # 仓库内 web profile 的 patch 与启动脚本（不是插件）
 ├── packages/                 # 非插件的 workspace 私有共享库（不进 CATALOG）
 │   ├── notify-core/          # 通知内容/locale；构建期内联进插件
@@ -476,7 +476,7 @@ pwsh -File scripts/status.ps1
   - 不要在 `scripts/` 下建 `lib/` 目录：`.gitignore` 的 `lib/` 规则会把它连同源码一起忽略；共享代码放 `scripts/src/core/`。
   - 发现插件必须走 `dsh.bundle` 清单判断，不能只看"顶层目录有 `tsconfig.json`"，否则 `scripts/` 自己会被当成插件编译。
   - 测试源码在 `test/src/`，由 `test/tsconfig.json` 编译到 `test/.build`；测试 import 插件**已构建**的入口（`@local/*` → `lib/index.js`），所以要先构建。不要手改 `test/.build/`。
-  - `.ps1` 入口在安装脚本迁完之前保留为薄壳；删壳与文档切换要在同一步完成。
+  - `.ps1` 入口保留为兼容薄壳，只找 Node、转发参数和退出码；打包与安装业务在 TypeScript。不要在 PowerShell 新增另一套配置解析或工具定位。
 - **新增插件**：复制一个现有插件的 `tsconfig.json`、`package.json` 的 `scripts`/`devDependencies` 起步；写好 `dsh.targets` 后运行 `pwsh -File scripts/catalog.ps1` 更新 `CATALOG.md`；`build` 按 `dsh.bundle` 清单发现插件（不只看 `tsconfig.json`），新目录只要声明了 bundle 就会被构建。
 - **确需运行时依赖时**：优先打包进 `lib/`；否则要保证依赖能从插件真实路径解析（链接安装可能保留符号链接，裸 `import '@scope/pkg'` 会从 profile 目录解析而找不到）。
 - **安装**：只有 `devDependencies` 变化时才需要 `pnpm install`。DSH 沙箱会拒绝 pnpm 替换/清理包目录（`EPERM`），这一步需要一次沙箱外批准，或在 DSH 外的普通终端执行。这是沙箱的设计边界，不要为了绕过它去手工删 ACL。
@@ -485,7 +485,7 @@ pwsh -File scripts/status.ps1
 
 ## 9. Git 约定
 
-- 本机配置机制见 [docs/local-configuration-design.md](docs/local-configuration-design.md)。Web 首次使用运行 `scripts/config.ps1 init`；只提交 example 和 schema，不提交 `scripts/config/local.json`、`profiles/web/cordis.local.patch.yml` 或备份。当前仅配置命令和 Web 接入新机制，安装、构建与测试入口的统一属于后续阶段。
+- 本机配置机制见 [docs/local-configuration-design.md](docs/local-configuration-design.md)。安装 workspace 依赖后，首次构建或运行前执行 `scripts/config.ps1 init`；只提交 example 和 schema，不提交 `scripts/config/local.json`、`profiles/web/cordis.local.patch.yml` 或备份。Web、构建、打包、安装、状态和测试统一读取配置，优先级为显式参数 > 支持的环境变量 > 本机文件。L4/L5 只取工具与测试参数，不读日常 Web patch。CI 在 runner 内初始化；Node 启动仍由 `DSH_NODE` / 运行时 / PATH 定位。
 
 - 主分支 `main`，提交保持可读历史。
 - 提交信息：`feat(<plugin>): ...`、`fix(<plugin>): ...`、`docs: ...`、`chore: ...`；一个插件的完整改动尽量放在一个提交里。

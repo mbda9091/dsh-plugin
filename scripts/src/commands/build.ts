@@ -6,6 +6,8 @@ import { discoverPlugins } from '../core/plugins.js'
 import { repoRoot } from '../core/repo.js'
 import { runCatalog } from './catalog.js'
 import { runCheckTargets } from './check-targets.js'
+import { commandEnv, loadCommandContext } from '../core/command-context.js'
+import type { CommandContext } from '../core/command-context.js'
 
 export interface BuildOptions {
   readonly check: boolean
@@ -27,7 +29,7 @@ const packagesRoot = join(repoRoot, 'packages')
  * @param check - only emit declarations (enough for plugin type checking).
  * @returns process status.
  */
-function buildWorkspaceLibraries(check: boolean): number {
+function buildWorkspaceLibraries(check: boolean, env: NodeJS.ProcessEnv): number {
   if (!existsSync(packagesRoot)) return 0
   const libraries = readdirSync(packagesRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
@@ -39,7 +41,7 @@ function buildWorkspaceLibraries(check: boolean): number {
     console.log(`· packages/${dir.slice(packagesRoot.length + 1)}`)
     const args = [tsc, '-p', join(dir, 'tsconfig.json')]
     if (check) args.push('--emitDeclarationOnly')
-    const result = spawnSync(process.execPath, args, { stdio: 'inherit' })
+    const result = spawnSync(process.execPath, args, { stdio: 'inherit', env })
     if (result.error) throw new Error(`cannot run tsc: ${result.error.message}`)
     if (result.status !== 0) return result.status ?? 1
   }
@@ -101,7 +103,7 @@ function resolveEsbuild(): string {
  * @param spec - bundle declaration.
  * @returns process status.
  */
-async function bundlePlugin(dir: string, spec: BuildSpec): Promise<number> {
+async function bundlePlugin(dir: string, spec: BuildSpec, env: NodeJS.ProcessEnv): Promise<number> {
   const targets: Array<{ entry: string; format: 'esm' | 'iife'; outfile: string; platform: 'node' | 'browser' }> = []
   if (spec.host !== undefined) {
     targets.push({ entry: spec.host.entry, format: 'esm', outfile: 'lib/index.js', platform: 'node' })
@@ -121,7 +123,7 @@ async function bundlePlugin(dir: string, spec: BuildSpec): Promise<number> {
       `--outfile=${target.outfile}`,
       '--sourcemap',
       '--log-level=warning',
-    ], { cwd: dir, stdio: 'inherit' })
+    ], { cwd: dir, stdio: 'inherit', env })
     if (result.error) throw new Error(`cannot run esbuild: ${result.error.message}`)
     if (result.status !== 0) {
       console.error(`bundle failed for ${dir} → ${target.outfile}`)
@@ -143,7 +145,8 @@ async function bundlePlugin(dir: string, spec: BuildSpec): Promise<number> {
  * @param options - build mode.
  * @returns process status.
  */
-export async function runBuild(options: BuildOptions): Promise<number> {
+export async function runBuild(options: BuildOptions, context: CommandContext = loadCommandContext()): Promise<number> {
+  const env = commandEnv(context)
   const targetsCode = runCheckTargets()
   if (targetsCode !== 0) return targetsCode
 
@@ -152,7 +155,7 @@ export async function runBuild(options: BuildOptions): Promise<number> {
 
   if (!existsSync(tsc)) throw new Error('typescript is not installed. Run `pnpm install` first.')
 
-  const librariesCode = buildWorkspaceLibraries(options.check)
+  const librariesCode = buildWorkspaceLibraries(options.check, env)
   if (librariesCode !== 0) return librariesCode
 
   // Discovery is manifest-driven: a top-level tsconfig.json alone is not a
@@ -173,19 +176,19 @@ export async function runBuild(options: BuildOptions): Promise<number> {
     else if (spec !== undefined) hostArgs.push('--emitDeclarationOnly')
 
     // Inherited stdio: piped child stdio is denied under DSH's sandbox.
-    const hostResult = spawnSync(process.execPath, hostArgs, { stdio: 'inherit' })
+    const hostResult = spawnSync(process.execPath, hostArgs, { stdio: 'inherit', env })
     if (hostResult.error) throw new Error(`cannot run tsc: ${hostResult.error.message}`)
     if (hostResult.status !== 0) return hostResult.status ?? 1
 
     if (spec !== undefined) {
       const clientProject = join(project.dir, 'tsconfig.client.json')
       if (existsSync(clientProject)) {
-        const clientResult = spawnSync(process.execPath, [tsc, '-p', clientProject, '--noEmit'], { stdio: 'inherit' })
+        const clientResult = spawnSync(process.execPath, [tsc, '-p', clientProject, '--noEmit'], { stdio: 'inherit', env })
         if (clientResult.error) throw new Error(`cannot run tsc: ${clientResult.error.message}`)
         if (clientResult.status !== 0) return clientResult.status ?? 1
       }
       if (!options.check) {
-        const bundleCode = await bundlePlugin(project.dir, spec)
+        const bundleCode = await bundlePlugin(project.dir, spec, env)
         if (bundleCode !== 0) return bundleCode
       }
     }

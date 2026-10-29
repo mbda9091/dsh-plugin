@@ -3,7 +3,7 @@ import { delimiter, join } from 'node:path'
 import { resolveDsh } from './dsh-cli.js'
 import type { DshRunner } from './dsh-cli.js'
 import { envValue } from './config.js'
-import { resolvePnpmScript } from './web-harness.js'
+import { discoverPnpmScript } from './pnpm.js'
 
 export function requireFile(path: string, field: string): string {
   try { if (statSync(path).isFile()) return path } catch { /* Report the field, not file contents. */ }
@@ -46,7 +46,8 @@ export function discoverDsh(explicit: string | null, env: NodeJS.ProcessEnv): { 
 
 export function discoverPnpm(explicit: string | null, env: NodeJS.ProcessEnv): string | null {
   if (explicit !== null) return requirePnpm(explicit)
-  try { return requirePnpm(resolvePnpmScript(env)) } catch { return null }
+  const candidate = discoverPnpmScript(env)
+  return candidate === null ? null : requirePnpm(candidate)
 }
 
 export function requirePnpm(path: string): string {

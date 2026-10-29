@@ -2,10 +2,11 @@ import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { isRecord, readJson } from './json.js'
+import { envValue } from './config.js'
 
 /** $env:DSH_PROFILE, falling back to the desktop profile. */
-export function profileName(): string {
-  const fromEnv = process.env['DSH_PROFILE']
+export function profileName(env: NodeJS.ProcessEnv = process.env): string {
+  const fromEnv = envValue(env, 'DSH_PROFILE')
   return fromEnv !== undefined && fromEnv !== '' ? fromEnv : 'desktop'
 }
 
@@ -13,17 +14,17 @@ export function profileName(): string {
  * $env:DSH_PROFILE_DIR only describes the profile this session belongs to, so
  * it must not be reused for a different --profile argument.
  */
-export function profileDir(profile: string = profileName()): string {
-  const explicit = process.env['DSH_PROFILE_DIR']
-  if (explicit !== undefined && explicit !== '' && profile === profileName()) return explicit
+export function profileDir(profile: string = profileName(), env: NodeJS.ProcessEnv = process.env): string {
+  const explicit = envValue(env, 'DSH_PROFILE_DIR')
+  if (explicit !== undefined && explicit !== '' && profile === profileName(env)) return explicit
 
-  const home = process.env['DSH_HOME']
+  const home = envValue(env, 'DSH_HOME')
   const base = home !== undefined && home !== '' ? home : join(homedir(), '.dsh')
   return join(base, 'profiles', profile)
 }
 
-export function readProfileManifest(profile: string = profileName()): Record<string, unknown> {
-  const path = join(profileDir(profile), 'package.json')
+export function readProfileManifest(profile: string = profileName(), env: NodeJS.ProcessEnv = process.env): Record<string, unknown> {
+  const path = join(profileDir(profile, env), 'package.json')
   if (!existsSync(path)) throw new Error(`profile manifest not found: ${path}`)
 
   const manifest = readJson(path)

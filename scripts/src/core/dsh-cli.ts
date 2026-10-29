@@ -40,7 +40,7 @@ export interface ResolveDshOptions {
 const WINDOWS_RELATIVE = join('Programs', 'DeepSeek Harness', 'resources', 'runtime', 'cli', 'bin', 'dsh.cmd')
 const MAC_ABSOLUTE = '/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh'
 
-/** Resolve the CLI from DSH_CLI, known install locations, then PATH. */
+/** Discover the CLI from DSH_CLI, PATH, then known install locations. */
 export function resolveDsh(options: ResolveDshOptions = {}): DshRunner {
   const env = options.env ?? process.env
   const platform = options.platform ?? process.platform

@@ -3,6 +3,8 @@ import { existsSync, readdirSync, rmSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { repoRoot } from '../core/repo.js'
 import { runBuild } from './build.js'
+import { commandEnv, configuredPnpm, loadCommandContext } from '../core/command-context.js'
+import type { CommandContext } from '../core/command-context.js'
 
 /** Test layers implemented as `node:test` files under `test/src/`. */
 export const TEST_KINDS = ['l1', 'l2', 'l3'] as const
@@ -23,11 +25,13 @@ export interface TestOptions {
  * tests import their published entry points (`lib/index.js`), exactly what DSH
  * loads. `--skip-build` is for iterating when `lib/` is already current.
  */
-export async function runTest(options: TestOptions): Promise<number> {
+export async function runTest(options: TestOptions, context: CommandContext = loadCommandContext()): Promise<number> {
   const kinds = options.kinds.length === 0 ? [...TEST_KINDS] : parseKinds(options.kinds)
+  if (kinds.includes('l2')) configuredPnpm(context) // Real tarball contracts need pnpm.
+  const env = commandEnv(context)
 
   if (options.build) {
-    const buildCode = await runBuild({ check: false })
+    const buildCode = await runBuild({ check: false }, context)
     if (buildCode !== 0) return buildCode
   }
 
@@ -41,7 +45,7 @@ export async function runTest(options: TestOptions): Promise<number> {
   rmSync(buildDir, { recursive: true, force: true })
 
   console.log(`test: compiling ${project}`)
-  const compiled = spawnSync(process.execPath, [tsc, '-p', project], { stdio: 'inherit' })
+  const compiled = spawnSync(process.execPath, [tsc, '-p', project], { stdio: 'inherit', env })
   if (compiled.error) throw new Error(`cannot run tsc: ${compiled.error.message}`)
   if (compiled.status !== 0) return compiled.status ?? 1
 
@@ -60,7 +64,7 @@ export async function runTest(options: TestOptions): Promise<number> {
       '--test-reporter=spec',
       ...files.map((file) => relative(repoRoot, file)),
     ],
-    { cwd: repoRoot, stdio: 'inherit' },
+    { cwd: repoRoot, stdio: 'inherit', env },
   )
   if (result.error) throw new Error(`cannot run node --test: ${result.error.message}`)
   return result.status ?? 1

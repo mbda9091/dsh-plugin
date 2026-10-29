@@ -1,7 +1,7 @@
 # 本机配置初始化与读取方案
 
-> 状态：第一阶段已实现并通过 Windows 验收；第二、三阶段未实施。更新日期：2026-10-29（Asia/Shanghai）。
-> 当前可用范围为 example、schema、init/check 和 Web 启动；构建、安装及 L4/L5 仍使用原有入口，不读取日常本机配置。
+> 状态：第一、二阶段已实现；第三阶段未实施。更新日期：2026-10-30（Asia/Shanghai）。
+> Web、构建、打包、安装、状态和测试已统一读取本机 JSON；L4/L5 不读取个人 Web patch。验收范围见下文。
 
 采用“版本化模板 → 本机初始化 → 读取本机配置”的流程，把个人路径和机器差异从公共源码中分离。仓库提交 example 模板；初始化程序根据本机环境生成被 Git 忽略的配置；日常命令读取这些本机文件。
 
@@ -23,7 +23,7 @@
 
 ## 2. 文件归属
 
-当前第一阶段目录结构：
+配置相关目录结构：
 
 ```text
 scripts/
@@ -34,13 +34,13 @@ scripts/
 ├── config.ps1                    # 初始化、检查的 PowerShell 入口
 └── src/
     ├── commands/config.ts        # 初始化与检查命令
-    ├── commands/web.ts           # Web 启动逻辑，逐步迁入
+    ├── commands/web.ts           # Web 启动逻辑
     └── core/config.ts            # 统一配置读取与校验
 
 profiles/web/
 ├── cordis.patch.example.yml      # Web patch 模板，入库
 ├── cordis.local.patch.yml        # 初始化生成，本机编辑，不入库
-└── start.ps1                     # 保留现有启动入口，逐步变为薄壳
+└── start.ps1                     # 兼容的 PowerShell 薄壳
 ```
 
 | 内容 | 归属 | 读取方 |
@@ -168,7 +168,7 @@ Web 模板只允许预先定义的占位符，例如 `${repoRoot}`。替换范�
 
 PowerShell 入口逐步收敛为“找 Node → 转发参数 → 调用 TypeScript 命令”。现有 `bootstrap.mjs` 仍只负责编译与加载，不承载配置业务，不增加 `tsx` 或 `ts-node`。
 
-Web 启动业务已迁入 `scripts/src/commands/web.ts`。安装脚本目前仍有 PowerShell 业务逻辑，后续接入时要明确迁移范围，避免 PowerShell 和 TypeScript 各自维护一份配置优先级。初始化也依赖现有脚本编译工具链；文档应说明先准备仓库开发依赖。
+Web、打包和安装业务分别位于 `scripts/src/commands/web.ts`、`pack.ts` 和 `install.ts`。PowerShell 只找 Node 并转发参数，不再定位 DSH/pnpm 或解析插件。初始化依赖现有脚本编译工具链，必须先安装 workspace 开发依赖。
 
 ## 6. Web patch 与插件配置
 
@@ -236,11 +236,11 @@ bundle → profile → home → 本机 --patch
 
 ### 第二阶段：构建、安装和测试入口统一
 
-- [ ] 接入构建、状态、打包、开发安装和稳定安装命令。
-- [ ] 收敛工具定位逻辑，消除 PowerShell 与 TypeScript 的优先级差异。
-- [ ] 将需要的 PowerShell 业务逻辑迁入 TypeScript，保留兼容入口。
-- [ ] 接入测试配置，明确已有环境变量到配置字段的映射。
-- [ ] CI 在运行时准备机器配置，不提交生成文件。
+- [x] 接入构建、状态、打包、开发安装和稳定安装命令。
+- [x] 收敛工具定位逻辑，消除 PowerShell 与 TypeScript 的优先级差异。
+- [x] 将需要的 PowerShell 业务逻辑迁入 TypeScript，保留兼容入口。
+- [x] 接入测试配置，明确已有环境变量到配置字段的映射。
+- [x] CI 在运行时准备机器配置，不提交生成文件。
 
 L4/L5 只使用工具位置和允许的测试参数，继续强制使用一次性 home、profile 与测试 patch，不能加载日常 Web patch 或个人审批规则。测试中的初始化必须在独立 fixture 中执行，不改用户实际本机配置。
 
@@ -277,7 +277,7 @@ L4/L5 只使用工具位置和允许的测试参数，继续强制使用一次�
 - 另以一次性 DSH home/profile 从其他工作目录调用真实 `start.ps1`，确认本机 patch 中的通知配置加载、认证 HTTP 与 SSE 可用，Host 停止后启动器退出，本机两份配置的内容哈希不变。
 - 本机 `config check` 通过；生成文件与备份已被 Git 忽略，模板和 schema 未被忽略。旧 `.tmp/web/cordis.patch.yml` 确认无 Host 使用后，已移为 `profiles/web/cordis.legacy-tmp.patch.bak`，空目录已移除。
 - 提交前逐个复核仓库内 11 个 `.ps1`：未发现硬编码凭据、个人邮箱或本机绝对路径。`common.ps1` 中的 `.dsh` 和桌面安装目录后缀是工具发现约定，路径前缀来自环境变量或用户目录；它们尚未统一接入本机 JSON，留待第二阶段。脚本执行时可能打印实际路径，运行日志继续保持本地且不入库。
-- macOS 未做真实环境验收。第二、三阶段保持待实施。
+- 当时 macOS 未做真实环境验收，第二、三阶段待实施；第二阶段的更新见 §12。
 
 ## 11. 第一阶段实施选择与限制
 
@@ -292,9 +292,50 @@ L4/L5 只使用工具位置和允许的测试参数，继续强制使用一次�
 - Web 的启动覆盖参数为 `--open` / `--no-open`、`--dsh-cli`、`--browser`、`--browser-path`、`--startup-timeout`；其他参数传给 DSH。修改配置后需重启自己的 Web 服务。
 - 运行时仅借用操作系统临时文件捕获进程输出，退出时清理，不生成配置或创建 `.tmp/web`。启动地址可能包含认证 token，勿复制到公共日志。
 - 第一阶段已迁移本机配置并保留被忽略的旧 patch 备份；未读取或修改日常 profile 的配置和凭据，未自动重启现有服务。源码文档中的个人路径和实际审批策略已脱敏。
-- 第二阶段尚未实施；配置 JSON 的 `test` 字段暂不控制现有 L4/L5，也未更改其环境变量入口。macOS 的真实启动和浏览器交互需在对应平台另行验收。
+- 以上是第一阶段记录。第二阶段已接入 `test` 字段，保留兼容环境变量，详见 §12。macOS 的真实启动和浏览器交互仍需对应平台验收。
 
-## 12. 相关文件
+## 12. 第二阶段实现与使用
+
+已有 `version: 1` 文件继续有效，无需重新初始化。`core/command-context.ts` 在命令入口解析一次配置，向嵌套构建、打包和测试传递同一份结果；`core/pnpm.ts` 为 DSH 子进程提供临时 pnpm shim。运行时不再探测另一套 DSH/pnpm，只有 `init` 做发现。CLI 的帮助、`catalog` 与 `check-targets` 不要求本机文件。
+
+| 字段 | 环境覆盖 | 命令行覆盖 | 使用范围 |
+|---|---|---|---|
+| `tools.dshCli` | `DSH_CLI` | `--dsh-cli` | Web、安装、L4/L5；Web 必须是普通 Node 版 |
+| `tools.pnpmScript` | `DSH_PNPM` | `--pnpm-script` | 打包、安装、L2 包契约、L4/L5 |
+| `test.browser` | `DSH_E2E_BROWSER` | `--test-browser` | L5；`chrome` 或 `chromium` |
+| `test.browserPath` | `CHROME_PATH` | `--test-browser-path` | L5 的 Chrome；Chromium 由 Playwright 定位 |
+| `test.timeoutMs` | 无 | `--timeout` | L4/L5 每次外部操作及浏览器场景的截止时间 |
+
+测试参数可传给 `l4`、`l5`、`ci`；初始化使用 `--test-timeout` 写入初始超时。L1–L3 不受浏览器配置影响。`build` / `status` 只校验配置结构，不要求无关的 DSH、pnpm 或浏览器路径存在；需要这些工具的命令才检查其可用性，显式无效值不回退。`config check` 仍负责检查整份配置。
+
+L5 中基线和 fixture 各自拥有 `test.timeoutMs` 的浏览器总截止时间，父进程另留 30 秒退出宽限；单个交互断言仍保留较短超时。服务终止和端口关闭使用独立、有限的清理时间。`--timeout` 不是整个 CI 的总时长。
+
+```powershell
+# 现有 PowerShell 参数继续可用；工具参数也直接传给 TypeScript
+pwsh -File scripts/pack.ps1 -SkipBuild -PnpmScript '<pnpm.cjs绝对路径>'
+pwsh -File scripts/dev-install.ps1 -Profile web -Surface web -DryRun
+pwsh -File scripts/ci.ps1 -TestBrowser chromium -TimeoutMs 180000
+
+# Node 入口提供相同能力
+node scripts/bootstrap.mjs stable-install --profile web --surface web --dry-run
+node scripts/bootstrap.mjs l5 --test-browser chromium --timeout 180000
+```
+
+安装先完成目标过滤和全部 tarball 存在性检查，再逐个执行 `dsh plugin add` 和 `pnpm update`；任何一步失败都会停止并返回原退出码，不执行 `remove`。`--dry-run` 不构建、不生成 shim、不修改 profile。开发安装默认先构建，`--skip-build` 仍要求已有构建入口。打包检查所有插件构建入口后，才向 `dist/` 写入。
+
+`DSH_PROFILE_DIR` 仅用于当前会话对应的 profile，切换目标时重新从 home 计算路径。L4/L5 会清除继承的 profile 目录和 Web 地址，强制使用 `.tmp` 内一次性 home 及 pnpm store；不会读取个人 YAML。大小写不同的 Windows 环境变量会在子进程中规范化，避免 `Path` / `PATH` 冲突。
+
+CI 的顺序为：安装工具链 → 安装 workspace 依赖 → `config init --browser default --test-browser chromium` → 安装 Playwright Chromium → `ci`。生成配置与测试现场留在 runner，不提交或上传。远端实际验收仍需推送后查看 Actions 结果。
+
+### 第二阶段验收记录（Windows，2026-10-30）
+
+- 类型检查、元数据与 CATALOG 检查通过；L1–L3 共 249 项通过。新增覆盖工具与测试参数优先级、Windows 环境大小写、测试隔离、安装预检和失败停止，以及 PowerShell 参数与退出码转发。
+- 真实 L4 的前置检查与七个阶段全部通过；L5 的独立基线、slot/主题/语言交互及三项通知场景通过。
+- 通过新 `pack` / `dev-install` / `stable-install` 实现，在同一个一次性 Web profile 中完成 link → tarball → link；断言依赖 spec、实际 junction/拷贝状态及 `status` 输出一致。两个仅桌面插件被跳过。
+- 该切换前后本机 JSON 与 Web patch 字节不变，临时 home/store 已清理。测试报告保留在忽略的 `.tmp/` 中，没有修改日常 profile。
+- CI workflow 已加入 runner 内初始化，但本次未推送或确认远端 Actions 通过。macOS 真机验收、第三阶段 repair/版本迁移仍未完成。
+
+## 13. 相关文件
 
 - [仓库工作约定](../AGENTS.md)
 - [DSH 概念与配置层序](dsh-concepts.md)

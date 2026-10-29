@@ -13,6 +13,11 @@ function fixture(): string {
   const root = makeTempDir('verification-report')
   cpSync(join(repoRoot, 'scripts/.build'), join(root, 'scripts/.build'), { recursive: true })
   writeFileSync(join(root, 'package.json'), '{"type":"module"}')
+  const config = JSON.parse(readFileSync(join(repoRoot, 'scripts/config/example.json'), 'utf8'))
+  config.test.browser = 'chromium'
+  config.test.timeoutMs = 1234
+  write(root, 'scripts/config/local.json', JSON.stringify(config))
+  cpSync(join(repoRoot, 'scripts/config/schema.json'), join(root, 'scripts/config/schema.json'))
   return root
 }
 
@@ -56,7 +61,7 @@ for (const failure of ['none', 'exit', 'throw'] as const) {
       }
       write(root, 'entry.mjs', `
         import { runCi } from './scripts/.build/commands/ci.js';
-        process.exitCode = await runCi({ keep: true, timeoutMs: 1234 });
+        process.exitCode = await runCi({ keep: true${failure === 'none' ? '' : ', timeoutMs: 1234'} });
       `)
       const result = runToFiles(process.execPath, [join(root, 'entry.mjs')], {
         env: { ...process.env, TEST_TRACE: join(root, 'trace.jsonl') }, timeoutMs: 10_000,
