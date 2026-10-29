@@ -100,7 +100,7 @@ Web GUI 左侧 **Plugins（插件）** 页 → 安装 → 填本目录的绝对�
 
 安装后刷新页面，插件会立即尝试申请通知权限；允许浏览器通知即可。若未显示授权提示，可点击页面触发一次补充请求。
 
-在本仓库的日常 Web 环境中，安装记录由插件管理器维护，通知参数统一放在 `profiles/web/cordis.patch.yml`，使用 `profiles/web/start.ps1`（或 `dshweb`）启动。修改该配置后需要重启 Web 服务，再刷新浏览器；不要将同一套日常参数另写进用户目录的 profile patch。详见 [Web 配置与启动说明](../profiles/web/README.md#notify-web-的安装与日常配置)。
+在本仓库的日常 Web 环境中，安装记录由插件管理器维护。先用 `scripts/config.ps1 init` 生成本机配置，通知参数统一放在被 Git 忽略的 `profiles/web/cordis.local.patch.yml`，再使用 `profiles/web/start.ps1`（或 `dshweb`）启动。修改该配置后需要重启 Web 服务，再刷新浏览器；不要将同一套日常参数另写进用户目录的 profile patch。详见 [Web 配置与启动说明](../profiles/web/README.md)。
 
 ## 限制
 
