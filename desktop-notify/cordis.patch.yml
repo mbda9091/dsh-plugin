@@ -1,0 +1,9 @@
+- insert:
+    - id: desktop-notify
+      name: '@local/desktop-notify'
+      config:
+        notifyOnApproval: true
+        notifyOnTurnEnd: true
+        notifyOnTurnError: true
+        sound: true
+        appId: com.deepseek.dsh

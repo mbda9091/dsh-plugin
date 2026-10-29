@@ -1,0 +1,10 @@
+{
+  "host": {
+    "entry": "src/index.ts",
+    "format": "esm"
+  },
+  "client": {
+    "entry": "src/client/index.ts",
+    "format": "iife"
+  }
+}

@@ -1,0 +1,3 @@
+- insert:
+    - id: app-restart
+      name: '@local/app-restart'

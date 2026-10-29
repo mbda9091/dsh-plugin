@@ -1,0 +1,41 @@
+{
+  "name": "@local/app-restart",
+  "version": "1.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Adds a /restart command that restarts the DeepSeek Harness desktop app",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "lib/**/*.js",
+    "lib/**/*.js.map",
+    "lib/**/*.d.ts",
+    "lib/**/*.d.ts.map",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.5",
+    "@types/node": "^24.0.0",
+    "typescript": "7.0.2"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "targets": {
+      "surfaces": ["desktop"],
+      "platforms": ["windows"]
+    }
+  }
+}

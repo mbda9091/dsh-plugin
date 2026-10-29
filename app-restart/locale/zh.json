@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "重启应用",
+    "description": "【桌面 · Windows】新增 /restart 命令，自动重启 DeepSeek Harness 桌面应用。"
+  }
+}

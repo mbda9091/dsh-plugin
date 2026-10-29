@@ -1,0 +1,35 @@
+# 依赖与构建产物（仓库只存源码：lib/ 由 build.ps1 生成，dist/ 由 pack.ps1 生成）
+node_modules/
+.pnpm-store/
+lib/
+dist/
+scripts/.build/
+test/.build/
+*.tsbuildinfo
+
+# 本地临时文件（scratch、提取物、日志）
+.tmp/
+.tmp-*/
+*.log
+
+# Machine-specific configuration; examples and schemas remain tracked.
+/scripts/config/local.json
+/profiles/web/cordis.local.patch.yml
+*.bak
+*.backup
+.env
+.env.*
+!.env.example
+!.env.sample
+.credentials.*
+.npmrc
+*.pem
+*.key
+
+# 编辑器与操作系统
+.vscode/*
+!.vscode/extensions.json
+.idea/
+Thumbs.db
+Desktop.ini
+.DS_Store

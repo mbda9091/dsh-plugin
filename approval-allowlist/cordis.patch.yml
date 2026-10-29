@@ -1,0 +1,6 @@
+# Runtime configuration is user-specific and belongs in the profile's
+# cordis.patch.yml (applied after every bundle). This bundle only inserts the
+# row; the built-in default is observe-only.
+- insert:
+    - id: approval-allowlist
+      name: '@local/approval-allowlist'

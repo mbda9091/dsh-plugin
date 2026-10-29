@@ -1,0 +1,6 @@
+{
+  "host": {
+    "entry": "src/index.ts",
+    "format": "esm"
+  }
+}

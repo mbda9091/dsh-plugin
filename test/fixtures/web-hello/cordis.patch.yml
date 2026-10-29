@@ -1,0 +1,3 @@
+- insert:
+    - id: web-hello
+      name: '@local/web-hello'

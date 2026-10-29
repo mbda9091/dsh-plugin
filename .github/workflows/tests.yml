@@ -1,0 +1,41 @@
+name: Plugin tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      DSH_E2E_BROWSER: chromium
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - name: Install pinned toolchain
+        run: |
+          npm install --global pnpm@11.28.5 @deepseek-ai/dsh@0.2.1-rc.2
+          echo "DSH_PNPM=$(npm root -g)/pnpm/bin/pnpm.cjs" >> "$GITHUB_ENV"
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install matching Chromium
+        run: node node_modules/playwright-core/cli.js install chromium
+      - name: Type check and L1-L5 (shared local entry)
+        run: node scripts/bootstrap.mjs ci --keep
+      # Raw logs, screenshots and traces stay on the ephemeral runner. They may
+      # contain temporary launch/auth tokens and are not uploaded as artifacts.

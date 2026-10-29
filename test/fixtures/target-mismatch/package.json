@@ -1,0 +1,21 @@
+{
+  "name": "@local/target-mismatch",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "L4 fixture: declares an unmatched target to verify the loader reports a failed row",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "targets": {
+      "surfaces": ["headless"],
+      "platforms": ["windows", "mac"]
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Approval Allowlist",
+    "description": "[Universal · All platforms] Allow specific tool calls by exact arguments; observe-only by default."
+  }
+}

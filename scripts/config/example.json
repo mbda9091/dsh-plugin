@@ -1,0 +1,19 @@
+{
+  "$schema": "./schema.json",
+  "version": 1,
+  "tools": {
+    "dshCli": null,
+    "pnpmScript": null
+  },
+  "web": {
+    "browser": "edge",
+    "browserPath": null,
+    "openBrowser": true,
+    "startupTimeoutMs": 30000
+  },
+  "test": {
+    "browser": "chrome",
+    "browserPath": null,
+    "timeoutMs": 120000
+  }
+}
