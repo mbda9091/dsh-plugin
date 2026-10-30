@@ -40,7 +40,10 @@ export function packAndExtract(source: string, destination: string): string {
   assert.equal(pack.status, 0, `pnpm pack failed:\n${pack.stdout}\n${pack.stderr}`)
   const archives = readdirSync(destination).filter((name) => name.endsWith('.tgz'))
   assert.equal(archives.length, 1, 'pack must produce exactly one tarball')
-  const extract = runToFiles('tar', ['-xzf', join(destination, archives[0]!), '-C', destination], {
+  // GNU tar treats a colon in -f as host:archive (including a Windows drive).
+  // A relative archive in its own cwd works with both GNU tar and BSD tar.
+  const extract = runToFiles('tar', ['-xzf', `./${archives[0]!}`], {
+    cwd: destination,
     timeoutMs: 30_000,
     stdoutPath: join(destination, 'extract.out.log'),
     stderrPath: join(destination, 'extract.err.log'),
