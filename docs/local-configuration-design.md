@@ -1,6 +1,6 @@
 # 本机配置初始化与读取方案
 
-> 状态：第一、二阶段已实现；第三阶段未实施。更新日期：2026-10-30（Asia/Shanghai）。
+> 状态：第一、二阶段已实现，Windows/macOS 远端 CI 已通过（§12）；第三阶段未实施。更新日期：2026-10-30（Asia/Shanghai）。
 > Web、构建、打包、安装、状态和测试已统一读取本机 JSON；L4/L5 不读取个人 Web patch。验收范围见下文。
 
 采用“版本化模板 → 本机初始化 → 读取本机配置”的流程，把个人路径和机器差异从公共源码中分离。仓库提交 example 模板；初始化程序根据本机环境生成被 Git 忽略的配置；日常命令读取这些本机文件。
@@ -325,7 +325,7 @@ node scripts/bootstrap.mjs l5 --test-browser chromium --timeout 180000
 
 `DSH_PROFILE_DIR` 仅用于当前会话对应的 profile，切换目标时重新从 home 计算路径。L4/L5 会清除继承的 profile 目录和 Web 地址，强制使用 `.tmp` 内一次性 home 及 pnpm store；不会读取个人 YAML。大小写不同的 Windows 环境变量会在子进程中规范化，避免 `Path` / `PATH` 冲突。
 
-CI 的顺序为：安装工具链 → 安装 workspace 依赖 → `config init --browser default --test-browser chromium` → 安装 Playwright Chromium → `ci`。生成配置与测试现场留在 runner，不提交或上传。远端实际验收仍需推送后查看 Actions 结果。
+CI 的顺序为：安装工具链 → 安装 workspace 依赖 → `config init --browser default --test-browser chromium` → 安装 Playwright Chromium → `ci`。生成配置与测试现场留在 runner，不提交或上传。指定提交的远端通过记录见下；后续提交仍以各自的 Actions 结果为准。
 
 ### 第二阶段验收记录（Windows，2026-10-30）
 
@@ -333,7 +333,14 @@ CI 的顺序为：安装工具链 → 安装 workspace 依赖 → `config init -
 - 真实 L4 的前置检查与七个阶段全部通过；L5 的独立基线、slot/主题/语言交互及三项通知场景通过。
 - 通过新 `pack` / `dev-install` / `stable-install` 实现，在同一个一次性 Web profile 中完成 link → tarball → link；断言依赖 spec、实际 junction/拷贝状态及 `status` 输出一致。两个仅桌面插件被跳过。
 - 该切换前后本机 JSON 与 Web patch 字节不变，临时 home/store 已清理。测试报告保留在忽略的 `.tmp/` 中，没有修改日常 profile。
-- CI workflow 已加入 runner 内初始化，但本次未推送或确认远端 Actions 通过。macOS 真机验收、第三阶段 repair/版本迁移仍未完成。
+- 此次本地验收时尚未确认远端通过；随后 Windows/macOS 远端 CI 已通过，见下一节。第三阶段 repair/版本迁移仍未完成。
+
+### 第二阶段远端验收补充（2026-10-30）
+
+- 基线提交：`d9f2a1253150a147ecd11d533fb333cc3f2cd2f0`；[GitHub Actions run 41061844806](https://github.com/mbda9091/dsh-plugin/actions/runs/41061844806)，`windows-latest`、`macos-latest` 均为 `success`，整体于 21:28:15（Asia/Shanghai）完成。
+- 两个平台均完成冻结 lockfile 安装、runner 内 `config init`、Chromium 安装，以及同一 `ci --keep` 入口的类型检查、L1–L3、真实 L4 和 L5。详细修复与边界见 [测试方案 §19.7](testing-plan.md#197-远端-ci-验收2026-10-30)。
+- 这确认了 macOS runner 上的配置初始化、普通 Node 版 DSH Web 与浏览器自动化；不代表 macOS 日常 `start.ps1` / 系统默认浏览器启动或原生通知人工验收，也不替代 Windows 本地同一 profile 的 link → tarball → link 切换记录。
+- 第一、二阶段及远端 CI 验收完成；后续配置建设为 §9 第三阶段的字段归属、修复预览/备份、显式 repair 和格式/模板版本迁移。
 
 ## 13. 相关文件
 

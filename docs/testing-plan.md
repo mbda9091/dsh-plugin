@@ -1,18 +1,18 @@
 # 测试与 Web L5 方案（v0.1）
 
-> 状态：M1–M4 已复核修正；M5 正式 L5 已在 Windows 本机通过，Windows/macOS CI workflow 已接入，远端首次运行尚待验证。更新日期：2026-10-28。
-> 本文保留历史实施记录；当前验收与边界以 §19 为准。M6 尚未完成。
+> 状态：M1–M5 已完成；提交 `d9f2a12` 的 Windows/macOS 远端 CI 全部通过（§19.7）。更新日期：2026-10-30（Asia/Shanghai）。
+> 本文保留历史实施记录；当前验收以 §19.7 为准，未完成事项与范围边界集中在 §20。M6 等首个真实 UI 组件需要时再启动。
 > 历史日志中的机器路径已脱敏；`<repo>`、`%USERPROFILE%`、`%LOCALAPPDATA%` 为路径占位符。新的本机配置入口见 [本机配置方案](local-configuration-design.md)，L4/L5 不读取日常 Web 本机 patch。
 
 ## 1. 结论摘要
 
 - **L5 先只做 Web**，使用真实 `dsh web` + Playwright；桌面端 L5 延期。
-- **`app-restart`、`desktop-notify` 暂不适配 Web**，保持 desktop-only；Web L5 只面向后续 Web/UI 插件。
+- **`app-restart`、`desktop-notify` 不适配 Web**，保持 desktop-only；Web L5 已覆盖 fixture 和真实 `notify-web`，后续 Web/UI 插件复用该 harness。
 - **Web profile 由官方 shipped `web` 初始化**，不手工拼配置；已初始化并验证，测试使用独立的 workspace-local `DSH_HOME`。
 - **构建、打包和安装业务已迁到 TypeScript 并用 `tsc` 编译**，不使用 Node 类型擦除；保留极薄的 `bootstrap.mjs` 和 PowerShell 入口。配置第二阶段的当前行为见 §19.6，前文各阶段记录保留。
-- **测试 runner 不统一**：Host/脚本用 `node:test`，UI 组件用 Vitest，L5 用 Playwright；`browser-use` 只做探索式验收。
-- **M4 已落地**：L1–L3 在 `test/src/` 下用 `node:test`，当前共 210 个用例；L2 对四个正式插件实际打包、解包、检查内容并导入入口。L4 在一次性 profile 里安装、启动真实 `dsh web` 并断言 loader 输出；失败自动保留现场。覆盖边界见 §17、§19。
-- **M5 已实施**：正式 L5 验证实际 slot/交互、主题/locale 和真实 SSE 通知链路；Windows 本机通过，Windows/macOS CI 已配置，远端首跑待验证（§19）。
+- **测试 runner 不统一**：Host/脚本用 `node:test`，L5 用 Playwright；未来 UI 组件测试计划用 Vitest，尚未引入。`browser-use` 只做探索式验收。
+- **M4 已落地**：L1–L3 在 `test/src/` 下用 `node:test`，当前 251 项用例已在 Windows 本机全部通过，平台专属用例在其他平台按条件跳过。L2 对四个正式插件实际打包、解包、检查内容并导入入口。L4 在一次性 profile 里安装、启动真实 `dsh web` 并断言 loader 输出；失败自动保留现场。
+- **M5 已完成**：正式 L5 验证实际 slot/交互、主题/locale 和真实 SSE 通知链路；Windows/macOS 远端 CI 已通过（§19.7），原生系统通知不在其验收范围内。
 - **沙箱优先**：先在 DSH 沙箱内跑；遇到 `EPERM`/进程或浏览器限制，再退到普通终端或 CI，不做 ACL 绕过。
 
 ## 2. 范围
@@ -30,7 +30,7 @@
 - 不为了测试而把 `app-restart`、`desktop-notify` 改成 Web 插件。
 - 不把 `browser-use` 放进 CI 门禁。
 - 不统一所有测试到 Vitest。
-- 不在本阶段迁移所有安装脚本；先迁只读/构建类脚本。
+- 早期 M3 只迁只读/构建脚本；安装与打包业务已在配置第二阶段迁入 TypeScript（§19.6），不再是待办。
 
 ## 3. 现状
 
@@ -414,7 +414,7 @@ test/
 
 顶层 `build.ps1` / `check-targets.ps1` / `catalog.ps1` / `status.ps1` 保留为薄壳，
 内部执行 `node scripts/bootstrap.mjs <cmd>`；M4 新增的 `test` / `l4` 只有 TS 入口。
-`pack` / `dev-install` / `stable-install`、`common.ps1` 仍是 PowerShell，等下一步迁移。
+`pack` / `dev-install` / `stable-install` 的业务已在配置第二阶段迁入 TS；对应 `.ps1` 仅转发参数，`common.ps1` 只负责定位 Node（§19.6）。
 
 ### 7.2 约束
 
@@ -430,11 +430,11 @@ test/
   跟随一次重定向，否则会得到 401。
 - 测试运行器固定 `node --test --test-isolation=none --test-concurrency=1`：
   沙箱拒绝管道式子进程，串行也能避免 `process.versions` 等进程级桩互相干扰。
-- 跨平台解析：
-  - `DSH_CLI` → PATH → Windows 已知路径 → macOS App 路径 → 报错；
+- 跨平台解析（配置第二阶段后的行为）：
+  - 运行时工具使用显式参数 > 支持的环境变量 > 本机配置，缺失或无效不静默回退；工具发现只在 `config init` 进行；
   - `DSH_HOME` 默认 `os.homedir()/.dsh`；
   - `DSH_PROFILE` / `DSH_PROFILE_DIR` 优先；
-  - pnpm 优先 DSH runtime 的 `pnpm.cjs`（`node pnpm.cjs`）；
+  - pnpm 使用已解析配置中的 `pnpm.cjs`（`node pnpm.cjs`）；
   - Windows `.cmd` 需要 `cmd.exe /d /s /c`，或解析到背后 `.js` 用 node 执行。
 - 外部 JSON（manifest/profile）用 type guard 做运行时校验，不能只靠 TS 类型。
 
@@ -443,7 +443,7 @@ test/
 1. `common` + `check-targets` + `catalog` + `build`（只读/编译）；
 2. `status` + `pack`；
 3. `dev-install` / `stable-install`（pnpm、dsh passthrough、junction、删除风险最高）；
-4. 删除 `.ps1`，更新 AGENTS/README/package scripts。
+4. 原计划删除 `.ps1`；现保留兼容薄壳并同步 AGENTS/README，不再安排删壳。
 
 每步先记录旧脚本输出，再对比新脚本；`--dry-run`/`--check` 优先自动化。
 
@@ -485,15 +485,12 @@ test/
 - `pnpm install` 在沙箱内会因 `node_modules` 包目录 rename 报 `EPERM`（AGENTS §8 已记录）；
   本次迁移只改动了 lockfile 的 3 行（根 `@types/node`），需要时在普通终端补一次安装。
 
-未做（下一步）：
+早期后续项的当前状态：
 
-- `pack` / `dev-install` / `stable-install` 仍是 PowerShell；
-- `.ps1` 薄壳未删除，AGENTS/README 仍以 `.ps1` 作为对用户的入口；
-- `scripts/src/core` 的 `node:test` 覆盖已由 M4 补上（`test/src/l1/scripts-core.test.ts`），
-  但 `pack` / `dev-install` / `stable-install` 仍未迁移、也未被测试覆盖。
-- 根 `devDependencies` 未声明 `@types/node`：脚本层和测试层 `tsconfig` 的 `types: ["node"]` 目前靠三个插件
-  声明的同名 devDependency 被 pnpm 提升到根 `node_modules`。显式声明与重新生成 lockfile 仍待补；
-  先前安装阻塞的 HMR 原因与处理已记录在 §12。
+- `pack` / `dev-install` / `stable-install` 已迁入 TypeScript，并补齐配置与安装切换测试（§19.6）。
+- `.ps1` 薄壳按兼容入口保留，不把“未删除”当成缺陷或待办。
+- `scripts/src/core` 已有 `node:test` 覆盖；根 `devDependencies` 也已显式声明 `@types/node`，不再依赖插件提升。
+- 先前安装阻塞的 HMR 原因与处理仍保留在 §12，属于历史排障记录。
 
 
 ## 8. Web/UI 插件测试策略
@@ -505,7 +502,7 @@ test/
   - Vitest 直接 import 组件/逻辑；
   - Playwright 加载真实 `dsh web`，断言 slot/交互/主题/locale/console；
   - 如果包含通知，用 stub `Notification` 断言。
-- fixture 插件的位置、是否纳入 CATALOG、是否被安装脚本发现，需要单独决策，避免污染正式插件目录。
+- fixture 已放在 `test/fixtures/`，不进 CATALOG、不由正式插件安装脚本发现；L4/L5 显式安装它们。
 
 ## 9. 统一 Vitest 的风险与决定
 
@@ -536,8 +533,8 @@ test/
 | M2 | 最小 Web fixture + L5 Playwright spike | 完成：原型的注册、可见 DOM 与 console 假通过已由 M5 修复 |
 | M2.5 | approval-allowlist observe 安装与精确规则 | ✅ 完成：observe 采集、allow 规则、无审批 L5 均验证 |
 | M3 | TS 脚本骨架 + 只读/构建脚本迁移 | 已完成：四个命令已迁 TS；普通终端入口回退已修复，未设置环境变量/正常 home/隔离 home 三种环境验证通过（§14） |
-| M4 | L1–L3 测试 + L4 harness | 完成：210 个 L1–L3 用例、四个插件打包契约、L4 全阶段通过，见 §19 |
-| M5 | L5 Playwright 正式接入 + CI | 本地完成；Windows/macOS workflow 已接入，远端首跑与 macOS 真机结果待验证（§19） |
+| M4 | L1–L3 测试 + L4 harness | 完成：当前 251 项用例、四个插件打包契约与真实 L4；Windows/macOS CI 通过，见 §19.7 |
+| M5 | L5 Playwright 正式接入 + CI | 完成：Windows/macOS 远端类型检查与 L1–L5 全部通过（§19.7） |
 | M6 | 第一个 UI 插件出现后接入 Vitest 组件测试 | 待开始（依赖 UI 插件） |
 
 注意：原计划的“当前插件适配 Web”已取消，`app-restart` / `desktop-notify` 保持 desktop-only。
@@ -632,7 +629,7 @@ M4：
 - [x] L4：一次性 home、link 安装、`--dump-config` 行、真实 `dsh web` 200 + boot HTML、匹配失败上报、tarball 安装为真实拷贝、端口关闭与清理。
 - [x] `node scripts/bootstrap.mjs test`（146 用例）与 `l4`（7 阶段）在 Windows 本机通过；macOS 条件模拟通过，未做 macOS 真机验收。
 - [x] L4、L5 纳入 Windows/macOS CI workflow（M5）。
-- [ ] GitHub Actions 远端首跑、macOS 实测结果（当前只有 Windows 本机证据）。
+- [x] GitHub Actions Windows/macOS 远端验收通过（2026-10-30，§19.7）；这里的 macOS 证据限于 runner 上的 Web 自动化。
 
 ## 14. M1–M3 复核与修正（2026-10-24）
 
@@ -921,7 +918,7 @@ pnpm 使用与 L4 相同的定位规则（`DSH_PNPM` 显式路径优先，其次
   未安装到用户现有 desktop/web profile。
 
 M4 本轮三个问题已修复。M5 的正式 L5、CI 和 macOS 真机验证仍待完成；§15、§16 中的
-129/138 用例数字保留为当时的历史证据，当前验收数字以本节为准。
+129/138 用例数字保留为当时的历史证据，当前验收以 §19.7 为准。
 ## 18. 通知 Host 统一后的测试补充（2026-10-25）
 
 本轮把 Desktop 与 Web 的触发条件统一到 `packages/notify-host`，Web 改为经过认证的 SSE 通道；测试范围相应扩大：
@@ -940,13 +937,13 @@ M4 本轮三个问题已修复。M5 的正式 L5、CI 和 macOS 真机验证仍�
   这验证了真实 DSH Connection 的认证与流式 bridge，不只检查 boot HTML 是否包含模块名。
 - 构建验证：`build --check`、`build`、`test`、`l4`（含 tarball 阶段）与 `l4 --skip-tarball` 均通过。L4 仍使用一次性 workspace-local `DSH_HOME`，不修改用户现有 profile。
 
-仍未完成：
+当时尚未完成（后续自动化与原生通知记录分别见 §19、通知方案 §11.11；当前待办以 §20 为准）：
 
 - 真实浏览器中的操作系统通知弹出、权限手势、点击聚焦/切会话、多标签页锁接管；沙箱内 Chrome 仍因 `spawn EPERM` 无法启动，模拟 Notification 不能替代。
 - L5 若要覆盖通知，应使用真实 `dsh web` + Playwright，stub `Notification` 以记录构造与点击，同时保留真实 SSE 流；不要把“boot HTML 含模块名”当作通知通过。
 - macOS 真机、Host 重启后跨进程恢复待审批仍不在本轮范围。
 
-§17.4 的 146 用例数字与更早的 129/138 保留为历史证据；当前验收数字以本节为准。
+§17.4 的 146 用例数字与更早的 129/138 保留为历史证据；当前验收以 §19.7 为准。
 
 ## 19. M1–M4 复核与 M5 实施（2026-10-28）
 
@@ -1013,7 +1010,7 @@ node scripts/bootstrap.mjs l5
 
 - Node 下限按本仓库测试工具链固定为 24；CI 安装 `pnpm@11.28.5`、`@deepseek-ai/dsh@0.2.1-rc.2`，并显式设置 `DSH_PNPM` 到该 pnpm 的 `bin/pnpm.cjs`。
 - 优先 PATH 上的默认 Node 版 dsh。若 PATH 只有 Electron 桌面 wrapper，需设置 `DSH_CLI` 到 npm/pnpm 安装的 dsh；不能用 Electron 版伪装 Web surface。
-- `.github/workflows/tests.yml` 在 main push、PR、手动运行时执行 Windows/macOS 矩阵：冻结 lockfile 安装、类型检查、L1–L3、L4、Chromium、L5。该 workflow 已实现，但本轮未推送或触发远端 CI；不把配置写好算作 macOS 真机通过。
+- `.github/workflows/tests.yml` 在 main push、PR、手动运行时执行 Windows/macOS 矩阵：冻结 lockfile 安装、runner 配置初始化、Chromium 安装、类型检查、L1–L3、L4、L5。远端通过记录见 §19.7；这不包含系统原生通知或桌面 Electron 的人工验收。
 - L5 每次生成 `.tmp/l5/run-*/`，保存 `report.json`、服务/浏览器日志、每项检查的 screenshot/trace/错误列表与 `results.json`；`.tmp/l5/last-report.json` 指向最近结果。
 - 成功默认清理临时 profile、pnpm store、shim，保留浏览器证据；`--keep` 额外保留完整成功现场。失败保留全部现场。浏览器套件截止时间现由 `test.timeoutMs` / `--timeout` 控制，父进程另留 30 秒退出宽限。
 - 原始日志和 trace 可能含临时认证信息，仅留在本地或临时 CI runner，不配置 GitHub artifact 上传；控制台中的启动 token 会脱敏。自动审批审核曾因此拒绝上传配置，已采用不上传的替代方案。
@@ -1053,4 +1050,42 @@ node scripts/bootstrap.mjs l5
 
 L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profile、测试 patch 和 pnpm store。`test.timeoutMs` 控制外部操作与浏览器场景的截止时间；不读取个人 Web YAML。CI 在 runner 内通过 example 初始化，不依赖开发者的本机配置。
 
-本轮 Windows 类型检查及 249 项 L1–L3 通过；完整 L4、L5 分别通过。另用新安装入口在同一临时 profile 验证 link → tarball → link，确认 spec 与实际链接状态匹配、本机配置字节不变，测试 home/store 清理完成。L5 证据位于 `.tmp/l5/run-2owMgf/`，安装切换报告位于 `.tmp/phase2-switch-At2HTV/report.json`，均不入库。未推送或宣称远端 Windows/macOS CI 已通过。
+此阶段 Windows 类型检查及 249 项 L1–L3 通过；完整 L4、L5 分别通过。另用新安装入口在同一临时 profile 验证 link → tarball → link，确认 spec 与实际链接状态匹配、本机配置字节不变，测试 home/store 清理完成。L5 证据位于 `.tmp/l5/run-2owMgf/`，安装切换报告位于 `.tmp/phase2-switch-At2HTV/report.json`，均不入库。当时尚未确认远端通过；后续修复及远端结果见 §19.7。
+
+### 19.7 远端 CI 验收（2026-10-30）
+
+验收基线为提交 [`d9f2a1253150a147ecd11d533fb333cc3f2cd2f0`](https://github.com/mbda9091/dsh-plugin/commit/d9f2a1253150a147ecd11d533fb333cc3f2cd2f0)，由 push 触发 [Plugin tests / run 41061844806](https://github.com/mbda9091/dsh-plugin/actions/runs/41061844806)。GitHub Actions API 确认整次运行和两个 job 均为 `completed / success`，整体完成时间为 2026-10-30 21:28:15（Asia/Shanghai）。
+
+| 平台 | Job | 结果 | 完成时间（Asia/Shanghai） |
+|---|---|---|---|
+| `windows-latest` | [124083255245](https://github.com/mbda9091/dsh-plugin/actions/runs/41061844806/job/124083255245) | success | 2026-10-30 21:28:15 |
+| `macos-latest` | [124083255709](https://github.com/mbda9091/dsh-plugin/actions/runs/41061844806/job/124083255709) | success | 2026-10-30 21:19:00 |
+
+两个 job 均完成：Node 24 与固定 pnpm/DSH 工具链安装、`pnpm install --frozen-lockfile`、从 example 初始化 runner 本机配置、Playwright Chromium 安装，以及 `node scripts/bootstrap.mjs ci --keep`。该入口按顺序运行类型检查 → L1–L3 → L4 → L5，任一步失败都会返回非零退出码。
+
+远端验收前修复了三个可复现问题：
+
+- `68e6988`：pnpm 11 因未审批 esbuild 安装脚本而失败；在 workspace 的 `allowBuilds` 中只允许 esbuild。全新源码副本冻结安装、类型检查与构建通过，lockfile 未改变。
+- `1ad66a3`：macOS 上模拟 Windows shim 时，反斜杠路径未按 `.cmd` 语义展开；统一路径分隔符并保留字面 `$` 字符，覆盖两种目录变量和启动器。本机 251 项 L1–L3、真实 L4 通过。
+- `d9f2a12`：Windows runner 的 GNU tar 将 `D:` 误认成远程主机；解包改在压缩包目录执行，只传相对文件名。本机 GNU tar、BSD tar 各自的 48 项 L2 均通过，随后两个平台远端 CI 全部通过。
+
+验收范围和保留边界：
+
+- 已覆盖：runner 配置初始化、插件构建及真实 tarball 契约、隔离 profile 的 DSH 安装/加载/目标守卫、HTTP/SSE、Chromium 基线与 slot/主题/locale/通知逻辑。
+- L5 替换操作系统 Notification API，因此不证明原生授权弹窗、系统通知外观、真实窗口聚焦或桌面 `/restart`。Windows 专属测试在 macOS 按条件跳过，不把 job 成功当成所有平台专属行为都已执行。
+- macOS 的普通 Node DSH Web 与 Chromium 已有真实 runner 证据；日常 `start.ps1` / 系统默认浏览器和桌面 Electron 的使用体验不由此覆盖。
+- 本次沿用不上传原始日志、截图、trace 的策略；工作流成功是指定提交的证据，后续提交需重新通过各自的检查。
+
+## 20. 当前未完成事项
+
+基础构建、配置第一/二阶段、L1–L5 和 Windows/macOS 远端 CI 已完成。以下区分明确待实现、按需建设和验收边界，避免把历史记录或有意保留的兼容入口当成待办。
+
+| 事项 | 当前状态与下一步 | 依据 |
+|---|---|---|
+| 本机配置第三阶段 | **明确待实现**：先设计自动生成字段与个人编辑字段的归属、预览和备份规则，再实现搬迁/工具升级后的 `repair --dry-run` / `repair`、配置版本迁移与 Web 模板升级记录；当前仍由用户备份后手动调整 | [本机配置方案 §9](local-configuration-design.md#9-分阶段实施) |
+| M6 / UI 组件测试 | **条件性待建设**：首个真实 React/JSX UI 组件需要时，引入 `src/client.tsx` 构建和 Vitest 组件测试，并复用现有 Playwright L5；不为了完成里程碑而新增插件或迁移全部 Host 测试 | 本文 §8、§10 |
+| 插件场景 UI 徽章/页面 | **可选、暂不实施**：场景元数据、目录、安装过滤、运行时守卫已完成；将来有展示需求时再做插件管理器伴生 UI | [插件场景方案](plugin-targets.md) 阶段 3 |
+| 原生通知与日常使用验收 | **待补人工证据**：独立 Chrome/Edge、macOS 的原生权限弹窗、系统通知、点击聚焦/切会话及多标签页接管；加载即申请权限改动后的原生流程也需复验。已有 Windows Codex 内嵌浏览器证据保持有效，但不推广到其他环境 | [通知方案 §11.11–§11.15](notification-host-design.md#1111-原生浏览器通知验收2026-10-28asiashanghai) |
+| 桌面端 L5 与更深的恢复场景 | **当前延期/未覆盖**：Electron 壳、真实重启、Toast/声音不进现有 Web CI；Host 重启后跨进程恢复待审批、后台冻结/勿扰等场景需要另定需求和验收方案，不能因 CI 通过而视为已覆盖 | 本文 §2、§4、§18；通知方案 §11.11 |
+
+建议下一项优先推进配置第三阶段的设计，因为它直接解决仓库搬迁和工具升级后的维护问题；其余按真实 UI 或使用场景需求安排。`headless` / Linux 当前是保留场景，`.ps1` 薄壳是兼容设计，两个桌面插件不适配 Web 是明确选择，均不计为本轮未完成建设。

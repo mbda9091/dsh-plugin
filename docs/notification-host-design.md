@@ -1,6 +1,6 @@
 # Desktop 与 Web 通知统一方案
 
-状态：已实现（2026-10-25），已修复重连与缓存边界问题（2026-10-27，见 §11.9）。完整本地 CI 的类型检查、L1–L3、L4、L5 全部通过（2026-10-28，见 §11.12）；随后调整为加载时立即申请通知权限，验证结果见 §11.14。Windows 上 Codex 内嵌浏览器的原生通知显示、人工点击聚焦及双标签页去重/接管验收通过（见 §11.11）；独立 Chrome/Edge 的原生系统通知和 macOS 尚未实测。
+状态：已实现（2026-10-25），已修复重连与缓存边界问题（2026-10-27，见 §11.9）。完整本地 CI 通过，随后调整为加载时立即申请通知权限（见 §11.12、§11.14）。Windows/macOS 远端类型检查与 L1–L5 已通过（2026-10-30，见 §11.15）。Windows 上 Codex 内嵌浏览器的原生通知显示、人工点击聚焦及双标签页去重/接管验收通过（见 §11.11）；独立 Chrome/Edge 与 macOS 的原生系统通知仍未实测。
 
 两端统一由 Host 全局监听已提交的 `session/event`，共用根会话过滤、审批延迟与取消、回合结束判断。Desktop 把通知交给 Windows 适配器；Web 通过经过 DSH Connection 认证的 SSE 通道，把通知交给浏览器适配器。切换当前会话不再影响通知覆盖范围。
 
@@ -544,3 +544,9 @@ pwsh -NoProfile -File profiles/web/start.ps1 --no-open --host 127.0.0.1 --port 0
 首次统一 CI 在 L5 中因测试使用 `navigator.userActivation.isActive` 断言而失败；Playwright 的 Chromium 脚本执行本身会携带 `userGesture: true`，该标记不能可靠证明实际点击。已改为在页面初始化时记录 `pointerdown` / `keydown` 输入事件，产品代码不变，并单独重跑 L5 通过。
 
 证据保留于 `.tmp/ci/run-p0iDbU/report.json`（前三级通过、初次 L5 失败）和 `.tmp/l5/run-BgnAw4/report.json`（修正断言后 `ok: true`），后者的 `artifacts/*/results.json` 保存五项成功结果。没有将初次 CI 总报告改写为成功。L5 仍替换 Notification，仅证明调用时机与逻辑；本次没有重新进行浏览器原生权限弹窗的人工验收。
+
+### 11.15 远端自动化验收（2026-10-30）
+
+提交 `d9f2a12` 的 [GitHub Actions run 41061844806](https://github.com/mbda9091/dsh-plugin/actions/runs/41061844806) 在 Windows、macOS 均通过类型检查与 L1–L5。L5 使用实际 DSH Web、Chromium、认证 SSE 和通知插件，替换操作系统 Notification API，覆盖权限请求/拒绝及中英文通知内容；这补齐了 macOS 的 Web 自动化证据。
+
+原生权限弹窗、系统通知显示、真实点击聚焦、操作系统勿扰/后台冻结仍不由该 CI 覆盖。§11.11 的人工证据限于当时 Windows Codex 内嵌浏览器；§11.14 改动后的原生权限流程、独立 Chrome/Edge 和 macOS 的人工验收仍待补。完整远端记录与当前待办见 [测试方案 §19.7、§20](testing-plan.md#197-远端-ci-验收2026-10-30)。
