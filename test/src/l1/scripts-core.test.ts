@@ -18,23 +18,25 @@ import { makeTempDir, removeDir, repoRoot } from '../harness/tmp.js'
 
 describe('L1 scripts/core: Windows DSH CLI shims', () => {
   for (const launcher of ['"%_prog%"', '"%~dp0\\node.exe"']) {
-    it(`runs the ${launcher} shim entry directly under Node`, () => {
-      const directory = makeTempDir('dsh-shim')
-      try {
-        const script = join(directory, 'lib', 'bin.js')
-        mkdirSync(join(directory, 'lib'), { recursive: true })
-        writeFileSync(script, '', 'utf8')
-        const shim = join(directory, 'dsh.cmd')
-        writeFileSync(shim, `@echo off\r\n${launcher} "%~dp0\\lib\\bin.js" %*\r\n`, 'utf8')
-        const runner = resolveDsh({ env: { DSH_CLI: shim }, platform: 'win32' })
-        assert.equal(runner.command, process.execPath)
-        assert.equal(runner.verbatim, false)
-        assert.deepEqual(runner.env, {})
-        assert.deepEqual(runner.build(['web', '--no-open']), [script, 'web', '--no-open'])
-      } finally {
-        removeDir(directory)
-      }
-    })
+    for (const entry of ['%~dp0\\lib\\bin.js', '%dp0%/lib/bin.js']) {
+      it(`runs the ${launcher} shim with ${entry} directly under Node`, () => {
+        const directory = makeTempDir('dsh-shim-$& space')
+        try {
+          const script = join(directory, 'lib', 'bin.js')
+          mkdirSync(join(directory, 'lib'), { recursive: true })
+          writeFileSync(script, '', 'utf8')
+          const shim = join(directory, 'dsh.cmd')
+          writeFileSync(shim, `@echo off\r\n${launcher} "${entry}" %*\r\n`, 'utf8')
+          const runner = resolveDsh({ env: { DSH_CLI: shim }, platform: 'win32' })
+          assert.equal(runner.command, process.execPath)
+          assert.equal(runner.verbatim, false)
+          assert.deepEqual(runner.env, {})
+          assert.deepEqual(runner.build(['web', '--no-open']), [script, 'web', '--no-open'])
+        } finally {
+          removeDir(directory)
+        }
+      })
+    }
   }
 })
 

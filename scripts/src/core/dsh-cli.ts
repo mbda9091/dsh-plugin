@@ -178,7 +178,10 @@ function fromNpmShim(cliPath: string): DshRunner | undefined {
 
 /** Expand `%~dp0` / `%dp0%` (directory of the script, trailing separator). */
 function expandCmdPath(value: string, base: string): string {
-  return value.replace(/%~dp0/gi, `${base}\\`).replace(/%dp0%/gi, `${base}\\`)
+  // Backslashes belong to the .cmd syntax, even when a shim is inspected on
+  // macOS. Forward slashes resolve on both hosts; a callback keeps literal $
+  // characters in the directory from becoming replacement-string patterns.
+  return value.replaceAll('\\', '/').replace(/%~dp0|%dp0%/gi, () => `${base}/`)
 }
 
 /** Minimal cmd.exe argument quoting; our arguments are paths and flags. */
