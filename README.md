@@ -33,6 +33,8 @@ pwsh -File scripts/build.ps1
 
 构建会检查插件场景声明、插件目录和 TypeScript 类型，生成各插件的 `lib/`。`lib/`、`dist/` 和 `node_modules/` 均不入库。
 
+`pnpm-workspace.yaml` 中的 `allowBuilds` 仅允许 esbuild 执行安装脚本，让本机与 CI 的依赖安装无需交互审批。新增需要安装脚本的依赖时，应单独检查并更新该清单。
+
 ## 安装到桌面应用
 
 构建完成后，打开 DSH 的 **Plugins（插件）** 页面，按需安装对应插件目录的绝对路径。例如，在仓库根目录执行以下命令取得桌面通知插件的路径：
