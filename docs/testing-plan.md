@@ -1,7 +1,7 @@
 # 测试与 Web L5 方案（v0.1）
 
 > 状态：M1–M5 已完成；提交 `d9f2a12` 的 Windows/macOS 远端 CI 全部通过（§19.7）。更新日期：2026-10-30（Asia/Shanghai）。
-> 本文保留历史实施记录；远端基线见 §19.7，本次 P0 本机验收见 §7.5，未完成事项与范围边界集中在 §20。M6 等首个真实 UI 组件需要时再启动。
+> 本文保留历史实施记录；原远端基线见 §19.7，P0 本机及 Windows/macOS 远端验收见 §7.5（2026-10-31 补验），未完成事项与范围边界集中在 §20。M6 等首个真实 UI 组件需要时再启动。
 > 历史日志中的机器路径已脱敏；`<repo>`、`%USERPROFILE%`、`%LOCALAPPDATA%` 为路径占位符。新的本机配置入口见 [本机配置方案](local-configuration-design.md)，L4/L5 不读取日常 Web 本机 patch。
 > TS 脚本收尾已实现；后续环境统一与开发隔离见[独立规划](development-environment-plan.md)。以下历史通过记录不代表 P1–P4 已实现。
 
@@ -528,8 +528,14 @@ Windows / Node `24.19.0` 的独立验收：
 - 首次在沙箱内运行到 L4 时，pnpm 创建 junction 被 `EPERM` 拒绝；上述独立验收在允许
   创建链接的执行环境中重跑，未改 ACL、未修改日常 DSH profile。
 
-本轮没有推送或触发新远端 CI；macOS 本次改动的验证待下次矩阵运行，§19.7 的旧通过记录
-不代替新验收。默认浏览器真实打开与系统原生通知不以模拟进程测试或 L5 结果冒充通过。
+远端补验（2026-10-31，Asia/Shanghai）：迁移提交 `ab745e9` 已推送至 `main`，
+[GitHub Actions run 41084664654](https://github.com/mbda9091/dsh-plugin/actions/runs/41084664654)
+的 `test (windows-latest)` 与 `test (macos-latest)` 均为 `success`。两平台均从固定工具链、
+冻结依赖安装与配置初始化开始，经同一 Node CLI 完成类型检查和 L1–L5；本次迁移无需修复即可通过。
+Windows 工具链安装耗时较长，但安装与后续测试均成功。此记录对应迁移代码提交；
+后续仅更新验收文档的提交使用 `[skip ci]`，不改变已验证的代码与工作流。
+
+默认浏览器真实打开与系统原生通知不以模拟进程测试或 L5 结果冒充通过。
 P1–P4 的工具/环境隔离、配置 repair/migrate 尚未实现。
 
 
@@ -1120,11 +1126,11 @@ L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profi
 
 ## 20. 当前未完成事项
 
-基础构建、配置第一/二阶段、L1–L5 和原基线的 Windows/macOS 远端 CI 已完成。P0 已移除 PowerShell 入口并通过本轮 Windows 独立验收；本轮 macOS 矩阵尚未重跑。以下区分待实现、按需建设和验收边界。
+基础构建、配置第一/二阶段、L1–L5 已完成。P0 已移除 PowerShell 入口，并通过 Windows 独立验收及迁移提交的 Windows/macOS 远端 CI（§7.5）。以下区分待实现、按需建设和验收边界。
 
 | 事项 | 当前状态与下一步 | 依据 |
 |---|---|---|
-| TS 脚本收尾与 PS 退场 | **代码与 Windows 验收已完成**：Node/TS 主入口、帮助/文档/调用方迁移，移除 PS 入口，252 项测试与真实 L4/L5 通过；本轮 macOS 待下次 CI 矩阵 | 本文 §7.5、[本机配置方案 §14.10](local-configuration-design.md#1410-powershell-兼容层移除计划) |
+| TS 脚本收尾与 PS 退场 | **已完成**：Node/TS 主入口、帮助/文档/调用方迁移，移除 PS 入口；Windows 本机 252 项测试与真实 L4/L5 通过，迁移提交 `ab745e9` 的 Windows/macOS CI 均通过 | 本文 §7.5、[本机配置方案 §14.10](local-configuration-design.md#1410-powershell-兼容层移除计划) |
 | 环境统一与开发隔离 | **已规划，P0 完成后实施**：P1 配置与工具统一 → P2 隔离开发 DSH → P3 tarball 干净验收 → P4 安装同一包到用户指定 DSH/profile。开发宿主和正式目标分别管理，不互相回退 | [开发环境规划 §8](development-environment-plan.md#8-建设顺序与阶段出口) |
 | 本机配置第三阶段 | **维护机制已设计，尚未实现**：保留字段归属、预览、备份、repair/migrate 与故障恢复设计，按 P1 的新配置职责调整字段与迁移；不作为 TS 收尾前置。当前新增命令不可用 | [本机配置方案 §14](local-configuration-design.md#14-第三阶段具体设计修复与格式升级) |
 | M6 / UI 组件测试 | **条件性待建设**：首个真实 React/JSX UI 组件需要时，引入 `src/client.tsx` 构建和 Vitest 组件测试，并复用现有 Playwright L5；不为了完成里程碑而新增插件或迁移全部 Host 测试 | 本文 §8、§10 |
