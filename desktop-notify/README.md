@@ -59,8 +59,8 @@
 Host 入口是 TypeScript，`lib/` 是构建产物、不入库；`build.json` 声明 Host bundle，构建脚本用 `tsc` 生成声明、用 esbuild 内联 `@local/notify-host` 与 `@local/notify-core` 并产出 `lib/index.js`：
 
 ```powershell
-pwsh -File scripts\build.ps1          # 构建
-pwsh -File scripts\build.ps1 -Check   # 只做类型检查
+node scripts/bootstrap.mjs build          # 构建
+node scripts/bootstrap.mjs build --check   # 只做类型检查
 ```
 
 插件**没有运行时依赖**；`@local/notify-host` 与 `@local/notify-core` 是 workspace 内的构建期依赖，不会进入 profile。
@@ -78,13 +78,13 @@ Web UI 左侧 **Plugins（插件）** 页 → 安装 → 填本目录的绝对�
 ## 开发与稳定版
 
 ```powershell
-pwsh -File scripts\dev-install.ps1     # link 安装，改代码 HMR 生效
-pwsh -File scripts\pack.ps1            # 构建 + pnpm pack → dist/*.tgz
-pwsh -File scripts\stable-install.ps1  # 移除 link，安装 tarball（需重启）
-pwsh -File scripts\status.ps1          # 查看当前是 link 还是 tarball
+node scripts/bootstrap.mjs dev-install     # link 安装，改代码 HMR 生效
+node scripts/bootstrap.mjs pack            # 构建 + pnpm pack → dist/*.tgz
+node scripts/bootstrap.mjs stable-install  # 覆盖 link，安装 tarball（需重启）
+node scripts/bootstrap.mjs status          # 查看当前是 link 还是 tarball
 ```
 
-两个安装脚本支持 `-DryRun` 预览。link 模式不会安装插件的 `dependencies`，tarball 会——所以稳定版要单独验证一次依赖路径。
+两个安装脚本支持 `--dry-run` 预览。link 模式不会安装插件的 `dependencies`，tarball 会——所以稳定版要单独验证一次依赖路径。
 
 ## 限制
 

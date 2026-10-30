@@ -343,11 +343,11 @@ bundle 层 → profile 层 → home 层 → --patch
 ## 5. 本仓库的约定（今日变更）
 
 - **仓库只存源码**：`lib/`（tsc 产物）和 `dist/`（pnpm pack 产物）都在 `.gitignore` 里，不再提交。
-- **构建是安装/打包的前置**：`dev-install.ps1` 和 `pack.ps1` 都会先跑 `build.ps1`；缺 `lib/index.js` 时直接报错，不会链进一个空插件或打出空包。
+- **构建是安装/打包的前置**：`dev-install` 和 `pack` 都会先跑 `build`；缺 `lib/index.js` 时直接报错，不会链进一个空插件或打出空包。
 - **验证顺序**：`build` → `pack` → `install`。出错时先定位是哪一段，不靠提交产物兜底。
 - **不用 `pnpm remove` 移除 `link:` 依赖**：Windows 上 pnpm 会跟随 junction 删掉插件源码目录；切换方向一律用 `add` 覆盖。
 - **切换 link / tarball 后要重解析**：否则 `node_modules` 里可能还是 junction，而 manifest 已是 `file:` 指向 tgz。
-- **插件要声明适用场景**：每个插件在 `package.json` 的 `dsh.targets` 声明 `surfaces`（`desktop` / `web`）和 `platforms`（`mac` / `windows`）；`scripts/check-targets.ps1` 校验，`scripts/catalog.ps1` 生成 [`CATALOG.md`](../CATALOG.md)。安装脚本按目标过滤，`apply` 里的 `assertTarget` 做运行时守卫。语义与取值见 [plugin-targets.md](plugin-targets.md)。
+- **插件要声明适用场景**：每个插件在 `package.json` 的 `dsh.targets` 声明 `surfaces`（`desktop` / `web`）和 `platforms`（`mac` / `windows`）；`node scripts/bootstrap.mjs check-targets` 校验，`node scripts/bootstrap.mjs catalog` 生成 [`CATALOG.md`](../CATALOG.md)。安装脚本按目标过滤，`apply` 里的 `assertTarget` 做运行时守卫。语义与取值见 [plugin-targets.md](plugin-targets.md)。
 
 ---
 

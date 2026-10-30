@@ -81,7 +81,7 @@ export function checkConfig(root: string = repoRoot, env: NodeJS.ProcessEnv = pr
 
 export function runConfig(action: string, options: ConfigOverrides & { dryRun?: boolean }): number {
   if (action === '--help' || action === '-h') {
-    console.log('Usage: scripts/config.ps1 init [--dry-run] | check [--dsh-cli <path>] [--pnpm-script <path>] [--browser edge|default] [--browser-path <path>] [--test-browser chrome|chromium] [--test-browser-path <path>] [--test-timeout <ms>]')
+    console.log('Usage: node scripts/bootstrap.mjs config init [--dry-run] | check [--dsh-cli <path>] [--pnpm-script <path>] [--browser edge|default] [--browser-path <path>] [--test-browser chrome|chromium] [--test-browser-path <path>] [--test-timeout <ms>]')
     return 0
   }
   if (action === 'init') {

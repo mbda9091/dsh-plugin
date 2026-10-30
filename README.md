@@ -19,16 +19,15 @@
 
 - DeepSeek Harness：当前开发与类型依赖版本为 **`0.2.1-rc.2`**。
 - Node.js **24**、pnpm **11.28.5**；下面的依赖安装命令要求 pnpm 在 PATH 中可用。
-- PowerShell **7**：用于运行仓库的 `.ps1` 入口。
 
-PowerShell 入口先定位 Node，再由 TypeScript 读取本机配置。首次运行 `config init` 会发现 DSH、pnpm 和浏览器位置；日常命令使用已保存的配置。DSH 版本升级时，应同步核对类型包与运行时接口。
+统一入口为 `node scripts/bootstrap.mjs <command>`。Node 24 需要在 PATH 中，或使用 Node 可执行文件的绝对路径启动；仓库不再提供 PowerShell 启动脚本，也不通过 `DSH_NODE` 选择运行时。首次运行 `config init` 会发现 DSH、pnpm 和浏览器位置；日常命令使用已保存的配置。DSH 版本升级时，应同步核对类型包与运行时接口。
 
-```powershell
+```sh
 git clone https://github.com/mbda9091/dsh-plugin.git
 cd dsh-plugin
 pnpm install --frozen-lockfile
-pwsh -File scripts/config.ps1 init
-pwsh -File scripts/build.ps1
+node scripts/bootstrap.mjs config init
+node scripts/bootstrap.mjs build
 ```
 
 构建会检查插件场景声明、插件目录和 TypeScript 类型，生成各插件的 `lib/`。`lib/`、`dist/` 和 `node_modules/` 均不入库。
@@ -39,8 +38,8 @@ pwsh -File scripts/build.ps1
 
 构建完成后，打开 DSH 的 **Plugins（插件）** 页面，按需安装对应插件目录的绝对路径。例如，在仓库根目录执行以下命令取得桌面通知插件的路径：
 
-```powershell
-(Resolve-Path ./desktop-notify).Path
+```sh
+node -p "require('node:path').resolve('desktop-notify')"
 ```
 
 把输出填入插件安装页面。桌面场景可选择 `desktop-notify`、`app-restart` 和 `approval-allowlist`；Web 通知使用单独的 `notify-web`。
@@ -53,19 +52,18 @@ Web 需要**普通 Node 版 DSH CLI**。桌面应用自带的 Electron CLI 不�
 
 从仓库根目录执行：
 
-```powershell
+```sh
 # 查看工具探测结果，不写入本机配置
-pwsh -File scripts/config.ps1 init --dry-run
+node scripts/bootstrap.mjs config init --dry-run
 
 # 根据 example 生成本机配置，再检查格式与路径
-pwsh -File scripts/config.ps1 init
-pwsh -File scripts/config.ps1 check
+node scripts/bootstrap.mjs config init
+node scripts/bootstrap.mjs config check
 
-# 默认 Web patch 使用 notify-web，启动前先安装到 web profile
-$config = Get-Content scripts/config/local.json -Raw | ConvertFrom-Json
-& $config.tools.dshCli plugin --profile web add (Join-Path $PWD 'notify-web')
+# 默认 Web patch 使用 notify-web，启动前先安装兼容的 Web 插件
+node scripts/bootstrap.mjs dev-install --profile web --surface web
 
-pwsh -File profiles/web/start.ps1
+node scripts/bootstrap.mjs web
 ```
 
 若无法自动定位普通 Node 版 CLI，可在初始化时传入 `--dsh-cli <CLI绝对路径>`。不使用通知插件时，删除本机 Web patch 中的 `notify-web` 行后再启动。
@@ -89,31 +87,31 @@ pwsh -File profiles/web/start.ps1
 
 以下以 `desktop` profile 为例。执行桌面 CLI 安装前，先完全退出桌面应用，避免 profile 文件被占用。
 
-```powershell
+```sh
 # 预览目标过滤和安装命令
-pwsh -File scripts/dev-install.ps1 -Profile desktop -Surface desktop -DryRun
+node scripts/bootstrap.mjs dev-install --profile desktop --surface desktop --dry-run
 
 # 构建并以 link 方式安装兼容插件
-pwsh -File scripts/dev-install.ps1 -Profile desktop -Surface desktop
+node scripts/bootstrap.mjs dev-install --profile desktop --surface desktop
 
 # 构建并打包到 dist/，再切换到 tarball 安装
-pwsh -File scripts/pack.ps1
-pwsh -File scripts/stable-install.ps1 -Profile desktop -Surface desktop
+node scripts/bootstrap.mjs pack
+node scripts/bootstrap.mjs stable-install --profile desktop --surface desktop
 
 # 查看安装模式及目标兼容性
-pwsh -File scripts/status.ps1 -Profile desktop -Surface desktop
+node scripts/bootstrap.mjs status --profile desktop --surface desktop
 ```
 
 开发链接使用仓库构建产物；tarball 安装使用打包副本。切换安装方式时使用脚本覆盖同名依赖，避免手工删除 `link:` 依赖。需要的共享逻辑会在构建时内联进插件。
 
 ## 验证
 
-```powershell
+```sh
 # 类型与元数据检查
-pwsh -File scripts/build.ps1 -Check
+node scripts/bootstrap.mjs build --check
 
 # 完整本地检查：类型检查 → L1–L3 → L4 → L5
-pwsh -File scripts/ci.ps1
+node scripts/bootstrap.mjs ci
 ```
 
 L1–L3 覆盖逻辑、包契约和集成行为；L4 使用一次性 profile 验证真实 DSH 安装与加载；L5 通过 Playwright 验证 Web 交互和通知。L4/L5 需要普通 Node 版 DSH 和配置中的 pnpm，L5 使用 `test.browser` / `test.browserPath`；Chromium 需先通过 Playwright 安装。`test.timeoutMs` 控制测试操作和浏览器场景的超时。测试说明和环境覆盖参数见 [测试方案](docs/testing-plan.md)。

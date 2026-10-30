@@ -55,7 +55,7 @@ describe('L1 local configuration lifecycle', () => {
   it('requires local config and reports malformed JSON without exposing its content', () => {
     const f = configFixture()
     try {
-      assert.throws(() => loadRepoConfig(f.root, f.env), /run pwsh.*init/)
+      assert.throws(() => loadRepoConfig(f.root, f.env), /run node scripts\/bootstrap\.mjs config init/)
       writeFileSync(f.paths.local, '{"password":"do-not-echo-this"')
       assert.throws(() => loadRepoConfig(f.root, f.env), error => error instanceof Error
         && error.message.includes('valid JSON') && !error.message.includes('do-not-echo-this'))

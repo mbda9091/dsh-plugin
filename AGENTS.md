@@ -20,19 +20,20 @@
 | profile 目录 | `$env:DSH_PROFILE_DIR`，否则由 home 与目标 profile 名组合 |
 | `DSH_HOME` | `$env:DSH_HOME`，未指定时为用户目录下的 `.dsh` |
 | Web GUI | `$env:DSH_WEB_URL` 或启动器打印的地址；带认证信息的地址不入库 |
-| 平台 | Windows / PowerShell 7（`pwsh`） |
+| 工具链 | Node 24；仓库命令不依赖 PowerShell 7，Windows/macOS 共用 Node CLI |
 | 本仓库 | 从脚本位置解析；文档中的 `<repo>` 表示本机仓库绝对路径 |
 
 **这些值会随安装和会话变化**：优先读 `$env:DSH_PROFILE`、`$env:DSH_PROFILE_DIR`、`$env:DSH_HOME`、`$env:DSH_WEB_URL`，不要把上表当成永久常量写进代码。
 
-本机同时存在两种 `dsh`：PATH 上的 npm 全局版（默认 Node 运行时）和桌面安装自带的 Electron 版。**`dsh web` 优先用 PATH 上的默认 Node 版**（`profiles/web/start.ps1` 与 L4 都按此顺序）：Electron 版会让 `process.versions.electron` 存在，插件的场景守卫会把 Web Host 判成 `desktop`。`DSH_CLI` 可覆盖两者。
+本机同时存在两种 `dsh`：npm 全局版（默认 Node 运行时）和桌面安装自带的 Electron 版。**Web 必须用普通 Node 版**：`config init` 优先从 PATH 发现，日常 Web 与 L4/L5 读取已保存的工具配置。Electron 版会让 `process.versions.electron` 存在，插件的场景守卫会把 Web Host 判成 `desktop`。`DSH_CLI` 或 `--dsh-cli` 可覆盖配置。
 
-本机可用的运行时工具（`node`/`pnpm` 未加入 PATH）：
+先准备 Node 24 和 workspace 依赖。以下命令假定 Node 在 PATH 中；否则使用已安装 Node 的绝对路径调用 bootstrap，不能依赖已移除的 `.ps1` 或 `DSH_NODE` 自动定位：
 
 ```powershell
-# 首次使用先 config.ps1 init；薄壳定位 Node，其他工具读取本机配置
-pwsh -File .\scripts\build.ps1
-pwsh -File .\scripts\build.ps1 -Check
+# 首次使用先初始化，其他工具读取本机配置
+node scripts/bootstrap.mjs config init
+node scripts/bootstrap.mjs build
+node scripts/bootstrap.mjs build --check
 
 # 临时跑脚本（Node 24）
 $node = "$env:USERPROFILE\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe"
@@ -61,16 +62,9 @@ dsh-plugin/
 ├── scripts/
 │   ├── bootstrap.mjs         # 唯一手写 JS：用 tsc 编译 scripts/src 后运行 CLI
 │   ├── tsconfig.json         # scripts/src → scripts/.build（产物不入库）
-│   ├── src/                  # TS 脚本层：cli.ts + core/ + commands/（含 test/l4）
-│   ├── build.ps1             # 薄壳 → bootstrap.mjs build
-│   ├── pack.ps1              # build + pnpm pack → dist/*.tgz
-│   ├── dev-install.ps1       # link 安装（开发）
-│   ├── stable-install.ps1    # 安装 tarball（稳定版）
-│   ├── status.ps1            # 薄壳 → bootstrap.mjs status
-│   ├── check-targets.ps1     # 薄壳 → bootstrap.mjs check-targets
-│   ├── catalog.ps1           # 薄壳 → bootstrap.mjs catalog
-│   └── common.ps1            # 只保留 Node 启动定位，业务与配置都在 TS
-├── profiles/web/             # 仓库内 web profile 的 patch 与启动脚本（不是插件）
+│   ├── src/                  # TS 脚本层：cli.ts + core/ + commands/（含安装、Web、CI）
+│   └── config/               # example/schema；local.json 不入库
+├── profiles/web/             # Web patch 模板与本机 patch（不是插件）
 ├── packages/                 # 非插件的 workspace 私有共享库（不进 CATALOG）
 │   ├── notify-core/          # 通知内容/locale；构建期内联进插件
 │   └── notify-host/          # 通知触发逻辑；构建期内联进 desktop-notify / notify-web
@@ -83,7 +77,7 @@ dsh-plugin/
 │   ├── src/client.ts         # 可选：纯逻辑、无 import 的 Web UI 入口（tsc → lib/client.js）
 │   ├── src/client/index.ts   # 可选：可 import 共享库的 Web UI 入口（esbuild → lib/client.js）
 │   ├── client.js             # 可选：需要 React/JSX 的 Web UI 入口（手写 JS）
-│   ├── lib/                  # 构建产物，不入库（build.ps1 生成，安装/打包前必须有）
+│   ├── lib/                  # 构建产物，不入库（build 生成，安装/打包前必须有）
 │   ├── cordis.patch.yml      # bundle patch：把行插入 profile
 │   ├── locale/en.json
 │   ├── locale/zh.json
@@ -99,7 +93,7 @@ dsh-plugin/
 2. 仓库根目录只放仓库级文件（`AGENTS.md`、`.gitignore`、`.gitattributes`、workspace 配置、`scripts/`）、`packages/` 下的非插件共享库和插件目录。
 3. **插件必须自包含**：不能从自己目录之外相对导入（安装时插件目录会被单独链接/复制到 profile，跨目录导入会失效）。需要共用代码时，把它复制/内联进各插件，或后续单独引入共享包方案（见 §8）。
 4. 删除插件 = 删除目录，并在插件管理器里移除对应 bundle；profile 里的依赖记录由插件管理器负责回收，别手工改。
-5. **仓库只存源码**：`lib/`（`tsc` 产物）和 `dist/`（`pnpm pack` 产物）都不入库，由 `scripts/build.ps1`、`scripts/pack.ps1` 生成。出问题按 构建 → 打包 → 安装 的顺序定位，不要用"提交产物"来保留上一次能跑的状态。
+5. **仓库只存源码**：`lib/`（`tsc` 产物）和 `dist/`（`pnpm pack` 产物）都不入库，由 `node scripts/bootstrap.mjs build`、`node scripts/bootstrap.mjs pack` 生成。出问题按 构建 → 打包 → 安装 的顺序定位，不要用"提交产物"来保留上一次能跑的状态。
 
 ## 4. 插件形态
 
@@ -135,9 +129,9 @@ dsh-plugin/
 
 - `surfaces` 是精确集合：`["desktop"]`（桌面）、`["web"]`（仅 Web 形态）、`["desktop","web"]`（通用）。`web` **不表示**“Web UI 插件”：桌面内嵌同一套 Web UI，纯 Client 插件如果桌面里也能渲染，必须同时写 `desktop` 和 `web`。
 - `platforms` 是精确集合：`["windows"]`、`["mac"]`、`["mac","windows"]`（通用平台）。
-- `headless`、`linux` 是保留值；当前 `scripts/check-targets.ps1` 不接受，等有对应插件再启用。
+- `headless`、`linux` 是保留值；当前 `node scripts/bootstrap.mjs check-targets` 不接受，等有对应插件再启用。
 - 一个 bundle 只承载一个场景 envelope；混合就拆包。
-- 声明由 `scripts/check-targets.ps1` 校验，`build.ps1` 会调用；`CATALOG.md` 由 `scripts/catalog.ps1` 生成，不要手改。
+- 声明由 `node scripts/bootstrap.mjs check-targets` 校验，`build` 会调用；`CATALOG.md` 由 `node scripts/bootstrap.mjs catalog` 生成，不要手改。
 - 安装过滤与运行时守卫已落地；UI 徽章/页面属于阶段 3，当前不做。两者都必须读取 `dsh.targets`，不得另写一份环境判断。语义见 [docs/plugin-targets.md](docs/plugin-targets.md)。
 
 ## 5. 文件模板
@@ -291,7 +285,7 @@ export function apply(ctx: Context, config: Config = {}): void {
 - 只拒绝而不改写用 `ctx.tools.guard()`；只隐藏工具用对应 agent 上下文上的 `ctx.tools.restrict()`；观察最终结果用 `tools/result`，不要用 `tools/post-execute` 单纯观察。
 - 不要在 import 时做网络/磁盘/时间敏感操作；启动路径保持轻量。
 - **场景守卫**：`apply` 第一行调用包内 `src/targets.ts` 的 `assertTarget(ctx, name)`；不匹配直接抛错，不要静默 return。守卫必须在任何注册表/命令/文件副作用之前。`detectEnvironment` 的判定是：`process.versions.electron` → `desktop`；否则 `profileContext.startedBundles` 含 `@deepseek-ai/dsh-web-app`（或以 `/dsh-web-app` 结尾）→ `web`；否则 `headless`。**不要用 `webServer`/`webStartup`**：它们在插件 `apply` 时尚未就绪。
-- **不要手改 `lib/`**：它是 `tsc` 的产物，不入库；链接安装和打包前先跑 `scripts/build.ps1` 生成。
+- **不要手改 `lib/`**：它是 `tsc` 的产物，不入库；链接安装和打包前先跑 `node scripts/bootstrap.mjs build` 生成。
 
 ### 5.4 `client.js`（Web UI 入口）
 
@@ -355,7 +349,7 @@ window.__ModuleLoader__.load({
   - surface：`桌面`/`Desktop`、`Web`/`Web`、`通用`/`Universal`；
   - platform：`Windows`/`Windows`、`macOS`/`macOS`、`通用平台`/`All platforms`；
   - 组合成 `【桌面 · Windows】`、`【通用 · 通用平台】`，英文用 `[Desktop · Windows]`。
-  `scripts/check-targets.ps1` 会检查。
+  `node scripts/bootstrap.mjs check-targets` 会检查。
 - 图标：`icon.svg`（或 png/jpeg/webp），**必须放在包内**，≤ 256 KiB；自定义或确认可再分发，保留必要的署名。不要留模板占位图。
 - 插件管理器与设置页在没有激活插件的情况下读取这些元数据，所以 `meta.title` / `meta.description` 要写真实内容。
 
@@ -415,14 +409,14 @@ window.__ModuleLoader__.load({
 
 ### 7.3 验证清单
 
-1. `pwsh -File scripts/build.ps1 -Check` 通过（会先跑 `check-targets.ps1` 和 `catalog.ps1 -Check`，再 `tsc --noEmit`，含真实 DSH 类型）。
-2. `pwsh -File scripts/build.ps1` 重新生成 `lib/`，且 `lib/` 由当前 `src/` 生成（产物不入库，但安装 / 打包前必须是最新的）。
+1. `node scripts/bootstrap.mjs build --check` 通过（会先跑 `check-targets` 和 `catalog --check`，再 `tsc --noEmit`，含真实 DSH 类型）。
+2. `node scripts/bootstrap.mjs build` 重新生成 `lib/`，且 `lib/` 由当前 `src/` 生成（产物不入库，但安装 / 打包前必须是最新的）。
 3. `package.json`、`locale/*.json` 能解析（JSON 不允许注释和尾逗号）。
 4. 安装结果里 `application: applied`、`warnings` 为空；行状态 `enabled`，没有 `overridden` / `failed`。
 5. 实际触发一次插件能力（调用工具、看 UI 渲染），而不是只看安装成功。
 6. UI 改动：确认控制台没有 `slot entry crashed`，浅色/深色主题都正常。
 7. 视觉验证受限时（没有浏览器控制），只报告"已注册、未做视觉验证"，不要声称"看起来正常"。
-8. 场景过滤：`dev-install.ps1 -DryRun -Surface web` 应跳过仅桌面插件；`status.ps1 -Surface web` 显示 `skip`；运行时的 web 必须用默认 Node 的 `dsh web` 启动（`profiles/web/start.ps1` 已优先 PATH），不匹配的 guard 应让该行 `failed` 而不是静默无操作。surface 判定读 `profileContext.startedBundles`，不要用 `webServer`（`apply` 时未就绪）；详见 [docs/plugin-targets.md](docs/plugin-targets.md) §5。
+8. 场景过滤：`dev-install --dry-run --surface web` 应跳过仅桌面插件；`status --surface web` 显示 `skip`；运行时的 web 必须用默认 Node 的 `dsh web` 启动（`node scripts/bootstrap.mjs web` 读取普通 Node CLI 配置），不匹配的 guard 应让该行 `failed` 而不是静默无操作。surface 判定读 `profileContext.startedBundles`，不要用 `webServer`（`apply` 时未就绪）；详见 [docs/plugin-targets.md](docs/plugin-targets.md) §5。
 9. 测试：`node scripts/bootstrap.mjs test`（L1–L3，先构建再 `tsc -p test/tsconfig.json` + `node --test`）通过；改动安装/加载/Web 服务时再跑 `node scripts/bootstrap.mjs l4`（一次性 profile + 真实 `dsh web`，默认清理临时目录，`--keep` 保留日志）。
 10. Web/Client 改动再跑 `node scripts/bootstrap.mjs l5`：自动构建并启动一次性 Web profile，用 Playwright 验证独立基线、实际 slot/交互、主题/locale、真实 SSE 通知。默认使用系统 Chrome；CI 用 `DSH_E2E_BROWSER=chromium`。报告、截图和 trace 保存在 `.tmp/l5/`，不自动上传；L4 的 `--home` 仅接受 `.tmp` 内新目录。详情见 `docs/testing-plan.md` §19。
 
@@ -434,41 +428,41 @@ window.__ModuleLoader__.load({
 
 ```powershell
 # 开发：先 build，再把每个插件以 link: 装进 profile，改代码 HMR 生效
-pwsh -File scripts/dev-install.ps1
+node scripts/bootstrap.mjs dev-install
 
 # 打包：build + pnpm pack，产物在 dist/*.tgz（只包含 files 列出的内容）
-pwsh -File scripts/pack.ps1
+node scripts/bootstrap.mjs pack
 
 # 稳定：安装 dist/*.tgz（同名包会替换 link/旧 tarball 的依赖 spec）
-pwsh -File scripts/stable-install.ps1
+node scripts/bootstrap.mjs stable-install
 
 # 查看当前模式
-pwsh -File scripts/status.ps1
+node scripts/bootstrap.mjs status
 ```
 
-- 两个安装脚本都支持 `-DryRun`，只打印将执行的命令，不改 profile；
-- 安装默认按目标过滤：`-Surface desktop|web`、`-Platform windows|mac` 覆盖推断；`-All` 强制安装不兼容插件；
+- 两个安装脚本都支持 `--dry-run`，只打印将执行的命令，不改 profile；
+- 安装默认按目标过滤：`--surface desktop|web`、`--platform windows|mac` 覆盖推断；`--all` 强制安装不兼容插件；
 - 安装会写 profile（工作区外），DSH 可能需要一次批准；在 DSH 外的终端执行也可以；
 - **不要用 `pnpm remove` / `dsh plugin remove` 移除 `link:` 依赖**：Windows 上 pnpm 会跟随 junction 删除插件源码目录（已经踩过一次，源码从 git 恢复）。切换方向一律用 `add` 覆盖同名依赖。
-- **切换方向后要重解析**：从 `link:` 切到 tarball 时，`dsh plugin add <tgz>` 可能只改 manifest 的 spec，而在 `node_modules` 里留下 junction、lockfile 里留下 `link:` 解析（表现为“装好了但还是链接”）。脚本会在 profile 里再执行 `pnpm update <name>` 强制重解析；`status.ps1` 会直接报告 `tarball spec, but LINKED` 这类不一致。
+- **切换方向后要重解析**：从 `link:` 切到 tarball 时，`dsh plugin add <tgz>` 可能只改 manifest 的 spec，而在 `node_modules` 里留下 junction、lockfile 里留下 `link:` 解析（表现为“装好了但还是链接”）。脚本会在 profile 里再执行 `pnpm update <name>` 强制重解析；`status` 会直接报告 `tarball spec, but LINKED` 这类不一致。
 - **`link:` 不会安装插件的 `dependencies`，tarball 会**：稳定版必须单独验证一次依赖路径，不能只测 link；
 - 替换已加载的插件后需要重启（插件管理器会报 `restart-required`）；
-- 安装入口默认取 `$env:DSH_PROFILE`（否则 `desktop`），可用 `-Profile` 覆盖；`DSH_CLI` 可覆盖 dsh 可执行文件路径。
+- 安装入口默认取 `$env:DSH_PROFILE`（否则 `desktop`），可用 `--profile` 覆盖；`DSH_CLI` 可覆盖 dsh 可执行文件路径。
 
 ## 8. 依赖与构建
 
 - **运行时零依赖**是默认目标：Host 侧只用 `ctx` 提供的服务与 Node 内置模块；Client 侧用浏览器模块表里的 React。这样插件被链接进 profile 后不需要额外安装步骤。
 - **类型依赖**放在 `devDependencies`，版本与运行时对齐（`@deepseek-ai/dsh-*` 用 `0.2.1-rc.2`，cordis 用 `4.0.5`，TypeScript 固定 `7.0.2`）。它们不会进入运行时产物。
-- **场景门禁**：`build` 先跑 `check-targets` 校验 `dsh.targets`、locale 前缀和 README 场景，再跑 `catalog --check`；`CATALOG.md` 由 `catalog` 生成，不要手改。实现都在 `scripts/src/commands/`，`.ps1` 只是薄壳。
-- **构建**：`src/*.ts` → `lib/*.js` + `lib/*.d.ts`，产物**不入库**（`.gitignore` 忽略 `lib/`）。链接安装和打包都不会替你编译，所以 `dev-install.ps1` / `pack.ps1` 都会先构建，缺产物时直接报错。构建命令：
-  - `pwsh -File scripts/build.ps1`（薄壳，实际执行 `node scripts/bootstrap.mjs build`）
-  - `pwsh -File scripts/build.ps1 -Check` 只做类型检查
-  - `pwsh -File scripts/ci.ps1` 或 `node scripts/bootstrap.mjs ci` 运行完整本地检查（类型检查 → L1–L3 → L4 → L5），失败即停止；汇总在 `.tmp/ci/last-report.json`。需要默认 Node 版 dsh；可用 `-DshCli` / `DSH_CLI` 指定。该入口不提交、推送或上传产物。
+- **场景门禁**：`build` 先跑 `check-targets` 校验 `dsh.targets`、locale 前缀和 README 场景，再跑 `catalog --check`；`CATALOG.md` 由 `catalog` 生成，不要手改。实现都在 `scripts/src/commands/`，统一通过 `node scripts/bootstrap.mjs <command>` 调用。
+- **构建**：`src/*.ts` → `lib/*.js` + `lib/*.d.ts`，产物**不入库**（`.gitignore` 忽略 `lib/`）。链接安装和打包都不会替你编译，所以 `dev-install` / `pack` 都会先构建，缺产物时直接报错。构建命令：
+  - `node scripts/bootstrap.mjs build` 重新构建
+  - `node scripts/bootstrap.mjs build --check` 只做类型检查
+  - `node scripts/bootstrap.mjs ci` 运行完整本地检查（类型检查 → L1–L3 → L4 → L5），失败即停止；汇总在 `.tmp/ci/last-report.json`。需要默认 Node 版 dsh；可用 `--dsh-cli` / `DSH_CLI` 指定。该入口不提交、推送或上传产物。
   - `node scripts/bootstrap.mjs test` 先构建，再编译并运行 L1–L3；`node scripts/bootstrap.mjs l4` 跑真实 `dsh web` 的 L4 harness（慢、需要本机 DSH）
   - 普通终端且 `node` 在 PATH 上时，也可以用根 `package.json` 的 `pnpm build` / `pnpm check` / `pnpm catalog` / `pnpm status` / `pnpm test`；**DSH 沙箱内不要用 `pnpm run`**（它会用管道 spawn 子进程，被沙箱拒绝后会卡住），直接用 `node scripts/bootstrap.mjs <cmd>`。
   - 脚本层自身也会先被编译到 `scripts/.build/`（不入库）；`scripts/bootstrap.mjs` 是唯一手写 JS
 - **workspace 共享库**：`packages/*` 下的私有包（如 `@local/notify-core`、`@local/notify-host`）不是插件，没有 `dsh.bundle`/`dsh.targets`，不进 CATALOG。`build` 会先按依赖顺序用 `tsc` 构建它们，再构建插件。插件通过根 `devDependencies` 或 workspace 链接在构建期引用它们；**不要**把它们写成插件的 `dependencies`（link 安装不会装，tarball 会要求分发）。
-- **`build.json` 与 esbuild**：需要 import 共享库或多文件的插件，在包根放 `build.json` 声明 `host`/`client` 入口；`tsc` 只产出声明和做类型检查，`build` 用平台自带的 esbuild 可执行文件（`spawnSync` + `stdio: 'inherit'`）生成 `lib/index.js`（ESM）和 `lib/client.js`（IIFE）。esbuild 不做类型检查；`-Check` 仍跑两个 tsconfig。原生 esbuild 的 JS wrapper 会启动管道式子进程，在 DSH 沙箱里会 `EPERM`，所以直接调用 `@esbuild/<platform>/esbuild(.exe)`。
+- **`build.json` 与 esbuild**：需要 import 共享库或多文件的插件，在包根放 `build.json` 声明 `host`/`client` 入口；`tsc` 只产出声明和做类型检查，`build` 用平台自带的 esbuild 可执行文件（`spawnSync` + `stdio: 'inherit'`）生成 `lib/index.js`（ESM）和 `lib/client.js`（IIFE）。esbuild 不做类型检查；`--check` 仍跑两个 tsconfig。原生 esbuild 的 JS wrapper 会启动管道式子进程，在 DSH 沙箱里会 `EPERM`，所以直接调用 `@esbuild/<platform>/esbuild(.exe)`。
 - **共享库必须被内联**：`@local/notify-core`、`@local/notify-host` 这类构建期库由 esbuild bundle 进插件产物，profile 不需要安装；`files` 里不要列它们，也不要让运行时 `import '@local/notify-*'` 残留。
 - **脚本层约定**（`scripts/src/`）：
   - 业务逻辑只写 TypeScript，`bootstrap.mjs` 只负责编译和加载；不要引入 `tsx`/`ts-node`。
@@ -476,8 +470,8 @@ pwsh -File scripts/status.ps1
   - 不要在 `scripts/` 下建 `lib/` 目录：`.gitignore` 的 `lib/` 规则会把它连同源码一起忽略；共享代码放 `scripts/src/core/`。
   - 发现插件必须走 `dsh.bundle` 清单判断，不能只看"顶层目录有 `tsconfig.json`"，否则 `scripts/` 自己会被当成插件编译。
   - 测试源码在 `test/src/`，由 `test/tsconfig.json` 编译到 `test/.build`；测试 import 插件**已构建**的入口（`@local/*` → `lib/index.js`），所以要先构建。不要手改 `test/.build/`。
-  - `.ps1` 入口保留为兼容薄壳，只找 Node、转发参数和退出码；打包与安装业务在 TypeScript。不要在 PowerShell 新增另一套配置解析或工具定位。
-- **新增插件**：复制一个现有插件的 `tsconfig.json`、`package.json` 的 `scripts`/`devDependencies` 起步；写好 `dsh.targets` 后运行 `pwsh -File scripts/catalog.ps1` 更新 `CATALOG.md`；`build` 按 `dsh.bundle` 清单发现插件（不只看 `tsconfig.json`），新目录只要声明了 bundle 就会被构建。
+  - 仓库 `.ps1` 兼容入口已移除；所有业务与参数解析都在 TypeScript。不要新增 shell 转发层或另一套工具定位。
+- **新增插件**：复制一个现有插件的 `tsconfig.json`、`package.json` 的 `scripts`/`devDependencies` 起步；写好 `dsh.targets` 后运行 `node scripts/bootstrap.mjs catalog` 更新 `CATALOG.md`；`build` 按 `dsh.bundle` 清单发现插件（不只看 `tsconfig.json`），新目录只要声明了 bundle 就会被构建。
 - **确需运行时依赖时**：优先打包进 `lib/`；否则要保证依赖能从插件真实路径解析（链接安装可能保留符号链接，裸 `import '@scope/pkg'` 会从 profile 目录解析而找不到）。
 - **安装**：只有 `devDependencies` 变化时才需要 `pnpm install`。DSH 沙箱会拒绝 pnpm 替换/清理包目录（`EPERM`），这一步需要一次沙箱外批准，或在 DSH 外的普通终端执行。这是沙箱的设计边界，不要为了绕过它去手工删 ACL。
 - **不要**提交 `node_modules`、`.pnpm-store`、`lib/`、`dist/`；**不要**手改 `lib/`。
@@ -485,7 +479,7 @@ pwsh -File scripts/status.ps1
 
 ## 9. Git 约定
 
-- 本机配置机制见 [docs/local-configuration-design.md](docs/local-configuration-design.md)。安装 workspace 依赖后，首次构建或运行前执行 `scripts/config.ps1 init`；只提交 example 和 schema，不提交 `scripts/config/local.json`、`profiles/web/cordis.local.patch.yml` 或备份。Web、构建、打包、安装、状态和测试统一读取配置，优先级为显式参数 > 支持的环境变量 > 本机文件。L4/L5 只取工具与测试参数，不读日常 Web patch。CI 在 runner 内初始化；Node 启动仍由 `DSH_NODE` / 运行时 / PATH 定位。
+- 本机配置机制见 [docs/local-configuration-design.md](docs/local-configuration-design.md)。安装 workspace 依赖后，首次构建或运行前执行 `node scripts/bootstrap.mjs config init`；只提交 example 和 schema，不提交 `scripts/config/local.json`、`profiles/web/cordis.local.patch.yml` 或备份。Web、构建、打包、安装、状态和测试统一读取配置，优先级为显式参数 > 支持的环境变量 > 本机文件。L4/L5 只取工具与测试参数，不读日常 Web patch。CI 在 runner 内初始化；Node 由调用方通过 PATH 或绝对路径选择，`DSH_NODE` 不再参与仓库启动。
 
 - 主分支 `main`，提交保持可读历史。
 - 提交信息：`feat(<plugin>): ...`、`fix(<plugin>): ...`、`docs: ...`、`chore: ...`；一个插件的完整改动尽量放在一个提交里。
@@ -507,11 +501,11 @@ pwsh -File scripts/status.ps1
 - [ ] `locale/en.json`、`locale/zh.json` 有真实的 `meta.title` / `meta.description`，且描述以场景前缀开头
 - [ ] Host 入口的 `apply` 第一行有 `assertTarget(ctx, name)`，不匹配时抛错
 - [ ] `icon.svg` 合法、在包内、≤ 256 KiB、非占位图
-- [ ] `scripts/build.ps1 -Check` 通过；JSON 可解析
+- [ ] `node scripts/bootstrap.mjs build --check` 通过；JSON 可解析
 - [ ] `node scripts/bootstrap.mjs test` 通过（L1/L2 契约会检查本插件的 `lib` 入口、`files`、locale 前缀）
-- [ ] `scripts/build.ps1` 已重建 `lib/`（产物不入库，但装 / 打包前必须最新）
+- [ ] `node scripts/bootstrap.mjs build` 已重建 `lib/`（产物不入库，但装 / 打包前必须最新）
 - [ ] 需要共享库/多文件 Client 的插件已声明 `build.json`，`lib/client.js` 由 esbuild 产出且不含运行时 `@local/*` import
 - [ ] 安装后行 `enabled`、无 `error`，能力实际可用
 - [ ] README 写清用途、**适用场景**、配置、安装、限制
-- [ ] `scripts/catalog.ps1` 已生成 `CATALOG.md`（`build.ps1 -Check` 会校验）
+- [ ] `node scripts/bootstrap.mjs catalog` 已生成 `CATALOG.md`（`build --check` 会校验）
 - [ ] `git status` 干净，提交信息符合约定

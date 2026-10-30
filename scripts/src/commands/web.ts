@@ -43,27 +43,27 @@ async function openBrowser(config: RepoConfig['web'], url: string, env: NodeJS.P
     command = requireFile(config.browserPath!, 'web.browserPath')
     args = [url]
   } else if (process.platform === 'win32') {
-    command = join(envValue(env, 'SystemRoot') ?? 'C:\\Windows', 'System32/WindowsPowerShell/v1.0/powershell.exe')
-    // Pass the URL as data; never interpolate it into shell source.
-    args = ['-NoProfile', '-NonInteractive', '-Command', 'Start-Process -FilePath $env:DSH_LAUNCH_URL']
+    command = join(envValue(env, 'SystemRoot') ?? 'C:\\Windows', 'System32/rundll32.exe')
+    // Invoke the Windows URL handler directly, with the URL as a single argument.
+    args = ['url.dll,FileProtocolHandler', url]
   } else {
     command = 'open'
     args = [url]
   }
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(command, args, { stdio: 'inherit', windowsHide: true, env: { ...env, DSH_LAUNCH_URL: url } })
+    const child = spawn(command, args, { stdio: 'inherit', windowsHide: true, env })
     child.once('error', reject)
     child.once('spawn', () => { child.unref(); resolve() })
   })
 }
 
 /** Reads local config once; never generates a patch. OS temp files only capture
- * child output, as in the previous PS launcher, and are removed on exit. */
+ * child output and are removed on exit. */
 export async function runWeb(args: readonly string[], root: string = repoRoot, env: NodeJS.ProcessEnv = process.env): Promise<number> {
   const parsed = webArguments(args)
   if (parsed.help) {
-    console.log('Usage: profiles/web/start.ps1 [--open|--no-open] [--dsh-cli <path>] [--browser edge|default] [--browser-path <path>] [--startup-timeout <ms>] [DSH web options]')
-    console.log('Run scripts/config.ps1 init first. --port, --host and other DSH options are forwarded.')
+    console.log('Usage: node scripts/bootstrap.mjs web [--open|--no-open] [--dsh-cli <path>] [--browser edge|default] [--browser-path <path>] [--startup-timeout <ms>] [DSH web options]')
+    console.log('Run node scripts/bootstrap.mjs config init first. --port, --host and other DSH options are forwarded.')
     return 0
   }
   const { config } = loadRepoConfig(root, env, parsed.overrides)

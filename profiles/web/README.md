@@ -1,40 +1,39 @@
 # Web profile 本机配置
 
-先从 example 初始化本机配置，再启动 Web。配置机制和后续阶段见 [本机配置方案](../../docs/local-configuration-design.md)。以下命令从仓库根目录执行；PowerShell 入口需要 PowerShell 7，初始化前需先安装 workspace 开发依赖。
+先从 example 初始化本机配置，再启动 Web。配置机制和后续阶段见 [本机配置方案](../../docs/local-configuration-design.md)。以下命令从仓库根目录执行；需要 Node 24 和 workspace 开发依赖，无需 PowerShell 7。
 
 ## 首次使用
 
-```powershell
+```sh
 # 检查将选中的工具和准备生成的文件，不写配置
-pwsh -File scripts/config.ps1 init --dry-run
+node scripts/bootstrap.mjs config init --dry-run
 
 # 生成本机 JSON 和 Web patch；已有文件不会被覆盖
-pwsh -File scripts/config.ps1 init
+node scripts/bootstrap.mjs config init
 
 # 构建插件，再检查配置中的路径
-pwsh -File scripts/build.ps1
-pwsh -File scripts/config.ps1 check
+node scripts/bootstrap.mjs build
+node scripts/bootstrap.mjs config check
 ```
 
 Web 必须使用普通 Node 版 DSH。初始化按显式参数、已有环境变量、PATH 顺序选择，并检查 CLI 启动脚本；Electron 版和无法识别的 wrapper 会被拒绝。如果 PATH 上只有桌面版，先定位普通 Node 版的 `dsh.cmd`，通过 `--dsh-cli <绝对路径>` 或 `DSH_CLI` 指定。
 
 初始化可选参数：`--dsh-cli`、`--pnpm-script`、`--browser edge|default`、`--browser-path`、`--test-browser chrome|chromium`、`--test-browser-path`。路径相对于仓库根目录解析；`pnpm-script` 必须指向 `pnpm.cjs`。显式路径无效会报错，不会静默改选其他安装。
 
-默认 Web patch 包含 `notify-web` 参数，因此启动前需通过插件管理器安装它。例如：
+默认 Web patch 包含 `notify-web` 参数，因此启动前需安装它。可用 Node CLI 安装当前兼容的 Web 插件（`notify-web` 和 `approval-allowlist`）：
 
-```powershell
-$config = Get-Content scripts/config/local.json -Raw | ConvertFrom-Json
-& $config.tools.dshCli plugin --profile web add (Join-Path $PWD 'notify-web')
+```sh
+node scripts/bootstrap.mjs dev-install --profile web --surface web
 ```
 
 也可在插件管理页填写插件目录的绝对路径。暂时不用通知插件时，删除本地 patch 中的 `notify-web` 行。初始化和启动器都不安装插件、不改实际 profile 的依赖记录。
 
-```powershell
-pwsh -File profiles/web/start.ps1
-pwsh -File profiles/web/start.ps1 --no-open --port 8080
+```sh
+node scripts/bootstrap.mjs web
+node scripts/bootstrap.mjs web --no-open --port 8080
 ```
 
-已有 `dshweb` 函数只要仍指向本目录 `start.ps1`，可继续使用。首次迁移后需重新启动自己的 Web 服务；运行中的进程不会自动读取新文件。
+旧的 `start.ps1` 已移除。个人 `dshweb` 函数或快捷方式需改为调用 `node <repo>/scripts/bootstrap.mjs web` 并转发参数；从其他工作目录启动时使用 bootstrap 的绝对路径。Node 不在 PATH 时也使用其绝对路径。运行中的服务不会自动读取新文件。
 
 ## 哪个文件负责什么
 
@@ -75,7 +74,7 @@ pwsh -File profiles/web/start.ps1 --no-open --port 8080
 
 ## 加载与重载
 
-`start.ps1` 只负责找 Node 和转发参数；TypeScript 命令读取本机配置后，直接启动普通 Node Host：
+`node scripts/bootstrap.mjs web` 读取本机配置后，直接启动普通 Node Host：
 
 ```text
 dsh web --patch <仓库>/profiles/web/cordis.local.patch.yml --no-open
@@ -83,7 +82,7 @@ dsh web --patch <仓库>/profiles/web/cordis.local.patch.yml --no-open
 
 启动器等待 DSH 输出地址，按配置打开浏览器，并等待服务结束。启动等待超时、启动失败或终端发出中断信号时会停止自己启动的 Host。为读取地址而使用的操作系统临时日志退出后清理；不在 `.tmp/web` 生成配置文件。
 
-Node 的启动定位继续使用 `DSH_NODE` 和自动发现，避免读取器自身依赖尚未读取的配置。构建、打包、安装、状态和测试已接入统一配置，原 PowerShell 入口继续兼容。
+调用方通过 PATH 或 Node 绝对路径选择运行时，不再读取 `DSH_NODE`。构建、打包、安装、状态和测试均读取统一配置。Windows 默认浏览器通过系统 URL handler 打开，macOS 通过 `open`；指定 Edge 时直接启动其可执行文件。
 
 本地 patch 属于最后的 `--patch` 层：bundle → profile → home → 本地 patch。同一行的 `config` **整体替换，不深合并**；个人审批规则和私有参数写在本地文件。启动参数中的 patch 是启动时读取的快照，修改后要重启服务。
 

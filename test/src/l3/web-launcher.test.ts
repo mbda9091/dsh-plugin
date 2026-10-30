@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { it } from 'node:test'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import childProcess from 'node:child_process'
+import { syncBuiltinESMExports } from 'node:module'
 import { initializeConfig } from '../../../scripts/.build/commands/config.js'
 import { runWeb } from '../../../scripts/.build/commands/web.js'
 import { configFixture } from '../harness/local-config.js'
@@ -52,4 +54,30 @@ it('L3 Web startup timeout redacts diagnostics and terminates the server', async
     const pid = Number(readFileSync(capture, 'utf8'))
     assert.throws(() => process.kill(pid, 0), /ESRCH/)
   } finally { removeDir(f.root) }
+})
+
+it('L3 Web default browser passes the URL to the OS handler without a PowerShell subprocess', { skip: process.platform !== 'win32' && process.platform !== 'darwin' }, async (t) => {
+  const f = configFixture()
+  const spawn = childProcess.spawn
+  const opened: Array<{ command: string; args: readonly string[] }> = []
+  const url = 'http://127.0.0.1:12345/?a=1&b=two%20words'
+  try {
+    initializeConfig(f.options, f.root, f.env)
+    writeFileSync(f.entry, `#!/usr/bin/env node\nconsole.log('dsh web: ${url}'); setTimeout(() => process.exit(0), 500);`)
+    t.mock.method(childProcess, 'spawn', (command: string, args: readonly string[], options: childProcess.SpawnOptions) => {
+      if (command === 'open' || command.endsWith('rundll32.exe')) {
+        opened.push({ command, args })
+        return spawn(process.execPath, ['-e', ''], options)
+      }
+      return spawn(command, args, options)
+    })
+    syncBuiltinESMExports()
+    assert.equal(await runWeb(['--open', '--browser', 'default'], f.root, { ...process.env, ...f.env, PATH: process.env.PATH, DSH_CLI: '', DSH_PNPM: '', CHROME_PATH: '', DSH_E2E_BROWSER: '' }), 0)
+    assert.equal(opened.length, 1)
+    assert.deepEqual(opened[0]?.args, process.platform === 'win32' ? ['url.dll,FileProtocolHandler', url] : [url])
+  } finally {
+    t.mock.restoreAll()
+    syncBuiltinESMExports()
+    removeDir(f.root)
+  }
 })

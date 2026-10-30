@@ -6,7 +6,7 @@
 > `dsh.client.platform` 只用于 Client bundle 且只接受 `"web"`。
 > 所以适用场景由本仓库自己声明、校验和展示，dsh 不参与解释。
 
-> **阶段 1 已落地**：`dsh.targets` 声明、`scripts/check-targets.ps1` 校验、`CATALOG.md` 目录。
+> **阶段 1 已落地**：`dsh.targets` 声明、`node scripts/bootstrap.mjs check-targets` 校验、`CATALOG.md` 目录。
 > **阶段 2 已落地**：安装过滤（`dev-install` / `stable-install` / `status`）与运行时守卫（各插件的 `src/targets.ts`）。
 > **阶段 3（可选）**：插件管理器里的 UI 徽章 / 按场景页面；当前不做。
 
@@ -77,12 +77,12 @@ locale 的 `meta.description` 必须以对应场景前缀开头，方便在内�
 [Universal · All platforms] ...
 ```
 
-前缀由 `scripts/check-targets.ps1` 和 `dsh.targets` 交叉校验，防止元数据和描述漂移。
+前缀由 `node scripts/bootstrap.mjs check-targets` 和 `dsh.targets` 交叉校验，防止元数据和描述漂移。
 
 ## 4. 校验
 
-```powershell
-pwsh -File scripts/check-targets.ps1
+```sh
+node scripts/bootstrap.mjs check-targets
 ```
 
 检查内容：
@@ -94,7 +94,7 @@ pwsh -File scripts/check-targets.ps1
 - `locale/zh.json`、`locale/en.json` 的 `meta.description` 以场景前缀开头；
 - `README.md` 有 `## 适用场景` 一节。
 
-`scripts/build.ps1`（包括 `-Check`）会先调用它，再检查 `CATALOG.md` 是否最新，最后才跑 `tsc`。
+`node scripts/bootstrap.mjs build`（包括 `--check`）会先调用它，再检查 `CATALOG.md` 是否最新，最后才跑 `tsc`。
 
 ## 5. 运行时判定
 
@@ -130,21 +130,21 @@ pwsh -File scripts/check-targets.ps1
 - **不要用 `ctx.get('webServer')` 判断 web**：`webServer` 服务在插件 `apply` 执行时还没有就绪（实测 `apply` 时 `false`、约 1.5 s 后为 `true`），此前按它判断会把 Web Host 误判成 `headless`；桌面 Host 同样有 `webServer`，因此也不能用它区分 desktop；
 - **不要用 `ELECTRON_RUN_AS_NODE` 环境变量判断桌面**：它会泄漏到子进程；在 Host 进程内用 `process.versions.electron`；
 - Web 判定使用 profile 组合后的 `startedBundles`：`dsh web` 会加载 `@deepseek-ai/dsh-web-app`，该列表在插件激活时已可用。自定义 Web bundle 名只要以 `/dsh-web-app` 结尾也能识别；
-- **用默认 Node 的 `dsh web` 启动 Web**：桌面安装自带的 CLI 把 Host 跑在 Electron 引擎里，`process.versions.electron` 仍存在，会被判为 `desktop`。仓库的 `profiles/web/start.ps1` 优先使用 PATH 上的 `dsh`，L4 也如此；
+- **用默认 Node 的 `dsh web` 启动 Web**：桌面安装自带的 CLI 把 Host 跑在 Electron 引擎里，`process.versions.electron` 仍存在，会被判为 `desktop`。初始化优先从 PATH 发现普通 Node CLI，仓库 `node scripts/bootstrap.mjs web` 与 L4 读取已配置的工具路径；
 - Client 侧不要用 `navigator` 猜平台；由 Host 判定并通过服务或首屏数据告知 Client。
 
 ## 6. 安装过滤与自由组合
 
 组合的单位是 bundle。dsh 已经支持任意启用/停用 bundle，不需要发明新的组合格式；只需要按目标过滤：
 
-- `scripts/dev-install.ps1` / `stable-install.ps1` 增加 `-Surface desktop|web`、`-Platform windows|mac`；
-- 默认值：`-Platform` 取当前系统，`-Surface` 从 profile 名 `desktop`/`web` 推断；自定义 profile 必须显式传 `-Surface`；
-- 默认只安装目标兼容的插件，跳过时打印 `requires ...`；`-All` 才强制安装不兼容插件；
+- `node scripts/bootstrap.mjs dev-install` / `stable-install` 增加 `--surface desktop|web`、`--platform windows|mac`；
+- 默认值：`--platform` 取当前系统，`--surface` 从 profile 名 `desktop`/`web` 推断；自定义 profile 必须显式传 `--surface`；
+- 默认只安装目标兼容的插件，跳过时打印 `requires ...`；`--all` 才强制安装不兼容插件；
 - desktop profile 安装“桌面 + 平台”和“通用 + 平台”的插件；
 - web profile 安装“Web + 平台”和“通用 + 平台”的插件；
-- `scripts/status.ps1` 增加同样的 `-Surface` / `-Platform`，显示每个插件的声明目标和 `compatible` / `skip`。
+- `node scripts/bootstrap.mjs status` 增加同样的 `--surface` / `--platform`，显示每个插件的声明目标和 `compatible` / `skip`。
 
-跳过不等于卸载：已经装在 profile 里的不兼容插件不会被脚本删除；用 `status.ps1` 查看，再到插件管理器里停用或移除。不要对 `link:` 依赖执行自动删除。
+跳过不等于卸载：已经装在 profile 里的不兼容插件不会被脚本删除；用 `status` 查看，再到插件管理器里停用或移除。不要对 `link:` 依赖执行自动删除。
 
 不建议把 `disabled: !!js "process.platform !== 'win32'"` 作为主机制：它只是静默禁用，插件管理器不会说明原因，profile 层还能覆盖。它可以作为极少数场景的兜底，不能替代安装过滤和运行时守卫。
 
@@ -168,9 +168,9 @@ pwsh -File scripts/check-targets.ps1
 
 ## 9. 相关文件
 
-- [`scripts/check-targets.ps1`](../scripts/check-targets.ps1)：声明校验；
-- [`scripts/catalog.ps1`](../scripts/catalog.ps1)：生成 [`CATALOG.md`](../CATALOG.md)；
-- [`scripts/dev-install.ps1`](../scripts/dev-install.ps1)、[`scripts/stable-install.ps1`](../scripts/stable-install.ps1)：按目标过滤安装；
-- [`scripts/status.ps1`](../scripts/status.ps1)：显示声明目标与当前兼容性；
-- [`scripts/build.ps1`](../scripts/build.ps1)：构建入口，串联上述检查；
+- [`node scripts/bootstrap.mjs check-targets`](../scripts/src/commands/check-targets.ts)：声明校验；
+- [`node scripts/bootstrap.mjs catalog`](../scripts/src/commands/catalog.ts)：生成 [`CATALOG.md`](../CATALOG.md)；
+- [`node scripts/bootstrap.mjs dev-install`](../scripts/src/commands/install.ts)、[`node scripts/bootstrap.mjs stable-install`](../scripts/src/commands/install.ts)：按目标过滤安装；
+- [`node scripts/bootstrap.mjs status`](../scripts/src/commands/status.ts)：显示声明目标与当前兼容性；
+- [`node scripts/bootstrap.mjs build`](../scripts/src/commands/build.ts)：构建入口，串联上述检查；
 - [`AGENTS.md`](../AGENTS.md)：插件开发规则与检查清单。

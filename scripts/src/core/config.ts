@@ -136,6 +136,6 @@ export function loadRepoConfig(
   root: string = repoRoot, env: NodeJS.ProcessEnv = process.env, overrides: ConfigOverrides = {},
 ): ResolvedConfig {
   const paths = configPaths(root)
-  if (!existsSync(paths.local)) throw new Error(`${paths.local}: missing; run pwsh -File scripts/config.ps1 init`)
+  if (!existsSync(paths.local)) throw new Error(`${paths.local}: missing; run node scripts/bootstrap.mjs config init`)
   return resolveConfig(readConfigFile(paths.local, paths.schema), root, paths.schema, env, overrides)
 }

@@ -84,8 +84,8 @@ Host 从 `notify-web` loader 行读取以下字段，默认值如下：
 ## 构建
 
 ```powershell
-pwsh -File scripts\build.ps1          # tsc 声明 + esbuild 打 bundle
-pwsh -File scripts\build.ps1 -Check   # 只做类型检查
+node scripts/bootstrap.mjs build          # tsc 声明 + esbuild 打 bundle
+node scripts/bootstrap.mjs build --check   # 只做类型检查
 ```
 
 `lib/client.js` 是构建产物，不入库。构建脚本直接调用平台自带的 esbuild 可执行文件，并通过继承 stdio 避免 DSH 沙箱对管道式子进程的限制；esbuild 自身不做类型检查，类型检查仍由 `tsc` 完成。
@@ -100,7 +100,7 @@ Web GUI 左侧 **Plugins（插件）** 页 → 安装 → 填本目录的绝对�
 
 安装后刷新页面，插件会立即尝试申请通知权限；允许浏览器通知即可。若未显示授权提示，可点击页面触发一次补充请求。
 
-在本仓库的日常 Web 环境中，安装记录由插件管理器维护。先用 `scripts/config.ps1 init` 生成本机配置，通知参数统一放在被 Git 忽略的 `profiles/web/cordis.local.patch.yml`，再使用 `profiles/web/start.ps1`（或 `dshweb`）启动。修改该配置后需要重启 Web 服务，再刷新浏览器；不要将同一套日常参数另写进用户目录的 profile patch。详见 [Web 配置与启动说明](../profiles/web/README.md)。
+在本仓库的日常 Web 环境中，安装记录由插件管理器维护。先用 `node scripts/bootstrap.mjs config init` 生成本机配置，通知参数统一放在被 Git 忽略的 `profiles/web/cordis.local.patch.yml`，再使用 `node scripts/bootstrap.mjs web`（或 `dshweb`）启动。修改该配置后需要重启 Web 服务，再刷新浏览器；不要将同一套日常参数另写进用户目录的 profile patch。详见 [Web 配置与启动说明](../profiles/web/README.md)。
 
 ## 限制
 

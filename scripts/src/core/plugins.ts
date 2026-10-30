@@ -17,7 +17,7 @@ export interface Plugin {
 const SKIP_DIRS = new Set(['node_modules', 'dist'])
 
 /**
- * Discovers plugin packages the same way scripts/common.ps1 did: top-level
+ * Discovers plugin packages by their dsh.bundle manifest: top-level
  * directories only, skipping dot-directories, node_modules and dist.
  */
 export function discoverPlugins(repo: string): Plugin[] {
@@ -49,8 +49,7 @@ export function discoverPlugins(repo: string): Plugin[] {
     })
   }
 
-  // Directory order is filesystem-dependent; the PowerShell scripts produced a
-  // stable alphabetical order and the catalog rows depend on it.
+  // Directory order is filesystem-dependent; catalog rows need stable ordering.
   return plugins.sort((left, right) => compare(left.dirName, right.dirName))
 }
 

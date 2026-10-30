@@ -1,15 +1,16 @@
 # 测试与 Web L5 方案（v0.1）
 
 > 状态：M1–M5 已完成；提交 `d9f2a12` 的 Windows/macOS 远端 CI 全部通过（§19.7）。更新日期：2026-10-30（Asia/Shanghai）。
-> 本文保留历史实施记录；当前验收以 §19.7 为准，未完成事项与范围边界集中在 §20。M6 等首个真实 UI 组件需要时再启动。
+> 本文保留历史实施记录；远端基线见 §19.7，本次 P0 本机验收见 §7.5，未完成事项与范围边界集中在 §20。M6 等首个真实 UI 组件需要时再启动。
 > 历史日志中的机器路径已脱敏；`<repo>`、`%USERPROFILE%`、`%LOCALAPPDATA%` 为路径占位符。新的本机配置入口见 [本机配置方案](local-configuration-design.md)，L4/L5 不读取日常 Web 本机 patch。
+> TS 脚本收尾已实现；后续环境统一与开发隔离见[独立规划](development-environment-plan.md)。以下历史通过记录不代表 P1–P4 已实现。
 
 ## 1. 结论摘要
 
 - **L5 先只做 Web**，使用真实 `dsh web` + Playwright；桌面端 L5 延期。
 - **`app-restart`、`desktop-notify` 不适配 Web**，保持 desktop-only；Web L5 已覆盖 fixture 和真实 `notify-web`，后续 Web/UI 插件复用该 harness。
 - **Web profile 由官方 shipped `web` 初始化**，不手工拼配置；已初始化并验证，测试使用独立的 workspace-local `DSH_HOME`。
-- **构建、打包和安装业务已迁到 TypeScript 并用 `tsc` 编译**，不使用 Node 类型擦除；保留极薄的 `bootstrap.mjs` 和 PowerShell 入口。配置第二阶段的当前行为见 §19.6，前文各阶段记录保留。
+- **仓库脚本已统一为 TypeScript 并用 `tsc` 编译**，主入口为 `node scripts/bootstrap.mjs <command>`，不使用 Node 类型擦除。PowerShell 兼容入口已移除；收尾证据见 §7.5。配置第二阶段的行为见 §19.6，前文各阶段记录保留。
 - **测试 runner 不统一**：Host/脚本用 `node:test`，L5 用 Playwright；未来 UI 组件测试计划用 Vitest，尚未引入。`browser-use` 只做探索式验收。
 - **M4 已落地**：L1–L3 在 `test/src/` 下用 `node:test`，当前 251 项用例已在 Windows 本机全部通过，平台专属用例在其他平台按条件跳过。L2 对四个正式插件实际打包、解包、检查内容并导入入口。L4 在一次性 profile 里安装、启动真实 `dsh web` 并断言 loader 输出；失败自动保留现场。
 - **M5 已完成**：正式 L5 验证实际 slot/交互、主题/locale 和真实 SSE 通知链路；Windows/macOS 远端 CI 已通过（§19.7），原生系统通知不在其验收范围内。
@@ -207,7 +208,7 @@ Web 应用参数（`dsh web --help`）：
   - Host 入口 `index.js`（空 `apply`）；
   - `client.js` 设置 `window.__DSH_WEB_HELLO__` 并在 `conversation.composer.dock` 注册 slot；
   - `dsh.targets` 为 `web` / `windows+mac`，`dsh.client.immediately: true`；
-  - 不是顶层插件，不进入 CATALOG，也不会被 `build.ps1` 当正式插件构建。
+  - 不是顶层插件，不进入 CATALOG，也不会被 `build` 当正式插件构建。
 - 安装（workspace-local home）：
   ```powershell
   $env:DSH_HOME = Join-Path $PWD '.tmp/dsh-home'
@@ -382,7 +383,7 @@ scripts/
 ├── bootstrap.mjs          # 唯一手写 JS：定位 tsc、编译 scripts/src、加载 .build/cli.js
 ├── tsconfig.json          # rootDir: src, outDir: .build（含 declaration，供 test/ 引用）
 ├── src/
-│   ├── cli.ts             # 子命令：build/check-targets/catalog/status/test/l4
+│   ├── cli.ts             # build/check-targets/catalog/status/config/web/pack/dev-install/stable-install/test/l4/l5/ci
 │   ├── core/
 │   │   ├── repo.ts        # 仓库根（从 import.meta.url 推导，不依赖 CWD）
 │   │   ├── json.ts        # 读取/写入 UTF-8、isRecord、stringArray
@@ -396,6 +397,12 @@ scripts/
 │       ├── check-targets.ts
 │       ├── catalog.ts
 │       ├── status.ts
+│       ├── config.ts      # 本机配置初始化与检查
+│       ├── web.ts         # Web 启停与浏览器打开
+│       ├── pack.ts        # 打包
+│       ├── install.ts     # link/tarball 安装、预检与重解析
+│       ├── ci.ts          # 完整检查编排
+│       ├── l5.ts          # 浏览器验收编排
 │       ├── test.ts        # L1–L3：tsc test/ 后 node --test
 │       └── l4.ts          # L4 harness：一次性 profile、安装、dsh web、断言、清理
 └── .build/                # tsc 产物，gitignore
@@ -412,9 +419,10 @@ test/
 └── .build/                # tsc 产物，gitignore
 ```
 
-顶层 `build.ps1` / `check-targets.ps1` / `catalog.ps1` / `status.ps1` 保留为薄壳，
-内部执行 `node scripts/bootstrap.mjs <cmd>`；M4 新增的 `test` / `l4` 只有 TS 入口。
-`pack` / `dev-install` / `stable-install` 的业务已在配置第二阶段迁入 TS；对应 `.ps1` 仅转发参数，`common.ps1` 只负责定位 Node（§19.6）。
+所有命令通过 `node scripts/bootstrap.mjs <command>` 调用。旧 `scripts/*.ps1`（含
+`common.ps1`）与 `profiles/web/start.ps1` 已移除，原参数改用 Node CLI 的
+`--check`、`--dry-run`、`--profile`、`--surface` 等形式。Node 由调用方通过 PATH 或绝对路径选择，
+不再使用 `DSH_NODE` 定位。`pack` / `dev-install` / `stable-install` 继续复用配置第二阶段的 TS 业务（§19.6）。
 
 ### 7.2 约束
 
@@ -443,9 +451,9 @@ test/
 1. `common` + `check-targets` + `catalog` + `build`（只读/编译）；
 2. `status` + `pack`；
 3. `dev-install` / `stable-install`（pnpm、dsh passthrough、junction、删除风险最高）；
-4. 原计划删除 `.ps1`；现保留兼容薄壳并同步 AGENTS/README，不再安排删壳。
+4. 删除 `.ps1` 兼容入口，迁移调用方、帮助、文档与专属测试；Node CLI 独立验收（§7.5）。
 
-每步先记录旧脚本输出，再对比新脚本；`--dry-run`/`--check` 优先自动化。
+迁移业务时先记录旧脚本输出，再对比新脚本；`--dry-run`/`--check` 优先自动化。§7.4 保留当时的对拍记录，兼容入口退场后的当前用法以 §7.1/§7.5 为准。
 
 ### 7.4 M3 实施结果（2026-10-24）
 
@@ -488,9 +496,41 @@ test/
 早期后续项的当前状态：
 
 - `pack` / `dev-install` / `stable-install` 已迁入 TypeScript，并补齐配置与安装切换测试（§19.6）。
-- `.ps1` 薄壳按兼容入口保留，不把“未删除”当成缺陷或待办。
+- `.ps1` 在 M3 和配置第二阶段曾作为兼容入口保留，现已按 P0 移除（§7.5）。
 - `scripts/src/core` 已有 `node:test` 覆盖；根 `devDependencies` 也已显式声明 `@types/node`，不再依赖插件提升。
 - 先前安装阻塞的 HMR 原因与处理仍保留在 §12，属于历史排障记录。
+
+### 7.5 P0 脚本收尾（2026-10-30）
+
+当前入口为 `node scripts/bootstrap.mjs <command>`。已删除 `scripts/` 下 10 个 `.ps1`
+与 `profiles/web/start.ps1`，移除 PowerShell 参数映射专属测试；原配置、安装预检、
+失败停止、Web 超时与清理测试继续保留。帮助、报错提示、根 package scripts、AGENTS、
+各 README 和现行操作说明均已迁移。本机已知 `dshweb` 函数也改为调用 bootstrap，
+修改前在其配置文件旁保留备份；其他机器的个人快捷方式按 Web README 自行迁移。
+
+新增 `test/src/l3/node-entrypoints.test.ts` 直接复制并编译脚本源码，从带空格、中文和
+单引号的目录运行真实 bootstrap；覆盖 PATH/绝对 Node、不同 CWD、无需 PS 的帮助、
+缺配置提示、init 预览与重复初始化、check、安装 dry-run/参数/退出码、status 和 Web 参数/退出码。
+Windows 默认浏览器改用系统 URL handler，新增回归断言 URL 作为单个参数传入；macOS 仍用 `open`。
+
+Windows / Node `24.19.0` 的独立验收：
+
+- 在 `.tmp/p0-review/source 中文/` 建立不含 PS 入口、个人配置和旧构建产物的源码副本，
+  复用已安装的第三方依赖，`@local/*` 指向副本自身；重新初始化副本配置，从其他 CWD 调用 Node CLI。
+- `ci` 的 type-check、L1–L3、L4、L5 全部退出 0；**252 tests / 252 pass / 0 fail**。
+  L4 覆盖真实安装/加载与 tarball，L5 覆盖 Web 基线、slot、主题/locale 和 SSE 通知。
+  汇总位于 `.tmp/p0-review/source 中文/.tmp/ci/run-3RHznU/report.json`。
+- 另从其他 CWD 经真实 Node CLI 执行 `config check`、`dev-install --dry-run`、link 安装、
+  `pack`、`stable-install --dry-run`、tarball 安装与 `status`，确认安装副本不再是 junction。
+  `web --no-open --host 127.0.0.1 --port 0` 使用副本本机 patch，认证 HTTP 200、通知 Client
+  已注册；停止 Host 后 launcher 退出，配置字节不变。报告位于
+  `.tmp/p0-review/source 中文/.tmp/cli-smoke-KQWW6T/report.json`。
+- 首次在沙箱内运行到 L4 时，pnpm 创建 junction 被 `EPERM` 拒绝；上述独立验收在允许
+  创建链接的执行环境中重跑，未改 ACL、未修改日常 DSH profile。
+
+本轮没有推送或触发新远端 CI；macOS 本次改动的验证待下次矩阵运行，§19.7 的旧通过记录
+不代替新验收。默认浏览器真实打开与系统原生通知不以模拟进程测试或 L5 结果冒充通过。
+P1–P4 的工具/环境隔离、配置 repair/migrate 尚未实现。
 
 
 ## 8. Web/UI 插件测试策略
@@ -988,13 +1028,15 @@ node scripts/bootstrap.mjs ci
 node scripts/bootstrap.mjs ci --keep
 ```
 
-本机 Node 未加入 PATH 时可用 PowerShell 薄壳；当前普通终端只找到 Electron 版 dsh 时，显式传入已验证的默认 Node 版入口（路径随本机安装变化）：
+本机 Node 未加入 PATH 时，先加入 PATH 或使用 Node 可执行文件的绝对路径启动 bootstrap。当前普通终端只找到 Electron 版 dsh 时，显式传入已验证的默认 Node 版入口（路径随本机安装变化）：
 
-```powershell
-pwsh -File scripts/ci.ps1 -DshCli '<Node 版 dsh.cmd 的绝对路径>'
-# PATH 已有默认 Node 版 dsh，或已设置 DSH_CLI 时：
-pwsh -File scripts/ci.ps1
+```sh
+node scripts/bootstrap.mjs ci --dsh-cli '<普通 Node 版 dsh 入口绝对路径>'
+# 已配置可用的普通 Node 版 dsh 时：
+node scripts/bootstrap.mjs ci
 ```
+
+旧 `scripts/ci.ps1` 已移除，当前使用上述 Node CLI。下文旧命令仅为当时的验收记录。
 
 汇总结果位于 `.tmp/ci/run-*/report.json` 与 `.tmp/ci/last-report.json`，记录平台、Node 版本、各阶段耗时和退出码；L4/L5 的详细现场继续由各自 harness 保存。该入口不执行 git 操作，也不上传产物。GitHub workflow 调用同一 `ci` 入口，避免两套检查漂移。
 
@@ -1078,14 +1120,16 @@ L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profi
 
 ## 20. 当前未完成事项
 
-基础构建、配置第一/二阶段、L1–L5 和 Windows/macOS 远端 CI 已完成。以下区分明确待实现、按需建设和验收边界，避免把历史记录或有意保留的兼容入口当成待办。
+基础构建、配置第一/二阶段、L1–L5 和原基线的 Windows/macOS 远端 CI 已完成。P0 已移除 PowerShell 入口并通过本轮 Windows 独立验收；本轮 macOS 矩阵尚未重跑。以下区分待实现、按需建设和验收边界。
 
 | 事项 | 当前状态与下一步 | 依据 |
 |---|---|---|
-| 本机配置第三阶段 | **明确待实现**：先设计自动生成字段与个人编辑字段的归属、预览和备份规则，再实现搬迁/工具升级后的 `repair --dry-run` / `repair`、配置版本迁移与 Web 模板升级记录；当前仍由用户备份后手动调整 | [本机配置方案 §9](local-configuration-design.md#9-分阶段实施) |
+| TS 脚本收尾与 PS 退场 | **代码与 Windows 验收已完成**：Node/TS 主入口、帮助/文档/调用方迁移，移除 PS 入口，252 项测试与真实 L4/L5 通过；本轮 macOS 待下次 CI 矩阵 | 本文 §7.5、[本机配置方案 §14.10](local-configuration-design.md#1410-powershell-兼容层移除计划) |
+| 环境统一与开发隔离 | **已规划，P0 完成后实施**：P1 配置与工具统一 → P2 隔离开发 DSH → P3 tarball 干净验收 → P4 安装同一包到用户指定 DSH/profile。开发宿主和正式目标分别管理，不互相回退 | [开发环境规划 §8](development-environment-plan.md#8-建设顺序与阶段出口) |
+| 本机配置第三阶段 | **维护机制已设计，尚未实现**：保留字段归属、预览、备份、repair/migrate 与故障恢复设计，按 P1 的新配置职责调整字段与迁移；不作为 TS 收尾前置。当前新增命令不可用 | [本机配置方案 §14](local-configuration-design.md#14-第三阶段具体设计修复与格式升级) |
 | M6 / UI 组件测试 | **条件性待建设**：首个真实 React/JSX UI 组件需要时，引入 `src/client.tsx` 构建和 Vitest 组件测试，并复用现有 Playwright L5；不为了完成里程碑而新增插件或迁移全部 Host 测试 | 本文 §8、§10 |
 | 插件场景 UI 徽章/页面 | **可选、暂不实施**：场景元数据、目录、安装过滤、运行时守卫已完成；将来有展示需求时再做插件管理器伴生 UI | [插件场景方案](plugin-targets.md) 阶段 3 |
 | 原生通知与日常使用验收 | **待补人工证据**：独立 Chrome/Edge、macOS 的原生权限弹窗、系统通知、点击聚焦/切会话及多标签页接管；加载即申请权限改动后的原生流程也需复验。已有 Windows Codex 内嵌浏览器证据保持有效，但不推广到其他环境 | [通知方案 §11.11–§11.15](notification-host-design.md#1111-原生浏览器通知验收2026-10-28asiashanghai) |
 | 桌面端 L5 与更深的恢复场景 | **当前延期/未覆盖**：Electron 壳、真实重启、Toast/声音不进现有 Web CI；Host 重启后跨进程恢复待审批、后台冻结/勿扰等场景需要另定需求和验收方案，不能因 CI 通过而视为已覆盖 | 本文 §2、§4、§18；通知方案 §11.11 |
 
-建议下一项优先推进配置第三阶段的设计，因为它直接解决仓库搬迁和工具升级后的维护问题；其余按真实 UI 或使用场景需求安排。`headless` / Linux 当前是保留场景，`.ps1` 薄壳是兼容设计，两个桌面插件不适配 Web 是明确选择，均不计为本轮未完成建设。
+下一步先完成 TS 脚本收尾与 PS 退场（P0），再按独立开发环境规划依次推进 P1–P4；不把工具链/环境改造插到 TS 收尾之前。repair/migrate 的机制按后续配置结构落实，各阶段分别验收。其余按真实 UI 或使用场景需求安排；`headless` / Linux 当前是保留场景，两个桌面插件不适配 Web 是明确选择，不计为本轮未完成建设。
