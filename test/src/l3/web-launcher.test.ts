@@ -6,13 +6,14 @@ import childProcess from 'node:child_process'
 import { syncBuiltinESMExports } from 'node:module'
 import { initializeConfig } from '../../../scripts/.build/commands/config.js'
 import { runWeb } from '../../../scripts/.build/commands/web.js'
-import { configFixture } from '../harness/local-config.js'
+import { configFixture, developmentPatch } from '../harness/local-config.js'
 import { removeDir } from '../harness/tmp.js'
 
 it('L3 Web launcher uses initialized config from another cwd, forwards args and returns the child exit code', async () => {
   const f = configFixture()
   try {
     initializeConfig(f.options, f.root, f.env)
+    const patch = developmentPatch(f)
     const capture = join(f.root, 'capture.json')
     writeFileSync(f.entry, `#!/usr/bin/env node
       require('node:fs').writeFileSync(process.env.TEST_CAPTURE, JSON.stringify({
@@ -28,9 +29,9 @@ it('L3 Web launcher uses initialized config from another cwd, forwards args and 
     })
     assert.equal(code, 7)
     const recorded = JSON.parse(readFileSync(capture, 'utf8')) as { args: string[]; cwd: string; patch: string }
-    assert.deepEqual(recorded.args, ['web', '--patch', f.paths.patch, '--no-open', '--port', '0'])
+    assert.deepEqual(recorded.args, ['web', '--patch', patch, '--no-open', '--port', '0'])
     assert.equal(recorded.cwd, f.root)
-    assert.equal(recorded.patch, readFileSync(f.paths.patch, 'utf8'))
+    assert.equal(recorded.patch, readFileSync(patch, 'utf8'))
     assert.equal(readFileSync(f.paths.local, 'utf8'), before)
     assert.equal(process.listenerCount('SIGINT'), listeners)
     assert.equal(existsSync(join(f.root, '.tmp/web')), false)
@@ -41,6 +42,7 @@ it('L3 Web startup timeout redacts diagnostics and terminates the server', async
   const f = configFixture()
   try {
     initializeConfig(f.options, f.root, f.env)
+    developmentPatch(f)
     const capture = join(f.root, 'pid.json')
     writeFileSync(f.entry, `#!/usr/bin/env node
       require('node:fs').writeFileSync(process.env.TEST_CAPTURE, String(process.pid));
@@ -63,6 +65,7 @@ it('L3 Web default browser passes the URL to the OS handler without a PowerShell
   const url = 'http://127.0.0.1:12345/?a=1&b=two%20words'
   try {
     initializeConfig(f.options, f.root, f.env)
+    developmentPatch(f)
     writeFileSync(f.entry, `#!/usr/bin/env node\nconsole.log('dsh web: ${url}'); setTimeout(() => process.exit(0), 500);`)
     t.mock.method(childProcess, 'spawn', (command: string, args: readonly string[], options: childProcess.SpawnOptions) => {
       if (command === 'open' || command.endsWith('rundll32.exe')) {

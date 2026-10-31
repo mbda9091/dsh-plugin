@@ -1,8 +1,7 @@
 {
   "$schema": "./schema.json",
-  "version": 1,
+  "version": 2,
   "tools": {
-    "dshCli": null,
     "pnpmScript": null
   },
   "web": {
@@ -15,5 +14,9 @@
     "browser": "chrome",
     "browserPath": null,
     "timeoutMs": 120000
+  },
+  "targets": [],
+  "legacy": {
+    "dshCli": null
   }
 }

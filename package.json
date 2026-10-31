@@ -16,6 +16,7 @@
     "catalog": "node scripts/bootstrap.mjs catalog",
     "status": "node scripts/bootstrap.mjs status",
     "test": "node scripts/bootstrap.mjs test",
+    "test:env": "node scripts/bootstrap.mjs test-env",
     "test:l4": "node scripts/bootstrap.mjs l4",
     "test:e2e:web": "node scripts/bootstrap.mjs l5"
   },

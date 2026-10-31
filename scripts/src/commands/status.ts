@@ -1,10 +1,10 @@
 import { existsSync, lstatSync } from 'node:fs'
 import { join } from 'node:path'
-import { profileDir, profileName, readProfileManifest, resolveInstallMode } from '../core/dsh.js'
+import { profileDir, readProfileManifest, resolveInstallMode } from '../core/dsh.js'
 import { isRecord, stringArray } from '../core/json.js'
 import { discoverPlugins } from '../core/plugins.js'
 import { formatPluginTarget, isTargetCompatible, resolveTarget } from '../core/targets.js'
-import { loadCommandContext } from '../core/command-context.js'
+import { loadCommandContext, operationTarget } from '../core/command-context.js'
 import type { CommandContext } from '../core/command-context.js'
 
 export interface StatusOptions {
@@ -18,7 +18,8 @@ export interface StatusOptions {
  * profile's package.json only: no writes, no approval.
  */
 export function runStatus(options: StatusOptions, context: CommandContext = loadCommandContext()): number {
-  const profile = options.profile !== undefined && options.profile !== '' ? options.profile : profileName(context.env)
+  const selectedTarget = operationTarget(context)
+  const profile = selectedTarget.profile
   const manifest = readProfileManifest(profile, context.env)
 
   const dsh = manifest['dsh']
@@ -27,7 +28,7 @@ export function runStatus(options: StatusOptions, context: CommandContext = load
   const dependencies = isRecord(manifest['dependencies']) ? manifest['dependencies'] : {}
   const profileDirectory = profileDir(profile, context.env)
 
-  const target = resolveTarget({ surface: options.surface, platform: options.platform, profile })
+  const target = resolveTarget(selectedTarget)
 
   console.log(`profile: ${profile}`)
   console.log(`target:  ${target.surface}/${target.platform}`)

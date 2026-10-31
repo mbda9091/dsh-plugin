@@ -5,6 +5,11 @@ lib/
 dist/
 scripts/.build/
 test/.build/
+test/.build-env/
+.local/
+/scripts/config/.local-maintenance*
+/scripts/config/.local-backups/
+/scripts/config/.local-candidate-*
 *.tsbuildinfo
 
 # 本地临时文件（scratch、提取物、日志）

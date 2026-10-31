@@ -10,26 +10,28 @@ import { runStatus } from './commands/status.js'
 import { runTest } from './commands/test.js'
 import { runCi } from './commands/ci.js'
 import { runConfig } from './commands/config.js'
+import { runTestEnv } from './commands/test-env.js'
 import { runWeb } from './commands/web.js'
 import { runPack } from './commands/pack.js'
 import { runInstall } from './commands/install.js'
 
-const TOOL_OPTIONS = { 'dsh-cli': { type: 'string' }, 'pnpm-script': { type: 'string' } } as const
+const TOOL_OPTIONS = { 'pnpm-script': { type: 'string' } } as const
 const TEST_OPTIONS = {
   ...TOOL_OPTIONS, 'test-browser': { type: 'string' }, 'test-browser-path': { type: 'string' }, timeout: { type: 'string' },
 } as const
-const TARGET_OPTIONS = { profile: { type: 'string' }, surface: { type: 'string' }, platform: { type: 'string' } } as const
+const TARGET_OPTIONS = { target: { type: 'string' }, 'dsh-cli': { type: 'string' }, home: { type: 'string' }, profile: { type: 'string' }, surface: { type: 'string' }, platform: { type: 'string' } } as const
 
 const USAGE = `Usage: node scripts/bootstrap.mjs <command> [options]
 
-  config init [--dry-run] | check      Initialize/check machine-local configuration
-  web [--help] [DSH web options]       Start Web using the local JSON and patch
+  config init [--dry-run] | check | migrate [--dry-run]   Manage v2 disk configuration
+  test-env --suite fast|real|all [--keep]  Independent environment tests (M1: fast)
+  web [--help] [DSH web options]       Start managed development Web (M2/M3 prerequisites)
   build [--check]                     Build/type-check plugins
   pack [--skip-build]                 Build and package plugins into dist/
   dev-install [--skip-build]          Build and install compatible directory links
   stable-install                     Install compatible tarballs from dist/
     [--profile <name>] [--surface desktop|web] [--platform windows|mac] [--all] [--dry-run]
-  status [--profile <name>] [--surface desktop|web] [--platform windows|mac]
+  status --target <name>             Read an explicitly selected target
   test [--only l1,l2,l3] [--skip-build] Run L1-L3
   l4 [--keep] [--home <new .tmp dir>] [--skip-tarball]
   l5 [--keep]                         Run the isolated Web/browser harness
@@ -37,9 +39,11 @@ const USAGE = `Usage: node scripts/bootstrap.mjs <command> [options]
   check-targets                       Validate plugin metadata (no local config needed)
   catalog [--check] [--output <path>]  Generate/check CATALOG.md (no local config needed)
 
-Tools: --dsh-cli <path>, --pnpm-script <pnpm.cjs>
+Tools: --pnpm-script <pnpm.cjs>
+Target only: --target NAME or --dsh-cli PATH --home DIR --profile NAME --surface desktop|web --platform windows|mac
+Development/test never accept --dsh-cli or inherit daily DSH destination variables.
 Tests/CI: --test-browser chrome|chromium, --test-browser-path <path>, --timeout <ms>
-Config init/check also accepts --browser edge|default, --browser-path <path>, --test-timeout <ms>.
+Config init accepts --browser edge|default, --browser-path <path>, --test-timeout <ms>.
 Runtime commands read local.json, then supported environment variables, then flags.
 L4/L5 always create disposable profiles and never load the personal Web patch.`
 
@@ -53,6 +57,10 @@ export async function main(argv: string[]): Promise<number> {
   }
   try {
     switch (command) {
+      case 'test-env': {
+        const { values } = parseArgs({ args: rest, options: { suite: { type: 'string', default: 'fast' }, keep: { type: 'boolean', default: false } } })
+        return runTestEnv(values.suite, values.keep)
+      }
       case 'config': {
         const { values } = parseArgs({ args: rest.slice(1), options: {
           ...TOOL_OPTIONS, 'dry-run': { type: 'boolean', default: false },
@@ -60,7 +68,7 @@ export async function main(argv: string[]): Promise<number> {
           'test-browser': { type: 'string' }, 'test-browser-path': { type: 'string' }, 'test-timeout': { type: 'string' },
         } })
         return runConfig(rest[0] ?? '', {
-          dryRun: values['dry-run'], dshCli: values['dsh-cli'], pnpmScript: values['pnpm-script'],
+          dryRun: values['dry-run'], pnpmScript: values['pnpm-script'],
           browser: values.browser, browserPath: values['browser-path'],
           testBrowser: values['test-browser'], testBrowserPath: values['test-browser-path'],
           testTimeoutMs: parseTimeout(values['test-timeout']),
@@ -85,11 +93,11 @@ export async function main(argv: string[]): Promise<number> {
           mode: command === 'dev-install' ? 'link' : 'tarball', profile: values.profile,
           surface: values.surface, platform: values.platform, all: values.all,
           skipBuild: values['skip-build'], dryRun: values['dry-run'],
-        }, settings(values))
+        }, settings(values, command === 'dev-install' ? 'development' : 'target'))
       }
       case 'status': {
         const { values } = parseArgs({ args: rest, options: { ...TOOL_OPTIONS, ...TARGET_OPTIONS } })
-        return runStatus({ profile: values.profile, surface: values.surface, platform: values.platform }, settings(values))
+        return runStatus({ profile: values.profile, surface: values.surface, platform: values.platform }, settings(values, 'target'))
       }
       case 'test': {
         const { values } = parseArgs({ args: rest, options: {
@@ -104,7 +112,7 @@ export async function main(argv: string[]): Promise<number> {
           ...TEST_OPTIONS, keep: { type: 'boolean', default: false },
           ...(command === 'l4' ? { home: { type: 'string' as const }, 'skip-tarball': { type: 'boolean' as const, default: false } } : {}),
         } })
-        const context = settings(values)
+        const context = settings({ ...values, home: undefined }, 'test')
         const options = { keep: values.keep, timeoutMs: context.config.test.timeoutMs }
         if (command === 'ci') return await runCi(options, context)
         if (command === 'l5') return await runL5(options, context)
@@ -120,11 +128,11 @@ export async function main(argv: string[]): Promise<number> {
   } catch (error) { console.error(`error: ${errorMessage(error)}`); return 1 }
 }
 
-function settings(values: { 'dsh-cli'?: string; 'pnpm-script'?: string; 'test-browser'?: string; 'test-browser-path'?: string; timeout?: string }) {
+function settings(values: { target?: string; home?: string; profile?: string; surface?: string; platform?: string; 'dsh-cli'?: string; 'pnpm-script'?: string; 'test-browser'?: string; 'test-browser-path'?: string; timeout?: string }, purpose: 'tools' | 'development' | 'test' | 'target' = 'tools') {
   return loadCommandContext({
-    dshCli: values['dsh-cli'], pnpmScript: values['pnpm-script'],
+    target: values.target, home: values.home, profile: values.profile, surface: values.surface, platform: values.platform, dshCli: values['dsh-cli'], pnpmScript: values['pnpm-script'],
     testBrowser: values['test-browser'], testBrowserPath: values['test-browser-path'], testTimeoutMs: parseTimeout(values.timeout),
-  })
+  }, undefined, undefined, purpose)
 }
 
 function parseTimeout(value: string | undefined): number | undefined {

@@ -1,8 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
 import { delimiter, isAbsolute, join, relative, resolve } from 'node:path'
-import { commandEnv, configuredDsh, configuredPnpm, loadCommandContext } from '../core/command-context.js'
+import { commandEnv, configuredDsh, configuredPnpm, loadCommandContext, operationTarget } from '../core/command-context.js'
 import type { CommandContext } from '../core/command-context.js'
-import { profileDir, profileName } from '../core/dsh.js'
 import { discoverPlugins } from '../core/plugins.js'
 import { writePnpmShim } from '../core/pnpm.js'
 import { formatPluginTarget, isTargetCompatible, resolveTarget } from '../core/targets.js'
@@ -21,9 +20,12 @@ export interface InstallOptions extends TargetOptions {
  * switched profile. Only add-over/update are allowed; never remove link targets.
  */
 export async function runInstall(options: InstallOptions, context: CommandContext = loadCommandContext()): Promise<number> {
-  const profile = options.profile || profileName(context.env)
-  const target = resolveTarget({ ...options, profile })
-  const directory = resolve(profileDir(profile, context.env))
+  const selectedTarget = operationTarget(context)
+  if (options.mode === 'link' && context.purpose !== 'development') throw new Error('link installation is restricted to development context')
+  if (options.mode === 'tarball' && context.purpose !== 'target') throw new Error('tarball installation requires an explicit target')
+  const profile = selectedTarget.profile
+  const target = resolveTarget(selectedTarget)
+  const directory = join(selectedTarget.home, 'profiles', profile)
   const plugins = discoverPlugins(context.root)
   if (!plugins.length) throw new Error('No plugin packages found.')
   const selected = plugins.filter(plugin => options.all || isTargetCompatible(plugin, target))

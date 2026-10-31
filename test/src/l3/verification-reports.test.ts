@@ -107,6 +107,11 @@ for (const phase of ['build', 'compile-browser', 'prerequisites', 'cleanup', 'su
         export async function serveAndCheck() { return 'simulated browser'; }
         export function redactLaunchTokens(text) { return text; }
       `)
+      if (phase !== 'prerequisites') {
+        write(root, 'package.json', JSON.stringify({ type: 'module', devDependencies: { '@deepseek-ai/dsh': '0.2.1-rc.2' } }))
+        write(root, 'node_modules/@deepseek-ai/dsh/package.json', JSON.stringify({ version: '0.2.1-rc.2', bin: { dsh: './cli.cjs' } }))
+        write(root, 'node_modules/@deepseek-ai/dsh/cli.cjs', '')
+      }
       write(root, 'entry.mjs', `
         import fs from 'node:fs';
         import { syncBuiltinESMExports } from 'node:module';

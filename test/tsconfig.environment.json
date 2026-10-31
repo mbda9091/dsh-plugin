@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "outDir": ".build-env" },
+  "include": ["src/environment/**/*.ts", "src/harness/environment.ts"],
+  "exclude": []
+}

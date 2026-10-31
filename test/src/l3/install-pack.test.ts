@@ -25,7 +25,7 @@ function fixture(failure = '') {
   writeFileSync(f.options.pnpmScript, `const TOOL = 'pnpm'; ${recorder}
     process.exit(process.env.TEST_FAILURE === args[0] ? 9 : 0);`)
   // A session-specific profile directory must not leak into another target.
-  const context = loadCommandContext({}, f.root, { ...f.env, TEST_TRACE: trace, TEST_FAILURE: failure, DSH_PROFILE: 'personal', DSH_PROFILE_DIR: join(f.root, 'personal') })
+  const context = loadCommandContext({}, f.root, { ...f.env, TEST_TRACE: trace, TEST_FAILURE: failure, DSH_PROFILE: 'personal', DSH_PROFILE_DIR: join(f.root, 'personal') }, 'development')
   const options = { mode: 'link' as const, profile: 'web', platform: 'windows', dryRun: false, skipBuild: true, all: false }
   const calls = () => existsSync(trace) ? readFileSync(trace, 'utf8').trim().split('\n').map(line => JSON.parse(line) as { tool: string; args: string[]; cwd: string; directory: string; profile: string }) : []
   return { ...f, context, options, calls }
@@ -49,14 +49,15 @@ for (const mode of ['link', 'tarball'] as const) {
     try {
       mkdirSync(join(f.root, 'dist'))
       for (const name of ['alpha', 'beta']) writeFileSync(join(f.root, `dist/local-${name}-1.0.0.tgz`), '')
-      assert.equal(await runInstall({ ...f.options, mode }, f.context), 0)
+      const context = mode === 'link' ? f.context : loadCommandContext({ dshCli: f.cli, home: 'chosen-home', profile: 'web', surface: 'web', platform: 'windows' }, f.root, f.context.env, 'target')
+      assert.equal(await runInstall({ ...f.options, mode }, context), 0)
       const calls = f.calls()
       assert.deepEqual(calls.map(c => c.tool), ['dsh', 'pnpm', 'dsh', 'pnpm'])
       assert.deepEqual(calls[0]?.args, ['plugin', '--profile', 'web', 'add', mode === 'link' ? join(f.root, 'alpha') : join(f.root, 'dist/local-alpha-1.0.0.tgz')])
       assert.deepEqual(calls[1]?.args, ['update', '@local/alpha'])
       for (const call of calls) {
         assert.equal(call.profile, 'web')
-        assert.equal(call.directory, join(f.env.DSH_HOME!, 'profiles/web'))
+        assert.equal(call.directory, join(mode === 'link' ? join(f.root, '.local/dsh-dev/home') : join(f.root, 'chosen-home'), 'profiles/web'))
         assert.ok(!call.args.includes('remove'))
       }
       assert.equal(calls[1]?.cwd, calls[1]?.directory)
@@ -70,7 +71,8 @@ it('L3 install/pack: preflight checks all artifacts before invoking tools', asyn
   try {
     mkdirSync(join(f.root, 'dist'))
     writeFileSync(join(f.root, 'dist/local-alpha-1.0.0.tgz'), '')
-    await assert.rejects(runInstall({ ...f.options, mode: 'tarball' }, f.context), /missing tarball.*beta/)
+    const targetContext = loadCommandContext({ dshCli: f.cli, home: 'chosen-home', profile: 'web', surface: 'web', platform: 'windows' }, f.root, f.context.env, 'target')
+    await assert.rejects(runInstall({ ...f.options, mode: 'tarball' }, targetContext), /missing tarball.*beta/)
     rmSync(join(f.root, 'beta/lib'), { recursive: true })
     await assert.rejects(runInstall(f.options, f.context), /no build output.*beta/)
     await assert.rejects(runPack({ skipBuild: true }, f.context), /no build output.*beta/)

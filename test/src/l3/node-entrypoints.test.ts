@@ -3,7 +3,7 @@ import { it } from 'node:test'
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { runToFiles } from '../../../scripts/.build/core/exec.js'
-import { configFixture } from '../harness/local-config.js'
+import { configFixture, developmentPatch } from '../harness/local-config.js'
 import { removeDir, repoRoot } from '../harness/tmp.js'
 
 it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, Chinese, quoted source path', () => {
@@ -15,6 +15,9 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     for (const file of ['scripts/bootstrap.mjs', 'scripts/tsconfig.json', 'tsconfig.base.json', 'package.json']) {
       copyFileSync(join(repoRoot, file), join(f.root, file))
     }
+    const manifest = JSON.parse(readFileSync(join(f.root, 'package.json'), 'utf8'))
+    manifest.devDependencies['@deepseek-ai/dsh'] = '0.2.1-rc.2'
+    writeFileSync(join(f.root, 'package.json'), JSON.stringify(manifest))
     // bootstrap requires a local compiler; other dependencies resolve from the
     // workspace ancestor. Copying avoids requiring symlink privileges on Windows.
     cpSync(join(repoRoot, 'node_modules/typescript'), join(f.root, 'node_modules/typescript'), { recursive: true, dereference: true })
@@ -38,12 +41,12 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     assert.doesNotMatch(help.stdout, /\.ps1/)
     assert.match(run(['web', '--help']).stdout, /node scripts\/bootstrap\.mjs web/)
     assert.match(run(['status'], 1).stderr, /node scripts\/bootstrap\.mjs config init/)
-    const init = ['config', 'init', '--dsh-cli', f.cli, '--pnpm-script', f.options.pnpmScript, '--browser', 'default', '--test-browser', 'chromium']
+    const init = ['config', 'init', '--pnpm-script', f.options.pnpmScript, '--browser', 'default', '--test-browser', 'chromium']
     run([...init, '--dry-run'])
     assert.equal(existsSync(f.paths.local), false)
     assert.equal(existsSync(f.paths.patch), false)
     run(init)
-    const before = [f.paths.local, f.paths.patch].map(path => readFileSync(path, 'utf8'))
+    const before = [f.paths.local].map(path => readFileSync(path, 'utf8'))
     run(init)
     for (const name of ['app-restart', 'approval-allowlist', 'desktop-notify', 'notify-web']) mkdirSync(join(f.root, name, 'lib'), { recursive: true })
     run(['config', 'check'])
@@ -52,7 +55,7 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     writeFileSync(join(f.root, 'alpha/package.json'), JSON.stringify({
       name: '@local/alpha', version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' }, targets: { surfaces: ['web'], platforms: ['windows', 'mac'] } },
     }))
-    const install = ['dev-install', '--profile', 'web', '--surface', 'web', '--platform', 'windows']
+    const install = ['dev-install']
     assert.match(run([...install, '--dry-run']).stdout, /dsh plugin --profile web add/)
     assert.equal(existsSync(env.DSH_HOME!), false)
     const capture = join(f.root, 'capture.json')
@@ -64,15 +67,17 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     `)
     run([...install, '--skip-build'], 7)
     assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')).args, ['plugin', '--profile', 'web', 'add', join(f.root, 'alpha')])
+    const patch = developmentPatch(f)
     run(['web', '--no-open', '--port', '0', '--host', '127.0.0.1'], 7)
     assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')), {
-      args: ['web', '--patch', f.paths.patch, '--no-open', '--port', '0', '--host', '127.0.0.1'], cwd: f.root,
+      args: ['web', '--patch', patch, '--no-open', '--port', '0', '--host', '127.0.0.1'], cwd: f.root,
     })
     mkdirSync(join(env.DSH_HOME!, 'profiles/web'), { recursive: true })
     writeFileSync(join(env.DSH_HOME!, 'profiles/web/package.json'), '{"dependencies":{}}')
-    assert.match(run(['status', '--profile', 'web', '--surface', 'web', '--platform', 'windows']).stdout, /@local\/alpha/)
+    assert.match(run(['status', '--dsh-cli', f.cli, '--home', env.DSH_HOME!, '--profile', 'web', '--surface', 'web', '--platform', 'windows']).stdout, /@local\/alpha/)
     assert.match(run(['build', '--unknown'], 1).stderr, /Unknown option/)
-    assert.deepEqual([f.paths.local, f.paths.patch].map(path => readFileSync(path, 'utf8')), before)
+    assert.equal(existsSync(f.paths.patch), false)
+    assert.deepEqual([f.paths.local].map(path => readFileSync(path, 'utf8')), before)
   } finally {
     removeDir(f.root)
   }

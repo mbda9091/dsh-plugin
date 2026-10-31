@@ -15,7 +15,8 @@ it('L3 L4 harness: retains logs and a per-run report on failure without --keep',
   const f = configFixture()
   try {
     initializeConfig(f.options, f.root, f.env)
-    const settings = loadCommandContext({ dshCli: process.execPath }, f.root, f.env)
+    writeFileSync(f.entry, 'console.error("deliberate fixture failure"); process.exit(1)')
+    const settings = loadCommandContext({}, f.root, f.env, 'test')
     // The generated pnpm shim is never invoked: profile-init fails first.
     const code = await runL4({ keep: false, skipTarball: true, timeoutMs: 5_000 }, settings)
     assert.equal(code, 1)

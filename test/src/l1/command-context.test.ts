@@ -16,14 +16,14 @@ it('L1 command context: flags override env/file without modifying either, includ
     const saved = readFileSync(f.paths.local, 'utf8')
     const env = { ...f.env, Path: 'extra', DSH_CLI: 'missing', DSH_PNPM: 'missing', CHROME_PATH: 'missing', DSH_E2E_BROWSER: 'chrome' }
     const before = { ...env }
-    const settings = loadCommandContext({ ...f.options, testBrowser: 'chromium', testTimeoutMs: 1234 }, f.root, env)
+    const settings = loadCommandContext({ ...f.options, testBrowser: 'chromium', testTimeoutMs: 1234 }, f.root, env, 'test')
     assert.equal(settings.config.test.timeoutMs, 1234)
     assert.equal(loadCommandContext({}, f.root, f.env).config.test.timeoutMs, 4321)
     assert.equal(configuredPnpm(settings), f.options.pnpmScript)
-    assert.equal(configuredDsh(settings, true).source, f.cli)
+    assert.equal(configuredDsh(settings, true).source, f.entry)
     assert.doesNotThrow(() => checkTestBrowser(settings))
     const child = commandEnv(settings)
-    assert.equal(child.DSH_CLI, f.cli)
+    assert.equal(child.DSH_CLI, undefined)
     assert.equal(child.DSH_PNPM, f.options.pnpmScript)
     assert.equal(child.DSH_E2E_BROWSER, 'chromium')
     assert.deepEqual(Object.keys(child).filter(k => k.toUpperCase() === 'PATH'), ['PATH'])
@@ -41,7 +41,7 @@ it('L1 command context: absent tools never trigger discovery; unrelated browsers
     config.test.browserPath = 'missing-chrome'
     writeFileSync(f.paths.local, JSON.stringify(config))
     const settings = loadCommandContext({}, f.root, f.env)
-    assert.throws(() => configuredDsh(settings, true), /required for this command/)
+    assert.equal(configuredDsh(settings, true).source, f.entry)
     assert.throws(() => configuredPnpm(settings), /required for this command/)
     assert.throws(() => checkTestBrowser(settings), /test.browserPath/)
     assert.equal(commandEnv(settings).DSH_CLI, undefined)

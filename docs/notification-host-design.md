@@ -550,3 +550,27 @@ pwsh -NoProfile -File profiles/web/start.ps1 --no-open --host 127.0.0.1 --port 0
 提交 `d9f2a12` 的 [GitHub Actions run 41061844806](https://github.com/mbda9091/dsh-plugin/actions/runs/41061844806) 在 Windows、macOS 均通过类型检查与 L1–L5。L5 使用实际 DSH Web、Chromium、认证 SSE 和通知插件，替换操作系统 Notification API，覆盖权限请求/拒绝及中英文通知内容；这补齐了 macOS 的 Web 自动化证据。
 
 原生权限弹窗、系统通知显示、真实点击聚焦、操作系统勿扰/后台冻结仍不由该 CI 覆盖。§11.11 的人工证据限于当时 Windows Codex 内嵌浏览器；§11.14 改动后的原生权限流程、独立 Chrome/Edge 和 macOS 的人工验收仍待补。完整远端记录与当前待办见 [测试方案 §19.7、§20](testing-plan.md#197-远端-ci-验收2026-10-30)。
+
+## 12. Desktop 去除 PowerShell / VBScript 的调查（2026-10-31，暂缓实施）
+
+本节仅记录源码调查与候选方案，保持现有 `desktop-notify` 实现。本轮没有安装插件、修改用户 profile 或进行真实桌面通知/点击验收。
+
+### 12.1 调查范围与结论
+
+实际安装的 Desktop 为 `0.2.1-rc.3`，构建提交 `be72761ee1a6736ebcdf4f3739363b083ae53c98`；仓库 DSH 类型依赖仍为 `0.2.1-rc.2`。以下结论针对该安装包，不能视为所有版本的接口承诺。
+
+- 检查安装包 `app.asar` 的 `lib/main.js`、`lib/preload-app.cjs` 与 `@deepseek-ai/dsh-desktop-host/lib/index.js`，未找到供插件调用的通用桌面通知服务。壳内 `DesktopUpdateAttention` 使用 Electron `Notification`，但用于更新提醒；Host IPC 的 `isDesktopHostEvent` 和 `window.dshDesktop` 的 `createProductApi` 均未暴露通知接口，不应借用更新提醒或私有 IPC。
+- 插件 Host 运行于 Node 模式，不能直接调用 Electron 主进程通知 API；这不排除增加桌面 Client 后使用标准 Web Notification。参见 [DSH Desktop 架构](https://github.com/deepseek-ai/deepseek-harness/blob/master/apps/desktop/README.md) 与 [Electron 通知文档](https://www.electronjs.org/docs/latest/tutorial/notifications)。上游文档可能变化，安装包是本次版本判断的依据。
+- 当前 PowerShell 承担 WinRT Toast、NotifyIcon 气泡回退、自定义 WAV 与系统提示音；VBScript 承担自定义 `dsh-notify:` 协议注册和点击后激活窗口。它们属于插件运行时的平台适配，不属于已完成的仓库 TS 脚本迁移。
+
+### 12.2 候选替代路径
+
+| 范围 | 候选方案 | 尚需验证或取舍 |
+|---|---|---|
+| 去除 VBScript | Toast 的协议激活目标由 `dsh-notify:focus` 改为 DSH 已有的 `dsh://open`，移除自建 VBS 与协议注册逻辑 | 安装包含 `focusPrimaryWindow`、协议注册和单实例聚焦逻辑，本机 Windows 注册表也确认关联；仍需真实点击验证窗口隐藏/最小化时的恢复。旧协议清理需另行设计迁移；没有发现携带 sessionId 的对应深链接接口 |
+| 同时去除两种脚本 | 保留 Host 通知触发源，为 `desktop-notify` 增加 Client，通过认证通道接收通知并使用 `new Notification()`；可复用 `notify-web` 的相关实现 | 验证隐藏、最小化、重载与后台生命周期中的送达，以及权限、点击和会话切换。不能直接启用声明为 Web-only 的 `notify-web`；也不能承诺保留任意 WAV、独立提示音及气泡回退 |
+| 保留 Host 独立投递及现有原生行为 | 使用原生桥接程序/模块，或等待 DSH 上游提供正式通知接口 | 增加构建、分发与平台维护成本；不依赖 Desktop Host 私有的传递依赖作为插件接口 |
+
+Client 方案还有明确的聚焦边界：`window.focus()` 是否恢复隐藏窗口尚未验证，壳的 `setWindowOpenHandler` / `will-navigate` 会拦截 Client 直接打开 `dsh://open`，不能简单用 `window.open()` 补齐。若需要经 Host 打开固定协议，应单独设计受认证、限定操作的接口。
+
+后续若恢复此项，先验证 `dsh://open` 并替换 VBS，再做桌面 Client 通知原型；通过真实通知显示、点击恢复、声音和后台生命周期验收后，才决定是否移除 PowerShell。源码调查、Web 自动化及此前浏览器原生验收均不等于该桌面方案已通过。

@@ -2,32 +2,40 @@ import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, rmdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { configPaths, envValue, loadRepoConfig } from '../core/config.js'
+import { envValue } from '../core/config.js'
 import type { ConfigOverrides, RepoConfig } from '../core/config.js'
-import { requireFile, webDsh } from '../core/config-tools.js'
+import { requireFile } from '../core/config-tools.js'
 import { inspectWebPatch } from '../core/web-patch.js'
 import { startToFiles, stopChild, waitForServerUrl } from '../core/exec.js'
 import { redactLaunchTokens } from '../core/web-harness.js'
 import { repoRoot } from '../core/repo.js'
+import { loadCommandContext, configuredDsh, commandEnv } from '../core/command-context.js'
+import { existsSync } from 'node:fs'
+import { safeConfigPath } from '../core/config-transaction.js'
 
 export function webArguments(args: readonly string[]): { overrides: ConfigOverrides; forward: string[]; help: boolean } {
   const overrides: ConfigOverrides = {}
   const forward: string[] = []
   let help = false
-  const names = new Set(['--dsh-cli', '--browser', '--browser-path', '--startup-timeout'])
+  const names = new Set(['--browser', '--browser-path', '--startup-timeout'])
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!
-    if (arg === '--') { forward.push(...args.slice(i + 1)); break }
+    if (arg === '--') continue
     if (arg === '--help' || arg === '-h') { help = true; continue }
     if (arg === '--no-open') { overrides.openBrowser = false; continue }
     if (arg === '--open') { overrides.openBrowser = true; continue }
     const split = arg.indexOf('=')
     const name = split < 0 ? arg : arg.slice(0, split)
-    if (!names.has(name)) { forward.push(arg); continue }
+    if (['--profile', '--home', '--patch', '--dsh-cli', '--profile-dir', '--web-url'].includes(name)) throw new Error(`${name} cannot redirect development Web; use the managed context`)
+    if (!names.has(name)) {
+      if (!['--port', '--host'].includes(name)) throw new Error(`unsupported development Web option: ${name}`)
+      const value = split < 0 ? args[++i] : arg.slice(split + 1)
+      if (!value || value.startsWith('--')) throw new Error(`${name} requires a value`)
+      forward.push(name, value); continue
+    }
     const value = split < 0 ? args[++i] : arg.slice(split + 1)
     if (value === undefined || value === '' || value.startsWith('--')) throw new Error(`${name} requires a value`)
     switch (name) {
-      case '--dsh-cli': overrides.dshCli = value; break
       case '--browser': overrides.browser = value; break
       case '--browser-path': overrides.browserPath = value; break
       case '--startup-timeout': overrides.startupTimeoutMs = Number(value); break
@@ -62,14 +70,16 @@ async function openBrowser(config: RepoConfig['web'], url: string, env: NodeJS.P
 export async function runWeb(args: readonly string[], root: string = repoRoot, env: NodeJS.ProcessEnv = process.env): Promise<number> {
   const parsed = webArguments(args)
   if (parsed.help) {
-    console.log('Usage: node scripts/bootstrap.mjs web [--open|--no-open] [--dsh-cli <path>] [--browser edge|default] [--browser-path <path>] [--startup-timeout <ms>] [DSH web options]')
-    console.log('Run node scripts/bootstrap.mjs config init first. --port, --host and other DSH options are forwarded.')
+    console.log('Usage: node scripts/bootstrap.mjs web [--open|--no-open] [--browser edge|default] [--browser-path <path>] [--startup-timeout <ms>] [--port PORT] [--host HOST]')
+    console.log('Run config init/migrate first. Requires workspace DSH (M2) and managed development data (M3). Only --port and --host are forwarded.')
     return 0
   }
-  const { config } = loadRepoConfig(root, env, parsed.overrides)
-  if (config.tools.dshCli === null) throw new Error('tools.dshCli: required; run config init or pass --dsh-cli')
-  const runner = webDsh(config.tools.dshCli, env)
-  const patch = configPaths(root).patch
+  const context = loadCommandContext(parsed.overrides, root, env, 'development')
+  const { config } = context
+  const runner = configuredDsh(context, true)
+  const patch = join(root, '.local/dsh-dev/cordis.patch.yml')
+  safeConfigPath(root, patch)
+  if (!existsSync(patch)) throw new Error('managed development patch is not prepared; complete M3; personal Web patch is never imported')
   const inspection = inspectWebPatch(patch, root)
   for (const warning of inspection.warnings) console.warn(`web: ${warning}`)
   if (config.web.openBrowser && config.web.browser === 'edge') {
@@ -82,7 +92,7 @@ export async function runWeb(args: readonly string[], root: string = repoRoot, e
   let interrupted = false
   let stopped: Promise<void> | undefined
   const started = startToFiles(runner.command, runner.build(['web', '--patch', patch, '--no-open', ...parsed.forward]), {
-    cwd: root, env: { ...env, ...runner.env }, verbatim: runner.verbatim, stdoutPath, stderrPath,
+    cwd: root, env: { ...commandEnv(context), ...runner.env }, verbatim: runner.verbatim, stdoutPath, stderrPath,
   })
   // webDsh unwraps recognized shims: the child is the Node Host itself, not a
   // cmd.exe wrapper. Use the same lifecycle helper as L4/L5.

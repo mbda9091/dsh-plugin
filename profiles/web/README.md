@@ -1,5 +1,7 @@
 # Web profile 本机配置
 
+> 2026-10-31：此目录保留个人 Web patch 模板和旧版流程，不再由 v2 `config init` 生成或被开发 `web` 自动读取。当前命令见 [配置 v2](../../docs/configuration-v2.md)；开发数据与模板由 M3 建设。以下内容仅供维护已有 v1 个人配置时参考。
+
 先从 example 初始化本机配置，再启动 Web。配置机制和后续阶段见 [本机配置方案](../../docs/local-configuration-design.md)。以下命令从仓库根目录执行；需要 Node 24 和 workspace 开发依赖，无需 PowerShell 7。
 
 ## 首次使用
