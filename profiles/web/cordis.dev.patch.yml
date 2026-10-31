@@ -1,0 +1,15 @@
+# Managed development template. Expanded only by web init; no personal settings.
+- id: hmr
+  config:
+    root:
+      - '${repoRoot}/app-restart/lib'
+      - '${repoRoot}/approval-allowlist/lib'
+      - '${repoRoot}/desktop-notify/lib'
+      - '${repoRoot}/notify-web/lib'
+    ignored:
+      - '**/node_modules'
+      - '**/.*'
+      - 'cache'
+      - 'data'
+      - '**\\node_modules'
+      - '**\\.*'

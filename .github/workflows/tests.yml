@@ -24,7 +24,7 @@ jobs:
           node-version: '24'
       - run: npm install --global pnpm@11.28.5
       - run: pnpm install --frozen-lockfile
-      # No local config initialization, host execution, browser, or plugin build.
+      # No personal config, real DSH, browser, or plugin build. DEV uses fake local servers.
       - run: node scripts/bootstrap.mjs test-env --suite fast
 
   environment-real:
@@ -45,7 +45,8 @@ jobs:
       - run: npm install --global pnpm@11.28.5
       - run: pnpm install --frozen-lockfile
       # Real suite exports clean source, freezes again in a fresh store/home,
-      # probes public DSH and its internal pnpm, then inspects a real plugin tgz.
+      # probes public DSH/internal pnpm and a real tgz. DEV also verifies persistent
+      # Web lifecycle, source links, revised code loading and safe reset in a fixture.
       - run: node scripts/bootstrap.mjs test-env --suite real --pnpm-script "$(npm root -g)/pnpm/bin/pnpm.cjs"
 
   test:

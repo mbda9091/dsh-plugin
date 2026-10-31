@@ -23,7 +23,7 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
     }
   }
   for (const directory of ['scripts/src', 'test/src/environment']) fingerprint(join(repoRoot, directory))
-  for (const path of ['scripts/bootstrap.mjs', 'package.json', 'pnpm-workspace.yaml', 'scripts/config/schema.json', 'scripts/config/schema.v1.json', 'test/src/harness/environment.ts', 'pnpm-lock.yaml']) sources[path] = digest(readFileSync(join(repoRoot, path)))
+  for (const path of ['scripts/bootstrap.mjs', 'package.json', 'pnpm-workspace.yaml', 'scripts/config/schema.json', 'scripts/config/schema.v1.json', 'test/src/harness/environment.ts', 'test/src/harness/development.ts', 'profiles/web/cordis.dev.patch.yml', 'pnpm-lock.yaml']) sources[path] = digest(readFileSync(join(repoRoot, path)))
   const report = { version: 1, suite, platform: process.platform, node: process.version, nodePath: process.execPath,
     source: digest(JSON.stringify(sources)), sourceFiles: sources,
     typescript: JSON.parse(readFileSync(join(repoRoot, 'node_modules/typescript/package.json'), 'utf8')).version as string,
@@ -31,7 +31,7 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
   const oldRun = process.env.DSH_ENV_TEST_RUN
   const oldKeep = process.env.DSH_ENV_TEST_KEEP
   const oldPnpm = process.env.DSH_ENV_TEST_PNPM
-  const expected = [...(suite !== 'real' ? ['CFG-01', 'CFG-02', 'CFG-03', 'CFG-04', 'CFG-05', 'CFG-06', 'TOOL-01', 'TOOL-02', 'TOOL-03', 'TOOL-05'] : []), ...(suite !== 'fast' ? ['TOOL-04'] : [])]
+  const expected = [...(suite !== 'real' ? ['CFG-01', 'CFG-02', 'CFG-03', 'CFG-04', 'CFG-05', 'CFG-06', 'TOOL-01', 'TOOL-02', 'TOOL-03', 'TOOL-05', 'DEV-01', 'DEV-02', 'DEV-04', 'DEV-05', 'DEV-06'] : []), ...(suite !== 'fast' ? ['TOOL-04', 'DEV-03'] : [])]
   try {
     const compiled = spawnSync(process.execPath, [join(repoRoot, 'node_modules/typescript/bin/tsc'), '-p', join(repoRoot, 'test/tsconfig.environment.json')], { stdio: 'inherit' })
     if (compiled.error || compiled.status !== 0) throw new Error('environment test compilation failed; prepare workspace dependencies with pnpm install --frozen-lockfile')
@@ -45,7 +45,7 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
       const event = raw as TestEvent
       if (event.type !== 'test:pass' && event.type !== 'test:fail') continue
       const { data } = event
-      const id = /^(?:CFG|TOOL)-\d+/.exec(data.name)?.[0]
+      const id = /^(?:CFG|TOOL|DEV)-\d+/.exec(data.name)?.[0]
       if (!id) continue
       const status = event.type === 'test:fail' ? 'fail' : data.skip ? 'skip' : 'pass'
       results.push({ id, name: data.name, status, durationMs: data.details.duration_ms ?? 0, evidence: `${id}.json` })

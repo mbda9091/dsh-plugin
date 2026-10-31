@@ -34,7 +34,7 @@ node scripts/bootstrap.mjs build
 
 `pnpm-workspace.yaml` 显式决定依赖安装脚本，允许 esbuild 和 DSH 所需的 node-pty、koffi、spawn-helper 准备，拒绝非必需脚本。peer 依赖随宿主解析并锁定，否则公开 DSH 缺少启动服务。新增需要安装脚本的依赖时，应单独检查并更新该清单。
 
-`config check` 输出工具版本、实际入口、来源及使用范围。独立环境测试使用 `test-env --suite fast`；真实冻结安装与宿主/pnpm/包内容探测使用 `test-env --suite real --pnpm-script <路径>`，不读取本机配置。M3 开发数据初始化和启停管理仍待实施。
+`config check` 输出工具版本、实际入口、来源及使用范围。独立环境测试使用 `test-env --suite fast`；真实冻结安装、宿主/pnpm/包内容及开发生命周期验证使用 `test-env --suite real --pnpm-script <路径>`，不读取本机配置。
 
 ## 安装到桌面应用
 
@@ -62,13 +62,19 @@ node scripts/bootstrap.mjs config init --dry-run
 node scripts/bootstrap.mjs config init
 node scripts/bootstrap.mjs config check
 
-# 默认 Web patch 使用 notify-web，启动前先安装兼容的 Web 插件
-node scripts/bootstrap.mjs dev-install --profile web --surface web
+# 初始化持久开发环境，再构建安装兼容 Web 插件
+node scripts/bootstrap.mjs web init
+node scripts/bootstrap.mjs dev-install
 
 node scripts/bootstrap.mjs web
+# 另一个终端查看/停止；停止保留会话和配置
+node scripts/bootstrap.mjs web status
+node scripts/bootstrap.mjs web stop
+# 默认只预览；添加 --yes 才停止自己的实例并清理开发数据
+node scripts/bootstrap.mjs web reset
 ```
 
-若无法自动定位普通 Node 版 CLI，可在初始化时传入 `--dsh-cli <CLI绝对路径>`。不使用通知插件时，删除本机 Web patch 中的 `notify-web` 行后再启动。
+开发只使用 workspace 锁定的普通 Node DSH。缺依赖时先冻结安装，不接受 `--dsh-cli` 或日常环境变量重定向。`web` 默认监听 `127.0.0.1:3000`，可用 `--port 0` 选择空闲端口；重复启动或端口占用会报错。
 
 浏览器通知需要允许站点通知权限，并保持标签页打开。完整参数、配置层序和 Windows 排障见 [Web 配置与启动说明](profiles/web/README.md)。
 
@@ -77,31 +83,31 @@ node scripts/bootstrap.mjs web
 | 提交到仓库的模板 | 初始化生成的本机文件 | 用途 |
 | --- | --- | --- |
 | `scripts/config/example.json` | `scripts/config/local.json` | 工具路径、浏览器偏好和启动参数 |
-| `profiles/web/cordis.patch.example.yml` | `profiles/web/cordis.local.patch.yml` | HMR 路径、Web 插件配置和个人规则 |
+| `profiles/web/cordis.dev.patch.yml` | `.local/dsh-dev/cordis.patch.yml` | `web init` 生成的开发 HMR 配置；不会导入旧个人 patch |
 
 本机文件已被 Git 忽略。运行时读取本机文件，**不会合并 example**；重复 `init` 不覆盖已有配置。配置格式由 `scripts/config/schema.json` 校验，支持的覆盖顺序为 **命令行参数 → 环境变量 → 本机配置**。
 
-配置机制已接入 Web、构建、打包、安装、状态及测试入口。已有 `version: 1` 本机配置可继续使用，无需重新生成。L4/L5 只读取工具和测试设置，使用一次性 profile，不加载个人 Web patch。详见 [本机配置设计与实施进度](docs/local-configuration-design.md)。
+配置机制已接入 Web、构建、打包、安装、状态及测试入口。已有 `version: 1` 配置需显式运行 `config migrate --dry-run` 和 `config migrate`。L4/L5 使用一次性 profile，不加载个人或持久开发 patch。详见 [配置 v2](docs/configuration-v2.md)。
 
 审批白名单默认保持观察模式，需要自行配置具体规则才会自动放行。个人路径、凭据和审批规则应留在本机配置中；带认证参数的启动地址及运行日志也不应提交。
 
 ## 开发与打包
 
-以下以 `desktop` profile 为例。执行桌面 CLI 安装前，先完全退出桌面应用，避免 profile 文件被占用。
+开发 link 固定进入受管 Web profile；正式 tarball 必须选择完整目标。执行桌面目标安装前，先完全退出桌面应用，避免 profile 文件被占用。
 
 ```sh
 # 预览目标过滤和安装命令
-node scripts/bootstrap.mjs dev-install --profile desktop --surface desktop --dry-run
+node scripts/bootstrap.mjs dev-install --dry-run
 
 # 构建并以 link 方式安装兼容插件
-node scripts/bootstrap.mjs dev-install --profile desktop --surface desktop
+node scripts/bootstrap.mjs dev-install
 
 # 构建并打包到 dist/，再切换到 tarball 安装
 node scripts/bootstrap.mjs pack
-node scripts/bootstrap.mjs stable-install --profile desktop --surface desktop
+node scripts/bootstrap.mjs stable-install --target daily
 
 # 查看安装模式及目标兼容性
-node scripts/bootstrap.mjs status --profile desktop --surface desktop
+node scripts/bootstrap.mjs status --target daily
 ```
 
 开发链接使用仓库构建产物；tarball 安装使用打包副本。切换安装方式时使用脚本覆盖同名依赖，避免手工删除 `link:` 依赖。需要的共享逻辑会在构建时内联进插件。

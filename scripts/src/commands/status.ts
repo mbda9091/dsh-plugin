@@ -6,6 +6,7 @@ import { discoverPlugins } from '../core/plugins.js'
 import { formatPluginTarget, isTargetCompatible, resolveTarget } from '../core/targets.js'
 import { loadCommandContext, operationTarget } from '../core/command-context.js'
 import type { CommandContext } from '../core/command-context.js'
+import { validateDevelopmentPaths } from '../core/development.js'
 
 export interface StatusOptions {
   readonly profile?: string | undefined
@@ -18,6 +19,7 @@ export interface StatusOptions {
  * profile's package.json only: no writes, no approval.
  */
 export function runStatus(options: StatusOptions, context: CommandContext = loadCommandContext()): number {
+  validateDevelopmentPaths(context)
   const selectedTarget = operationTarget(context)
   const profile = selectedTarget.profile
   const manifest = readProfileManifest(profile, context.env)

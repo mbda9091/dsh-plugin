@@ -1,98 +1,50 @@
-# Web profile 本机配置
+# 受管开发 Web
 
-> 2026-10-31：此目录保留个人 Web patch 模板和旧版流程，不再由 v2 `config init` 生成或被开发 `web` 自动读取。当前命令见 [配置 v2](../../docs/configuration-v2.md)；开发数据与模板由 M3 建设。以下内容仅供维护已有 v1 个人配置时参考。
+开发使用 workspace 锁定的普通 Node DSH `0.2.1-rc.2`，固定 profile `web`，可变数据在 `.local/dsh-dev/`。完整字段、目录归属和异常恢复见 [配置 v2](../../docs/configuration-v2.md)。
 
-先从 example 初始化本机配置，再启动 Web。配置机制和后续阶段见 [本机配置方案](../../docs/local-configuration-design.md)。以下命令从仓库根目录执行；需要 Node 24 和 workspace 开发依赖，无需 PowerShell 7。
+## 准备与使用
 
-## 首次使用
-
-```sh
-# 检查将选中的工具和准备生成的文件，不写配置
-node scripts/bootstrap.mjs config init --dry-run
-
-# 生成本机 JSON 和 Web patch；已有文件不会被覆盖
-node scripts/bootstrap.mjs config init
-
-# 构建插件，再检查配置中的路径
-node scripts/bootstrap.mjs build
-node scripts/bootstrap.mjs config check
-```
-
-Web 必须使用普通 Node 版 DSH。初始化按显式参数、已有环境变量、PATH 顺序选择，并检查 CLI 启动脚本；Electron 版和无法识别的 wrapper 会被拒绝。如果 PATH 上只有桌面版，先定位普通 Node 版的 `dsh.cmd`，通过 `--dsh-cli <绝对路径>` 或 `DSH_CLI` 指定。
-
-初始化可选参数：`--dsh-cli`、`--pnpm-script`、`--browser edge|default`、`--browser-path`、`--test-browser chrome|chromium`、`--test-browser-path`。路径相对于仓库根目录解析；`pnpm-script` 必须指向 `pnpm.cjs`。显式路径无效会报错，不会静默改选其他安装。
-
-默认 Web patch 包含 `notify-web` 参数，因此启动前需安装它。可用 Node CLI 安装当前兼容的 Web 插件（`notify-web` 和 `approval-allowlist`）：
+先准备普通 Node 24、pnpm 11.28.5，运行 `pnpm install --frozen-lockfile`。已有 v1 配置需显式预览、迁移；不会导入旧个人 YAML。
 
 ```sh
-node scripts/bootstrap.mjs dev-install --profile web --surface web
+node scripts/bootstrap.mjs config init --pnpm-script <pnpm包路径>/bin/pnpm.cjs
+# v1 已存在时，改用 config migrate --dry-run / config migrate
+node scripts/bootstrap.mjs web init
+node scripts/bootstrap.mjs dev-install
+node scripts/bootstrap.mjs web --no-open --port 3000
 ```
 
-也可在插件管理页填写插件目录的绝对路径。暂时不用通知插件时，删除本地 patch 中的 `notify-web` 行。初始化和启动器都不安装插件、不改实际 profile 的依赖记录。
+`web` 默认前台运行并按偏好打开浏览器，监听 `127.0.0.1:3000`；可用 `--port 0` 选择空闲端口，只接受 loopback 地址。重复启动报告已有实例，端口冲突报错，不杀占用者。另一个终端可运行：
 
 ```sh
-node scripts/bootstrap.mjs web
-node scripts/bootstrap.mjs web --no-open --port 8080
+node scripts/bootstrap.mjs web status
+node scripts/bootstrap.mjs web stop
+# 只预览清理范围
+node scripts/bootstrap.mjs web reset
+# 停止已核对身份的实例并清理受管数据
+node scripts/bootstrap.mjs web reset --yes
 ```
 
-旧的 `start.ps1` 已移除。个人 `dshweb` 函数或快捷方式需改为调用 `node <repo>/scripts/bootstrap.mjs web` 并转发参数；从其他工作目录启动时使用 bootstrap 的绝对路径。Node 不在 PATH 时也使用其绝对路径。运行中的服务不会自动读取新文件。
+停止保留配置和调试会话；重置会删除受管 home、store、patch、日志及管理记录。已登记插件 link 只解除链接，不递归到源码。缺少归属记录、未知外部链接或无法核对实例身份时停止并诊断。日志和运行记录留在本地，可能包含认证参数，不要提交。
 
-## 哪个文件负责什么
+首次 `web` 或 `dev-install` 也会初始化环境；重复初始化保留已有内容。模型配置由开发者在此环境中自行设置，工具不复制日常凭据、会话或审批策略。
+
+## 文件与重载
 
 | 文件 | 用途 |
 |---|---|
-| `scripts/config/example.json` | 脚本配置模板，只供初始化使用 |
-| `scripts/config/schema.json` | 脚本配置校验与编辑器提示 |
-| `scripts/config/local.json` | 本机工具位置、浏览器偏好、启动参数，不入库 |
-| `profiles/web/cordis.patch.example.yml` | Web patch 模板，只在 HMR 路径中支持 `${repoRoot}` |
-| `profiles/web/cordis.local.patch.yml` | 本机 HMR 路径、通知和个人插件参数，不入库 |
+| `scripts/config/local.json` | v2 工具位置和浏览器/测试偏好；由 config init 创建 |
+| `profiles/web/cordis.dev.patch.yml` | 版本化开发模板，仅 HMR 路径支持 `${repoRoot}` |
+| `.local/dsh-dev/cordis.patch.yml` | web init 生成的开发 patch；可编辑，重复 init 不覆盖 |
+| `.local/dsh-dev/home/profiles/web/` | 通过宿主公开接口初始化的开发 profile；依赖由插件管理器管理 |
+| `.local/dsh-dev/owner.json` / `runtime.json` | 目录归属和进程身份记录，不手改 |
+| `profiles/web/cordis.patch.example.yml` / `cordis.local.patch.yml` | 保留的旧个人模板/文件；当前命令不读取或生成 |
 
-运行时只读本机文件，不与 example 合并；更新模板不会改变个人配置。没有本机文件会提示初始化。重复 `init` 保留已有文件；如果只存在一份，则报错并要求先检查、备份，不补写另一份。
+开发 patch 作为 `--patch` 最后应用：bundle → profile → home → 开发 patch，同一行的 `config` 整体替换。修改前备份，重启生效。不要手工改 profile 的依赖记录。开发模板仅配置明确的插件 `lib/` HMR 范围，不预装通知行或审批规则；新增插件时明确增加产物目录。
 
-`check` 检查配置格式、版本、有效工具路径和 YAML 结构，不运行 YAML 的 `!!js`，也不执行 DSH 配置合成。目录搬迁、HMR 目录缺失或动态路径无法静态验证时会提示，并返回非零退出码。插件安装、激活状态与表达式执行结果仍需实际启动验证。
+`dev-install` 先构建，再安装和验证 `link:` spec 与实际链接位置。HMR 不保证新的 Host 模块已加载：入口导入失败、包替换或 `restart-required` 时，运行 `web stop` 后重新 `web`；Client 更新后刷新页面。通知需要浏览器站点授权，且标签页保持打开。
 
-本机文件可直接编辑：
-
-```json
-{
-  "$schema": "./schema.json",
-  "version": 1,
-  "tools": { "dshCli": null, "pnpmScript": null },
-  "web": {
-    "browser": "default",
-    "browserPath": null,
-    "openBrowser": false,
-    "startupTimeoutMs": 30000
-  },
-  "test": { "browser": "chromium", "browserPath": null, "timeoutMs": 120000 }
-}
-```
-
-这是结构示例，实际文件中的 `tools.dshCli` 应由初始化填入可用路径，或在运行时显式覆盖。路径填 `null` 不表示运行时重新探测；需要使用的工具未配置会报错。`web.browser=default` 使用系统浏览器，`browserPath` 在该模式下不使用；`--no-open` 不要求浏览器可用。`test` 字段供 L4/L5 使用；测试只读取本机 JSON 中的工具和测试参数，不加载这份个人 Web patch。
-
-脚本设置优先级为 **命令行参数 > 已支持的环境变量 > 本机配置**。已有环境变量映射为 `DSH_CLI`、`DSH_PNPM`、`CHROME_PATH`、`DSH_E2E_BROWSER`；`.env` 不会自动加载。配置中的相对路径相对于仓库根目录，和终端工作目录无关。
-
-启动器参数：`--open` / `--no-open`、`--dsh-cli`、`--browser`、`--browser-path`、`--startup-timeout <毫秒>`。`--host`、`--port` 等其他参数透传到 `dsh web`。命令行覆盖只对本次运行生效，不写回配置。
-
-## 加载与重载
-
-`node scripts/bootstrap.mjs web` 读取本机配置后，直接启动普通 Node Host：
-
-```text
-dsh web --patch <仓库>/profiles/web/cordis.local.patch.yml --no-open
-```
-
-启动器等待 DSH 输出地址，按配置打开浏览器，并等待服务结束。启动等待超时、启动失败或终端发出中断信号时会停止自己启动的 Host。为读取地址而使用的操作系统临时日志退出后清理；不在 `.tmp/web` 生成配置文件。
-
-调用方通过 PATH 或 Node 绝对路径选择运行时，不再读取 `DSH_NODE`。构建、打包、安装、状态和测试均读取统一配置。Windows 默认浏览器通过系统 URL handler 打开，macOS 通过 `open`；指定 Edge 时直接启动其可执行文件。
-
-本地 patch 属于最后的 `--patch` 层：bundle → profile → home → 本地 patch。同一行的 `config` **整体替换，不深合并**；个人审批规则和私有参数写在本地文件。启动参数中的 patch 是启动时读取的快照，修改后要重启服务。
-
-HMR 只监听四个插件的 `lib/`，保留 Windows 和依赖目录排除规则。构建后才有可监听的代码；新增插件时在本地 patch 中明确增加其 `lib/` 绝对路径，不使用 `*/lib` 通配发现。仓库搬家后，先运行 `check`，备份后修改本地路径；第一阶段没有自动 repair。
-
-`link:` 安装使用仓库构建产物；tarball 安装使用包内副本，需重新打包安装才能更新。HMR 不代表所有配置都能热重载：入口加载失败、包解析变化或宿主提示 `restart-required` 时需重启。Client 构建更新后仍需刷新浏览器。
-
-通知默认开启审批、完成与错误通知，审批等待 300ms；心跳 15 秒、补发窗口 120 秒、缓存和单连接队列上限均为 256。浏览器站点通知权限需要单独允许；Host 加载成功不代表系统通知权限已授予。
+启动超时、失败或正常中断会停止本次子进程；异常杀死 supervisor 后不按记录中的 PID 自动回收。人工确认 supervisor 和 child 都已退出，再按配置 v2 的恢复步骤处理残留记录。仓库移动或父目录改成 junction 后不会自动认领原数据。
 
 ## Windows 上安装依赖时报 `ENOENT scandir ..._tmp_...\node_modules`
 

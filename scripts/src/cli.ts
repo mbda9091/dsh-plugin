@@ -24,11 +24,11 @@ const TARGET_OPTIONS = { target: { type: 'string' }, 'dsh-cli': { type: 'string'
 const USAGE = `Usage: node scripts/bootstrap.mjs <command> [options]
 
   config init [--dry-run] | check | migrate [--dry-run]   Manage v2 disk configuration
-  test-env --suite fast|real|all [--keep] [--pnpm-script PATH]  CFG/TOOL tests; real needs prepared pnpm
-  web [--help] [DSH web options]       Start managed development Web (M2/M3 prerequisites)
+  test-env --suite fast|real|all [--keep] [--pnpm-script PATH]  CFG/TOOL/DEV tests; real needs prepared pnpm
+  web [init|start|status|stop|reset]   Managed development Web; reset previews, --yes executes
   build [--check]                     Build/type-check plugins
   pack [--skip-build]                 Build and package plugins into dist/
-  dev-install [--skip-build]          Build and install compatible directory links
+  dev-install [--skip-build]          Initialize development profile, build/install/verify links
   stable-install                     Install compatible tarballs from dist/
     [--profile <name>] [--surface desktop|web] [--platform windows|mac] [--all] [--dry-run]
   status --target <name>             Read an explicitly selected target

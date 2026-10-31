@@ -6,12 +6,13 @@ import { initializeConfig } from '../../../scripts/.build/commands/config.js'
 import { loadCommandContext } from '../../../scripts/.build/core/command-context.js'
 import { runInstall } from '../../../scripts/.build/commands/install.js'
 import { runPack } from '../../../scripts/.build/commands/pack.js'
-import { configFixture } from '../harness/local-config.js'
+import { configFixture, developmentPatch } from '../harness/local-config.js'
 import { removeDir } from '../harness/tmp.js'
 
 function fixture(failure = '') {
   const f = configFixture()
   initializeConfig(f.options, f.root, f.env)
+  developmentPatch(f)
   for (const [name, surfaces] of [['alpha', ['web']], ['beta', ['web']], ['desktop-only', ['desktop']]] as const) {
     mkdirSync(join(f.root, name, 'lib'), { recursive: true })
     writeFileSync(join(f.root, name, 'lib/index.js'), '')
@@ -21,7 +22,16 @@ function fixture(failure = '') {
   const recorder = `const fs = require('node:fs'); const args = process.argv.slice(2);
     fs.appendFileSync(process.env.TEST_TRACE, JSON.stringify({tool: TOOL, args, cwd: process.cwd(), profile: process.env.DSH_PROFILE, directory: process.env.DSH_PROFILE_DIR}) + '\\n');`
   writeFileSync(f.entry, `#!/usr/bin/env node\nconst TOOL = 'dsh'; ${recorder}
-    fs.mkdirSync(process.env.DSH_PROFILE_DIR, {recursive: true}); process.exit(process.env.TEST_FAILURE === 'add' ? 7 : 0);`)
+    fs.mkdirSync(process.env.DSH_PROFILE_DIR, {recursive: true});
+    if(process.env.TEST_FAILURE === 'add') process.exit(7);
+    if(!args[4].endsWith('.tgz')) {
+      const path=require('node:path'), pkg=JSON.parse(fs.readFileSync(path.join(args[4],'package.json')));
+      const file=path.join(process.env.DSH_PROFILE_DIR,'package.json');
+      const manifest=fs.existsSync(file)?JSON.parse(fs.readFileSync(file)):{dependencies:{}};
+      manifest.dependencies[pkg.name]='link:'+args[4];fs.writeFileSync(file,JSON.stringify(manifest));
+      const link=path.join(process.env.DSH_PROFILE_DIR,'node_modules',pkg.name);
+      fs.mkdirSync(path.dirname(link),{recursive:true});fs.symlinkSync(args[4],link,process.platform==='win32'?'junction':'dir');
+    }`)
   writeFileSync(f.options.pnpmScript, `const TOOL = 'pnpm'; ${recorder}
     process.exit(process.env.TEST_FAILURE === args[0] ? 9 : 0);`)
   // A session-specific profile directory must not leak into another target.

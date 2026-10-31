@@ -8,6 +8,7 @@ import { formatPluginTarget, isTargetCompatible, resolveTarget } from '../core/t
 import type { TargetOptions } from '../core/targets.js'
 import { requireBuilt, runInherited } from './pack.js'
 import { runBuild } from './build.js'
+import { acquireDevelopmentLock, initializeDevelopment, recordDevelopmentLinks, verifyDevelopmentLinks, validateDevelopmentPaths, developmentEnvironment } from '../core/development.js'
 
 export interface InstallOptions extends TargetOptions {
   readonly mode: 'link' | 'tarball'
@@ -20,6 +21,13 @@ export interface InstallOptions extends TargetOptions {
  * switched profile. Only add-over/update are allowed; never remove link targets.
  */
 export async function runInstall(options: InstallOptions, context: CommandContext = loadCommandContext()): Promise<number> {
+  validateDevelopmentPaths(context)
+  if (options.mode !== 'link' || options.dryRun) return install(options, context)
+  const release = acquireDevelopmentLock(context)
+  try { return await install(options, context) } finally { release() }
+}
+
+async function install(options: InstallOptions, context: CommandContext): Promise<number> {
   const selectedTarget = operationTarget(context)
   if (options.mode === 'link' && context.purpose !== 'development') throw new Error('link installation is restricted to development context')
   if (options.mode === 'tarball' && context.purpose !== 'target') throw new Error('tarball installation requires an explicit target')
@@ -61,13 +69,15 @@ export async function runInstall(options: InstallOptions, context: CommandContex
       if (code !== 0) return code
     }
     requireBuilt(selected)
+    initializeDevelopment(context)
+    recordDevelopmentLinks(context, selected)
   }
   const scratch = join(context.root, '.tmp/install')
   mkdirSync(scratch, { recursive: true })
   const runDir = mkdtempSync(join(scratch, 'run-'))
   try {
     writePnpmShim(runDir, pnpm)
-    const env = { ...commandEnv(context), ...runner.env }
+    const env = { ...(options.mode === 'link' ? developmentEnvironment(context) : commandEnv(context)), ...runner.env }
     // Resolve the requested profile before changing the child's session name.
     for (const key of Object.keys(env)) {
       if (['DSH_PROFILE', 'DSH_PROFILE_DIR', 'DSH_WEB_URL'].includes(key.toUpperCase())) delete env[key]
@@ -82,6 +92,7 @@ export async function runInstall(options: InstallOptions, context: CommandContex
       // A spec change alone can leave a stale junction/lock resolution.
       const updated = runInherited(process.execPath, [pnpm, 'update', item.plugin.packageName], directory, env)
       if (updated !== 0) return updated
+      if (options.mode === 'link') verifyDevelopmentLinks(context, [item.plugin])
     }
   } finally {
     rmSync(runDir, { recursive: true, force: true })

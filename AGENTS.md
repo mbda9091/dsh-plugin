@@ -4,7 +4,7 @@
 
 > 概念与机制（bundle / patch / profile 的定义、安装与配置流程）见 [docs/dsh-concepts.md](docs/dsh-concepts.md)。本文件只讲规则，那份文档解释"为什么"。
 
-> M1 配置协议已升级为 v2，M2 已锁定 workspace 开发 DSH；字段、命令适用表和恢复步骤见 [docs/configuration-v2.md](docs/configuration-v2.md)。仓库命令不再从日常 DSH 环境变量推断宿主或安装目的地；外部 dsh CLI 自身的参数规则不变。缺少 workspace 依赖或 M3 受管开发数据时明确报错，不回退日常宿主。
+> M1 配置协议已升级为 v2，M2 已锁定 workspace 开发 DSH，M3 已交付受管开发环境；字段、命令适用表和恢复步骤见 [docs/configuration-v2.md](docs/configuration-v2.md)。仓库命令不再从日常 DSH 环境变量推断宿主或安装目的地；外部 dsh CLI 自身的参数规则不变。`web init`/首次 `web`/`dev-install` 初始化开发数据，不回退日常宿主、不认领已有未知目录。
 
 ## 1. 仓库定位
 
@@ -432,8 +432,14 @@ window.__ModuleLoader__.load({
 开发 link 只进入受管开发 home/profile；tarball 安装必须明确选中独立目标。M1 先分开配置和命令上下文，M2/M3 准备开发依赖/生命周期，M5/M6 补产物验收与完整正式交付：
 
 ```powershell
-# 开发：需要先完成 M2 开发依赖准备；只向受管开发 profile 安装 link
+# 开发：冻结依赖准备完成后初始化；只向受管开发 profile 安装 link
+node scripts/bootstrap.mjs web init
 node scripts/bootstrap.mjs dev-install
+node scripts/bootstrap.mjs web
+# 另一个终端；停止保留数据，重置默认预览，--yes 才执行
+node scripts/bootstrap.mjs web status
+node scripts/bootstrap.mjs web stop
+node scripts/bootstrap.mjs web reset
 
 # 打包：build + pnpm pack，产物在 dist/*.tgz（只包含 files 列出的内容）
 node scripts/bootstrap.mjs pack
@@ -463,7 +469,7 @@ node scripts/bootstrap.mjs status --target daily
   - `node scripts/bootstrap.mjs build` 重新构建
   - `node scripts/bootstrap.mjs build --check` 只做类型检查
   - `node scripts/bootstrap.mjs ci` 运行完整本地检查（类型检查 → L1–L3 → L4 → L5），失败即停止；汇总在 `.tmp/ci/last-report.json`。需要 workspace 开发 DSH（M2）；不接受 `--dsh-cli` / `DSH_CLI` 重定向。该入口不提交、推送或上传产物。
-  - `node scripts/bootstrap.mjs test-env --suite fast` 独立验证 CFG-01–06 与 TOOL-01/02/03/05，不要求本机配置健康、DSH 执行或插件 build；报告在 `.tmp/environment-tests/`。`--suite real --pnpm-script <path>` 在干净源码副本中冻结安装、探测 DSH/内部 pnpm 并构建检查代表插件包，覆盖 TOOL-04 及 TOOL-03/05 的真实断言；`all` 合并两套，M3–M6 不在该通过范围。
+  - `node scripts/bootstrap.mjs test-env --suite fast` 独立验证 CFG-01–06、TOOL-01/02/03/05 与 DEV-01/02/04/05/06，不要求本机配置、真实 DSH 或插件 build；DEV 使用受控假宿主和本地 HTTP。报告在 `.tmp/environment-tests/`。`--suite real --pnpm-script <path>` 验证干净冻结安装、DSH/内部 pnpm、代表包，以及独立开发 fixture 的 link、实际重启加载、停止和重置（DEV-03，含 DEV-01/04/05 real）。`all` 合并两套，M4–M6 不在该通过范围。
   - `node scripts/bootstrap.mjs test` 先构建，再编译并运行 L1–L3；`node scripts/bootstrap.mjs l4` 跑真实 `dsh web` 的 L4 harness（慢、需要本机 DSH）
   - 普通终端且 `node` 在 PATH 上时，也可以用根 `package.json` 的 `pnpm build` / `pnpm check` / `pnpm catalog` / `pnpm status` / `pnpm test`；**DSH 沙箱内不要用 `pnpm run`**（它会用管道 spawn 子进程，被沙箱拒绝后会卡住），直接用 `node scripts/bootstrap.mjs <cmd>`。
   - 脚本层自身也会先被编译到 `scripts/.build/`（不入库）；`scripts/bootstrap.mjs` 是唯一手写 JS

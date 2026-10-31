@@ -1,4 +1,5 @@
-import { chmodSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { renderWebPatch } from '../../../scripts/.build/core/web-patch.js'
 import { dirname, join } from 'node:path'
 import { configPaths } from '../../../scripts/.build/core/config.js'
@@ -12,6 +13,7 @@ export function configFixture() {
     ['scripts/config/schema.json', paths.schema],
     ['scripts/config/schema.v1.json', join(root, 'scripts/config/schema.v1.json')],
     ['profiles/web/cordis.patch.example.yml', paths.patchExample],
+    ['profiles/web/cordis.dev.patch.yml', join(root, 'profiles/web/cordis.dev.patch.yml')],
   ]) {
     mkdirSync(dirname(destination!), { recursive: true })
     copyFileSync(join(repoRoot, source!), destination!)
@@ -40,6 +42,18 @@ export function configFixture() {
 export function developmentPatch(f: ReturnType<typeof configFixture>): string {
   const path = join(f.root, '.local/dsh-dev/cordis.patch.yml')
   mkdirSync(dirname(path), { recursive: true })
+  for (const name of ['home', 'store', 'logs', 'bin']) mkdirSync(join(dirname(path), name), { recursive: true })
+  writeFileSync(join(dirname(path), 'owner.json'), JSON.stringify({ version: 1, purpose: 'dsh-development', root: realpathSync(f.root), id: randomUUID(), initialized: true, links: {} }))
+  for (const name of ['npmrc', 'global.npmrc']) writeFileSync(join(dirname(path), name), '')
   writeFileSync(path, renderWebPatch(readFileSync(f.paths.patchExample, 'utf8'), f.root))
   return path
+}
+
+export function fakeWebServer(code: number, query = ''): string {
+  return `const server=require('node:http').createServer((req,res)=>res.end('ready'));
+    server.listen(Number(process.argv[process.argv.indexOf('--port')+1]),'127.0.0.1',()=>{
+      const url='http://127.0.0.1:'+server.address().port+'/${query}';
+      if(process.env.TEST_URL) require('node:fs').writeFileSync(process.env.TEST_URL,url);
+      console.log('dsh web: '+url); setTimeout(()=>process.exit(${code}),800);
+    });`
 }
