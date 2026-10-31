@@ -74,7 +74,8 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     })
     mkdirSync(join(env.DSH_HOME!, 'profiles/web'), { recursive: true })
     writeFileSync(join(env.DSH_HOME!, 'profiles/web/package.json'), '{"dependencies":{}}')
-    assert.match(run(['status', '--dsh-cli', f.cli, '--home', env.DSH_HOME!, '--profile', 'web', '--surface', 'web', '--platform', 'windows']).stdout, /@local\/alpha/)
+    const platform = process.platform === 'win32' ? 'windows' : 'mac'
+    assert.match(run(['status', '--dsh-cli', f.cli, '--home', env.DSH_HOME!, '--profile', 'web', '--surface', 'web', '--platform', platform]).stdout, /@local\/alpha/)
     assert.match(run(['build', '--unknown'], 1).stderr, /Unknown option/)
     assert.equal(existsSync(f.paths.patch), false)
     assert.deepEqual([f.paths.local].map(path => readFileSync(path, 'utf8')), before)

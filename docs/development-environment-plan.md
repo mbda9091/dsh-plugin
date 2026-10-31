@@ -961,11 +961,13 @@ Windows 验证通过（Node 24.19.0、pnpm 11.28.5、DSH 0.2.1-rc.2）：
 
 ### 9.14 远端流水线初验与修复（2026-10-31）
 
-首次推送 ec585d2 后执行 Windows/macOS 矩阵，发现并修复三项此前本地 Windows 未暴露的问题：
+首次推送 ec585d2 后执行 Windows/macOS 矩阵，发现并修复四项此前本地 Windows 未暴露的问题：
 
 - macOS 上 realpath 可能保留调用方的大小写，导致符号链接与真实目录使用不一致的比较形式。大小写探测改用 lstat 的设备号/inode，继续拒绝路径重叠，并按所在卷的行为测试大小写别名。
 - CI 导出的 DSH_PNPM 与 CFG-02 夹具的小写覆盖同时存在，污染了优先级断言。夹具在注入受控值前清除同名的所有大小写变体；注入 runner 变量的本地复验通过。
 - Windows runner 的系统 tar 无法打开中文路径。TOOL-04 改用仓库 Node tarball 解析器检查包内容，保留中文路径和内容断言；本地冷安装复验通过（.tmp/environment-tests/run-yudVBV/report.json）。
+
+- L3 Node 入口回归把正式目标硬编码为 windows，在 macOS 上被正确的平台校验拒绝；改为显式传入当前平台，定向入口回归通过。
 
 环境测试、L1–L3 和 CI 阶段失败新增 GitHub check 注释，包含断言原因/失败步骤，沿用 token 脱敏并转义换行、百分号，防止诊断文本变成工作流命令。报告器的失败探针通过；开启 GITHUB_ACTIONS 的本地类型检查、259 项 L1–L3 和 L4 通过（.tmp/revision/ci-annotations-functional.log；.tmp/l4/run-zrZrNC/report.json）。最终跨平台结果以修复提交对应的 Actions 运行记录为准，桌面人工验收继续待办。
 
