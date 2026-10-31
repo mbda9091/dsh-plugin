@@ -1,12 +1,12 @@
 # 测试与 Web L5 方案（v0.1）
 
-> 2026-10-31 M1：新增独立 `test-env --suite fast`（不依赖本机配置、DSH、浏览器或插件 build），CFG-01–06 的 Windows 证据及 L1–L5 回归见[开发环境计划 §9.3](development-environment-plan.md#93-m1-配置职责与显式迁移2026-10-31)。两平台 fast CI 已接入；macOS 本次尚未执行。当前配置/参数适用范围以[配置 v2](configuration-v2.md)为准。
+> 2026-10-31 环境 M1/M2：已交付独立 `test-env --suite fast/real/all`。M1 `ff461e0` 的 Windows/macOS 配置 fast 均通过，功能 CI 均在过渡 DSH 准备步骤失败；M2 `8478d76` 的 Windows CFG/TOOL、L1–L4 及单独复验 L5 通过，尚无远端运行记录。提交、job 链接、失败及复验证据见[开发环境计划 §9.5](development-environment-plan.md#95-m1m2-提交后-ci-核查与-windows-复验2026-10-31)。当前配置/参数适用范围以[配置 v2](configuration-v2.md)为准；环境 M1/M2 与本文历史测试里程碑分别编号。
 
 > 状态：M1–M5 已完成；提交 `d9f2a12` 的 Windows/macOS 远端 CI 全部通过（§19.7）。更新日期：2026-10-30（Asia/Shanghai）。
 > 本文保留历史实施记录；原远端基线见 §19.7，P0 本机及 Windows/macOS 远端验收见 §7.5（2026-10-31 补验），未完成事项与范围边界集中在 §20。M6 等首个真实 UI 组件需要时再启动。
 > 历史日志中的机器路径已脱敏；`<repo>`、`%USERPROFILE%`、`%LOCALAPPDATA%` 为路径占位符。新的本机配置入口见 [本机配置方案](local-configuration-design.md)，L4/L5 不读取日常 Web 本机 patch。
 > TS 脚本收尾已实现；后续环境统一与开发隔离见[独立规划](development-environment-plan.md)。以下历史通过记录不代表 P1–P4 已实现。
-> 环境配置的新增测试另见[环境方案 §4.7](development-environment-plan.md#47-验证设计独立环境配置测试)：包含独立入口、35 组场景及逐步交付安排，均待实现。它验证配置迁移、宿主选择、目录/进程隔离和交付一致性，与本文插件 L1–L5 分别报告。
+> 环境配置的新增测试另见[环境方案 §4.7](development-environment-plan.md#47-验证设计独立环境配置测试)：包含独立入口、35 组场景及逐步交付安排；CFG/TOOL 已实现，后续 DEV/ISO/ART/TGT 待实现。它验证配置迁移、宿主选择、目录/进程隔离和交付一致性，与本文插件 L1–L5 分别报告。
 
 ## 1. 结论摘要
 
@@ -1140,11 +1140,11 @@ L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profi
 | 事项 | 当前状态与下一步 | 依据 |
 |---|---|---|
 | TS 脚本收尾与 PS 退场 | **已完成**：Node/TS 主入口、帮助/文档/调用方迁移，移除 PS 入口；Windows 本机 252 项测试与真实 L4/L5 通过，迁移提交 `ab745e9` 的 Windows/macOS CI 均通过 | 本文 §7.5、[本机配置方案 §14.10](local-configuration-design.md#1410-powershell-兼容层移除计划) |
-| 环境统一与开发隔离 | **待实施，P0 前置已完成**：P1 配置与工具统一 → P2 隔离开发 DSH → P3 tarball 干净验收 → P4 安装同一包到用户指定 DSH/profile，已细化为 M1–M6。开发宿主和正式目标分别管理，不互相回退 | [开发环境方案 §5](development-environment-plan.md#5-里程碑) |
+| 环境统一与开发隔离 | **M1/M2 已实现，M3–M6 待实施**：M1 双平台配置 fast 通过、功能 CI 准备失败；M2 Windows 已复验，远端 CI 待执行。补当前基线的两平台 fast/real/功能证据后推进持久开发环境 | [开发环境方案 §9.5](development-environment-plan.md#95-m1m2-提交后-ci-核查与-windows-复验2026-10-31) |
 | 本机配置第三阶段 | **维护机制已设计，尚未实现**：保留字段归属、预览、备份、repair/migrate 与故障恢复设计，按 P1 的新配置职责调整字段与迁移；不作为 TS 收尾前置。当前新增命令不可用 | [本机配置方案 §14](local-configuration-design.md#14-第三阶段具体设计修复与格式升级) |
 | M6 / UI 组件测试 | **条件性待建设**：首个真实 React/JSX UI 组件需要时，引入 `src/client.tsx` 构建和 Vitest 组件测试，并复用现有 Playwright L5；不为了完成里程碑而新增插件或迁移全部 Host 测试 | 本文 §8、§10 |
 | 插件场景 UI 徽章/页面 | **可选、暂不实施**：场景元数据、目录、安装过滤、运行时守卫已完成；将来有展示需求时再做插件管理器伴生 UI | [插件场景方案](plugin-targets.md) 阶段 3 |
 | 原生通知与日常使用验收 | **待补人工证据**：独立 Chrome/Edge、macOS 的原生权限弹窗、系统通知、点击聚焦/切会话及多标签页接管；加载即申请权限改动后的原生流程也需复验。已有 Windows Codex 内嵌浏览器证据保持有效，但不推广到其他环境 | [通知方案 §11.11–§11.15](notification-host-design.md#1111-原生浏览器通知验收2026-10-28asiashanghai) |
 | 桌面端 L5 与更深的恢复场景 | **当前延期/未覆盖**：Electron 壳、真实重启、Toast/声音不进现有 Web CI；Host 重启后跨进程恢复待审批、后台冻结/勿扰等场景需要另定需求和验收方案，不能因 CI 通过而视为已覆盖 | 本文 §2、§4、§18；通知方案 §11.11 |
 
-P0 已完成，下一步按独立开发环境方案从 M1 的配置职责与迁移开始，依次推进 M1–M6（对应 P1–P4）。repair/migrate 的机制按后续配置结构落实，各阶段分别验收。其余按真实 UI 或使用场景需求安排；`headless` / Linux 当前是保留场景，两个桌面插件不适配 Web 是明确选择，不计为本轮未完成建设。
+P0 与环境 M1/M2 实现已完成；下一步补 M2 两平台 CI 证据，再按独立开发环境方案推进 M3–M6（对应 P1–P4 的后续部分），各阶段分别验收。其余按真实 UI 或使用场景需求安排；`headless` / Linux 当前是保留场景，两个桌面插件不适配 Web 是明确选择，不计为本轮未完成建设。
