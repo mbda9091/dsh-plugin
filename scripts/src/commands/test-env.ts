@@ -9,7 +9,7 @@ import { assertEnvironmentResults, environmentIds } from '../core/environment-re
 import { redactLaunchTokens } from '../core/web-harness.js'
 
 /** Deliberately dispatched before local configuration loading. */
-export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: string, only?: string, onReport?: (path: string) => void): Promise<number> {
+export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: string, only?: string, onReport?: (path: string) => void, browser?: { browser?: string | undefined; browserPath?: string | null | undefined }): Promise<number> {
   if (!['fast', 'real', 'all'].includes(suite)) throw new Error('--suite must be fast, real or all')
   const expected = only ? only.split(',') : environmentIds(suite)
   if (!expected.length || new Set(expected).size !== expected.length || expected.some(id => !environmentIds(suite).includes(id))) throw new Error('--only must name implemented cases in the selected suite')
@@ -37,6 +37,7 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
   const oldKeep = process.env.DSH_ENV_TEST_KEEP
   const oldPnpm = process.env.DSH_ENV_TEST_PNPM
   const oldOnly = process.env.DSH_ENV_TEST_ONLY
+  const oldBrowser = process.env.DSH_ENV_TEST_BROWSER, oldBrowserPath = process.env.DSH_ENV_TEST_BROWSER_PATH
   try {
     if (suite !== 'fast' && !pnpmScript) throw new Error('real environment tests require explicit --pnpm-script')
     const compiled = spawnSync(process.execPath, [join(repoRoot, 'node_modules/typescript/bin/tsc'), '-p', join(repoRoot, 'test/tsconfig.environment.json')], { stdio: 'inherit' })
@@ -46,6 +47,8 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
     process.env.DSH_ENV_TEST_RUN = directory
     process.env.DSH_ENV_TEST_KEEP = keep ? '1' : '0'
     process.env.DSH_ENV_TEST_ONLY = expected.join(',')
+    if (browser?.browser) process.env.DSH_ENV_TEST_BROWSER = browser.browser
+    if (browser?.browserPath) process.env.DSH_ENV_TEST_BROWSER_PATH = browser.browserPath
     const folders = suite === 'all' ? ['fast', 'real'] : [suite]
     const files = folders.flatMap(kind => { const folder = join(repoRoot, 'test/.build-env/environment', kind); return readdirSync(folder).filter(name => name.endsWith('.test.js')).map(name => join(folder, name)) })
     const stream = run({ files, isolation: 'none', concurrency: 1, testNamePatterns: [new RegExp(`^(?:${expected.join('|')}) `)] })
@@ -53,7 +56,7 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
       const event = raw as TestEvent
       if (event.type !== 'test:pass' && event.type !== 'test:fail') continue
       const { data } = event
-      const id = /^(?:CFG|TOOL|DEV|ISO)-\d+(?:-real)?/.exec(data.name)?.[0]
+      const id = /^(?:CFG|TOOL|DEV|ISO|ART|TGT)-\d+(?:-real)?/.exec(data.name)?.[0]
       if (!id) continue
       const status = event.type === 'test:fail' ? 'fail' : data.skip ? 'skip' : 'pass'
       results.push({ id, name: data.name, status, durationMs: data.details.duration_ms ?? 0, evidence: `${id}.json` })
@@ -80,6 +83,8 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
     if (oldKeep === undefined) delete process.env.DSH_ENV_TEST_KEEP; else process.env.DSH_ENV_TEST_KEEP = oldKeep
     if (oldPnpm === undefined) delete process.env.DSH_ENV_TEST_PNPM; else process.env.DSH_ENV_TEST_PNPM = oldPnpm
     if (oldOnly === undefined) delete process.env.DSH_ENV_TEST_ONLY; else process.env.DSH_ENV_TEST_ONLY = oldOnly
+    if (oldBrowser === undefined) delete process.env.DSH_ENV_TEST_BROWSER; else process.env.DSH_ENV_TEST_BROWSER = oldBrowser
+    if (oldBrowserPath === undefined) delete process.env.DSH_ENV_TEST_BROWSER_PATH; else process.env.DSH_ENV_TEST_BROWSER_PATH = oldBrowserPath
     report.ended = new Date().toISOString()
     writeFileSync(reportPath, redactLaunchTokens(JSON.stringify(report, null, 2)))
     onReport?.(reportPath)

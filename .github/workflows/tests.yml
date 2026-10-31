@@ -34,6 +34,8 @@ jobs:
         os: [windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    env:
+      DSH_E2E_BROWSER: chromium
     defaults:
       run:
         shell: bash
@@ -44,10 +46,11 @@ jobs:
           node-version: '24'
       - run: npm install --global pnpm@11.28.5
       - run: pnpm install --frozen-lockfile
+      - run: node node_modules/playwright-core/cli.js install chromium
       # Real suite exports clean source, freezes again in a fresh store/home,
       # probes public DSH/internal pnpm and a real tgz. DEV also verifies persistent
       # Web lifecycle, source links, revised code loading and safe reset in a fixture.
-      # ISO covers poisoned config, concurrent hosts, failure/timeout/interruption cleanup.
+      # ISO covers isolation; ART exercises fixed tarballs and real L4/L5 evidence.
       - run: node scripts/bootstrap.mjs test-env --suite real --pnpm-script "$(npm root -g)/pnpm/bin/pnpm.cjs"
 
   test:

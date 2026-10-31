@@ -1,5 +1,5 @@
-import { existsSync, lstatSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, lstatSync, realpathSync } from 'node:fs'
+import { isAbsolute, join, relative } from 'node:path'
 import { profileDir, readProfileManifest, resolveInstallMode } from '../core/dsh.js'
 import { isRecord, stringArray } from '../core/json.js'
 import { discoverPlugins } from '../core/plugins.js'
@@ -7,11 +7,15 @@ import { formatPluginTarget, isTargetCompatible, resolveTarget } from '../core/t
 import { loadCommandContext, operationTarget } from '../core/command-context.js'
 import type { CommandContext } from '../core/command-context.js'
 import { validateDevelopmentPaths } from '../core/development.js'
+import { inspectTarget } from '../core/formal-target.js'
+import { loadArtifacts } from '../core/artifacts.js'
+import { checkInstalledPackage } from '../core/artifact-package.js'
 
 export interface StatusOptions {
   readonly profile?: string | undefined
   readonly surface?: string | undefined
   readonly platform?: string | undefined
+  readonly manifest?: string | undefined
 }
 
 /**
@@ -20,6 +24,7 @@ export interface StatusOptions {
  */
 export function runStatus(options: StatusOptions, context: CommandContext = loadCommandContext()): number {
   validateDevelopmentPaths(context)
+  if (context.purpose === 'target') inspectTarget(context)
   const selectedTarget = operationTarget(context)
   const profile = selectedTarget.profile
   const manifest = readProfileManifest(profile, context.env)
@@ -34,6 +39,17 @@ export function runStatus(options: StatusOptions, context: CommandContext = load
 
   console.log(`profile: ${profile}`)
   console.log(`target:  ${target.surface}/${target.platform}`)
+  console.log('runtime rows/loading: unconfirmed; capability: unverified (read-only filesystem status)')
+  if (options.manifest) {
+    const artifacts = loadArtifacts(context.root, options.manifest, false)
+    let failed = false
+    for (const pkg of artifacts.packages.values()) {
+      if (!isTargetCompatible(pkg, target)) { console.log(`${pkg.name}: skip (incompatible)`); continue }
+      try { console.log(`${pkg.name}: verified files/bundle ${checkInstalledPackage(pkg, profileDirectory, context.root)}`) }
+      catch (error) { failed = true; console.log(`${pkg.name}: ${error instanceof Error ? error.message : 'verification failed'}`) }
+    }
+    return failed ? 1 : 0
+  }
 
   for (const plugin of discoverPlugins(context.root)) {
     const declared = dependencies[plugin.packageName]
@@ -43,7 +59,7 @@ export function runStatus(options: StatusOptions, context: CommandContext = load
     // a junction in node_modules while the spec already says `file:`. Report
     // what is actually installed.
     const installed = join(profileDirectory, 'node_modules', plugin.packageName)
-    const mode = resolveInstallMode(spec, isLinked(installed))
+    const mode = resolveInstallMode(spec, isLinked(installed, profileDirectory, spec))
 
     const bundle = bundles.includes(plugin.packageName) ? 'bundle=on' : 'bundle=off'
     const compatibility = isTargetCompatible(plugin, target) ? 'compatible' : 'skip'
@@ -56,12 +72,16 @@ export function runStatus(options: StatusOptions, context: CommandContext = load
   return 0
 }
 
-function isLinked(path: string): boolean {
+function isLinked(path: string, profile: string, spec: string | null): boolean {
   if (!existsSync(path)) return false
   try {
     // Node reports Windows junctions as symbolic links, which is the same
     // distinction `Get-Item -Force | Select LinkType` exposed.
-    return lstatSync(path).isSymbolicLink()
+    if (!lstatSync(path).isSymbolicLink()) return false
+    if (spec?.startsWith('link:')) return true
+    const rel = relative(join(profile, 'node_modules/.pnpm'), realpathSync(path))
+    // pnpm's internal store junction is a regular tarball installation.
+    return isAbsolute(rel) || rel === '..' || rel.startsWith('../') || rel.startsWith('..\\')
   } catch {
     return false
   }

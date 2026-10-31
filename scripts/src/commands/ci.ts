@@ -27,7 +27,7 @@ export async function runCi(options: { readonly keep: boolean; readonly timeoutM
   const stages = [
     { name: 'environment', run: async () => {
       const started = new Date().toISOString()
-      const code = await runTestEnv('all', options.keep, configuredPnpm(context), undefined, path => { evidence.environment = path })
+      const code = await runTestEnv('all', options.keep, configuredPnpm(context), undefined, path => { evidence.environment = path }, context.config.test)
       if (code !== 0) return code
       if (!evidence.environment) throw new Error('missing environment report')
       assertEnvironmentResults(evidence.environment, environmentIds('all'), started)

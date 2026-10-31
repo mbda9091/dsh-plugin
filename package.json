@@ -10,6 +10,7 @@
     "config": "node scripts/bootstrap.mjs config",
     "web": "node scripts/bootstrap.mjs web",
     "pack": "node scripts/bootstrap.mjs pack",
+    "verify-artifacts": "node scripts/bootstrap.mjs verify-artifacts",
     "dev-install": "node scripts/bootstrap.mjs dev-install",
     "stable-install": "node scripts/bootstrap.mjs stable-install",
     "check-targets": "node scripts/bootstrap.mjs check-targets",

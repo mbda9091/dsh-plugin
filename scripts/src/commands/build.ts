@@ -1,5 +1,7 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
+import { safeConfigPath } from '../core/config-transaction.js'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { discoverPlugins } from '../core/plugins.js'
@@ -146,6 +148,11 @@ async function bundlePlugin(dir: string, spec: BuildSpec, env: NodeJS.ProcessEnv
  * @returns process status.
  */
 export async function runBuild(options: BuildOptions, context: CommandContext = loadCommandContext()): Promise<number> {
+  if (!options.check) {
+    const generation = join(repoRoot, 'dist/build-generation')
+    safeConfigPath(repoRoot, generation); mkdirSync(dirname(generation), { recursive: true })
+    writeFileSync(generation, randomUUID())
+  }
   const env = commandEnv(context)
   const targetsCode = runCheckTargets()
   if (targetsCode !== 0) return targetsCode

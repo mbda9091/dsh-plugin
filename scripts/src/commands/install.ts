@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs'
-import { delimiter, isAbsolute, join, relative, resolve } from 'node:path'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { delimiter, join } from 'node:path'
 import { commandEnv, configuredDsh, configuredPnpm, loadCommandContext, operationTarget } from '../core/command-context.js'
 import type { CommandContext } from '../core/command-context.js'
 import { discoverPlugins } from '../core/plugins.js'
@@ -9,12 +9,15 @@ import type { TargetOptions } from '../core/targets.js'
 import { requireBuilt, runInherited } from './pack.js'
 import { runBuild } from './build.js'
 import { acquireDevelopmentLock, initializeDevelopment, recordDevelopmentLinks, verifyDevelopmentLinks, validateDevelopmentPaths, developmentEnvironment } from '../core/development.js'
+import { runArtifactInstall } from './install-artifacts.js'
 
 export interface InstallOptions extends TargetOptions {
   readonly mode: 'link' | 'tarball'
   readonly dryRun: boolean
   readonly skipBuild: boolean
   readonly all: boolean
+  readonly manifest?: string | undefined
+  readonly only?: string | undefined
 }
 
 /** Plan before side effects: a missing later archive must not leave a partially
@@ -22,7 +25,10 @@ export interface InstallOptions extends TargetOptions {
  */
 export async function runInstall(options: InstallOptions, context: CommandContext = loadCommandContext()): Promise<number> {
   validateDevelopmentPaths(context)
-  if (options.mode !== 'link' || options.dryRun) return install(options, context)
+  if (options.mode === 'tarball') return runArtifactInstall(options, context)
+  if (options.manifest) throw new Error('--manifest is only for tarball installation')
+  if (options.only) throw new Error('--only is only for tarball installation')
+  if (options.dryRun) return install(options, context)
   const release = acquireDevelopmentLock(context)
   try { return await install(options, context) } finally { release() }
 }
@@ -30,7 +36,6 @@ export async function runInstall(options: InstallOptions, context: CommandContex
 async function install(options: InstallOptions, context: CommandContext): Promise<number> {
   const selectedTarget = operationTarget(context)
   if (options.mode === 'link' && context.purpose !== 'development') throw new Error('link installation is restricted to development context')
-  if (options.mode === 'tarball' && context.purpose !== 'target') throw new Error('tarball installation requires an explicit target')
   const profile = selectedTarget.profile
   const target = resolveTarget(selectedTarget)
   const directory = join(selectedTarget.home, 'profiles', profile)
@@ -44,17 +49,7 @@ async function install(options: InstallOptions, context: CommandContext): Promis
   if (!selected.length) { console.log('no compatible plugins; nothing changed'); return 0 }
   const runner = configuredDsh(context, target.surface === 'web')
   const pnpm = configuredPnpm(context)
-  const dist = resolve(context.root, 'dist')
-  const plan = selected.map(plugin => {
-    const archive = resolve(dist, `${plugin.packageName.replace(/^@/, '').replaceAll('/', '-')}-${plugin.version}.tgz`)
-    const inside = relative(dist, archive)
-    if (isAbsolute(inside) || inside.startsWith('..')) throw new Error('Tarball path escapes dist')
-    return { plugin, location: options.mode === 'link' ? plugin.dir : archive }
-  })
-  if (options.mode === 'tarball') {
-    const missing = plan.filter(item => !existsSync(item.location))
-    if (missing.length) throw new Error(`missing tarball(s): ${missing.map(item => item.plugin.packageName).join(', ')}; run pack first`)
-  }
+  const plan = selected.map(plugin => ({ plugin, location: plugin.dir }))
   if (options.dryRun) {
     for (const item of plan) {
       console.log(`dsh plugin --profile ${profile} add ${JSON.stringify(item.location)}`)

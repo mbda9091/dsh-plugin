@@ -120,6 +120,18 @@
             "type": "string",
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$"
           },
+          "binding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["cli", "engine", "entry", "home", "profile"],
+            "properties": {
+              "cli": { "type": "string", "pattern": "\\S" },
+              "engine": { "type": "string", "pattern": "\\S" },
+              "entry": { "type": "string", "pattern": "\\S" },
+              "home": { "type": "string", "pattern": "\\S" },
+              "profile": { "type": "string", "pattern": "\\S" }
+            }
+          },
           "dshCli": {
             "type": "string",
             "pattern": "\\S"

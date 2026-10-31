@@ -53,13 +53,13 @@ it('L3 install: dry-run filters targets, supports --all, and creates no profiles
   } finally { removeDir(f.root) }
 })
 
-for (const mode of ['link', 'tarball'] as const) {
+for (const mode of ['link'] as const) {
   it(`L3 install: ${mode} runs add then update, preserves quoted paths, and targets an isolated profile`, async () => {
     const f = fixture()
     try {
       mkdirSync(join(f.root, 'dist'))
       for (const name of ['alpha', 'beta']) writeFileSync(join(f.root, `dist/local-${name}-1.0.0.tgz`), '')
-      const context = mode === 'link' ? f.context : loadCommandContext({ dshCli: f.cli, home: 'chosen-home', profile: 'web', surface: 'web', platform: 'windows' }, f.root, f.context.env, 'target')
+      const context = f.context
       assert.equal(await runInstall({ ...f.options, mode }, context), 0)
       const calls = f.calls()
       assert.deepEqual(calls.map(c => c.tool), ['dsh', 'pnpm', 'dsh', 'pnpm'])
@@ -82,7 +82,7 @@ it('L3 install/pack: preflight checks all artifacts before invoking tools', asyn
     mkdirSync(join(f.root, 'dist'))
     writeFileSync(join(f.root, 'dist/local-alpha-1.0.0.tgz'), '')
     const targetContext = loadCommandContext({ dshCli: f.cli, home: 'chosen-home', profile: 'web', surface: 'web', platform: 'windows' }, f.root, f.context.env, 'target')
-    await assert.rejects(runInstall({ ...f.options, mode: 'tarball' }, targetContext), /missing tarball.*beta/)
+    await assert.rejects(runInstall({ ...f.options, mode: 'tarball' }, targetContext), /requires.*--manifest/)
     rmSync(join(f.root, 'beta/lib'), { recursive: true })
     await assert.rejects(runInstall(f.options, f.context), /no build output.*beta/)
     await assert.rejects(runPack({ skipBuild: true }, f.context), /no build output.*beta/)
@@ -100,13 +100,15 @@ for (const [failure, code, tools] of [['add', 7, ['dsh']], ['update', 9, ['dsh',
   })
 }
 
-it('L3 pack: uses configured pnpm for every package, and stops immediately on failure', async () => {
+it('L3 pack: uses configured pnpm, requires actual archives even on exit zero, and stops on failure', async () => {
   for (const failure of ['', 'pack']) {
     const f = fixture(failure)
     try {
-      assert.equal(await runPack({ skipBuild: true }, f.context), failure ? 9 : 0)
-      assert.equal(f.calls().length, failure ? 1 : 3)
-      assert.deepEqual(f.calls()[0]?.args, ['pack', '--pack-destination', join(f.root, 'dist')])
+      if (failure) assert.equal(await runPack({ skipBuild: true }, f.context), 9)
+      else await assert.rejects(runPack({ skipBuild: true }, f.context), /ENOENT/)
+      assert.equal(f.calls().length, 1)
+      assert.deepEqual(f.calls()[0]?.args.slice(0, 2), ['pack', '--pack-destination'])
+      assert.ok(f.calls()[0]?.args[2]?.startsWith(join(f.root, 'dist/batches')))
       assert.equal(f.calls()[0]?.cwd, join(f.root, 'alpha'))
     } finally { removeDir(f.root) }
   }

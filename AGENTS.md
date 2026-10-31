@@ -4,7 +4,7 @@
 
 > 概念与机制（bundle / patch / profile 的定义、安装与配置流程）见 [docs/dsh-concepts.md](docs/dsh-concepts.md)。本文件只讲规则，那份文档解释"为什么"。
 
-> M1 配置协议已升级为 v2，M2 已锁定 workspace 开发 DSH，M3 已交付受管开发环境，M4 统一一次性测试隔离与报告门禁；字段、命令适用表和恢复步骤见 [docs/configuration-v2.md](docs/configuration-v2.md)。仓库命令不再从日常 DSH 环境变量推断宿主或安装目的地；外部 dsh CLI 自身的参数规则不变。`web init`/首次 `web`/`dev-install` 初始化开发数据，不回退日常宿主、不认领已有未知目录。
+> M1 配置协议已升级为 v2，M2 已锁定 workspace 开发 DSH，M3 已交付受管开发环境，M4 统一一次性测试隔离与报告门禁，M5 绑定固定产物与持久验收证据，M6 提供目标管理及逐包交付报告；字段、命令适用表和恢复步骤见 [docs/configuration-v2.md](docs/configuration-v2.md)。仓库命令不再从日常 DSH 环境变量推断宿主或安装目的地；外部 dsh CLI 自身的参数规则不变。`web init`/首次 `web`/`dev-install` 初始化开发数据，不回退日常宿主、不认领已有未知目录。
 
 ## 1. 仓库定位
 
@@ -429,7 +429,7 @@ window.__ModuleLoader__.load({
 
 ### 7.4 开发 link 与正式 tarball（v2 分开目标）
 
-开发 link 只进入受管开发 home/profile；tarball 安装必须明确选中独立目标。M1 先分开配置和命令上下文，M2/M3 准备开发依赖/生命周期，M5/M6 补产物验收与完整正式交付：
+开发 link 只进入受管开发 home/profile；tarball 安装必须明确选中独立目标。M1 分开配置和命令上下文，M2/M3 准备开发依赖/生命周期，M5 提供固定产物验收门禁，M6 管理目标绑定和交付：
 
 ```powershell
 # 开发：冻结依赖准备完成后初始化；只向受管开发 profile 安装 link
@@ -441,18 +441,21 @@ node scripts/bootstrap.mjs web status
 node scripts/bootstrap.mjs web stop
 node scripts/bootstrap.mjs web reset
 
-# 打包：build + pnpm pack，产物在 dist/*.tgz（只包含 files 列出的内容）
+# 打包：build + pnpm pack，产物在 dist/batches/<批次>/*.tgz（只包含 files 列出的内容）
 node scripts/bootstrap.mjs pack
 
 # 指定目标：daily 必须是 v2 targets 中的一组完整配置
-node scripts/bootstrap.mjs stable-install --target daily
+node scripts/bootstrap.mjs target discover
+node scripts/bootstrap.mjs target bind daily --dsh-cli <外部CLI> --home <独立home> --profile web --surface web --platform windows
+node scripts/bootstrap.mjs verify-artifacts --manifest dist/batches/<批次>/manifest.json
+node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<批次>/manifest.json
 
 # 查看当前模式
 node scripts/bootstrap.mjs status --target daily
 ```
 
 - 两个安装脚本都支持 `--dry-run`，只打印将执行的命令，不改 profile；
-- 安装按完整目标过滤；开发安装固定开发上下文，不接受日常目标参数。正式安装必须 `--target NAME` 或完整显式目标；M5/M6 的验收门禁另行建设；
+- 安装按完整目标过滤；开发安装固定开发上下文，不接受日常目标参数。正式安装必须 `--target NAME` 或完整显式目标，并提供清单及匹配平台/surface/宿主版本的成功记录；桌面证据缺失时拒绝安装。`target bind` 保存真实路径身份，安装时重验；`--only` 选择清单子集，`--all` 不绕过门禁。逐包报告在 `dist/consumption/`，文件安装、配置行、加载与能力验证分别记录，不自动重启或回滚；
 - 安装会写 profile（工作区外），DSH 可能需要一次批准；在 DSH 外的终端执行也可以；
 - **不要用 `pnpm remove` / `dsh plugin remove` 移除 `link:` 依赖**：Windows 上 pnpm 会跟随 junction 删除插件源码目录（已经踩过一次，源码从 git 恢复）。切换方向一律用 `add` 覆盖同名依赖。
 - **切换方向后要重解析**：从 `link:` 切到 tarball 时，`dsh plugin add <tgz>` 可能只改 manifest 的 spec，而在 `node_modules` 里留下 junction、lockfile 里留下 `link:` 解析（表现为“装好了但还是链接”）。脚本会在 profile 里再执行 `pnpm update <name>` 强制重解析；`status` 会直接报告 `tarball spec, but LINKED` 这类不一致。
@@ -469,7 +472,7 @@ node scripts/bootstrap.mjs status --target daily
   - `node scripts/bootstrap.mjs build` 重新构建
   - `node scripts/bootstrap.mjs build --check` 只做类型检查
   - `node scripts/bootstrap.mjs ci` 运行完整本地检查（独立环境 all → 类型检查 → L1–L3 → L4 → L5），失败即停止；汇总在 `.tmp/ci/last-report.json`，引用本次独立报告并校验完整结果。需要 workspace 开发 DSH、已准备 pnpm 和冻结安装所需网络；不接受 `--dsh-cli` / `DSH_CLI` 重定向。该入口不提交、推送或上传产物。
-  - `node scripts/bootstrap.mjs test-env --suite fast` 独立验证 CFG/TOOL/DEV 与 ISO-01/02/04/06，共 19 项，不要求本机配置、真实 DSH 或插件 build。`--suite real --pnpm-script <path>` 验证干净冻结安装、DSH/内部 pnpm、代表包、真实开发生命周期及 ISO 污染/并发/退出清理，共 6 项。`all` 合并为 25 项；`--only ID,ID` 定向选择已实现用例。报告在 `.tmp/environment-tests/`，不代替未执行的平台、M5/M6 或桌面验收。
+  - `node scripts/bootstrap.mjs test-env --suite fast` 独立验证 CFG/TOOL/DEV/ISO/ART/TGT，共 28 项，不要求本机配置、真实 DSH 或插件 build。`--suite real --pnpm-script <path>` 验证冻结安装、真实开发/测试生命周期、固定产物与独立正式目标交付，共 14 项（ART-04-real/06 需要显式测试浏览器）。`all` 合并为 42 项；`--only ID,ID` 定向选择已实现用例。报告在 `.tmp/environment-tests/`，不代替未执行的平台或桌面验收。
   - L4/L5 共用一次性目录和包管理器配置；成功清理可变 home/store/cache/shim，保留报告与日志，失败或 `--keep` 保留现场。显式 `l4 --home` 也遵守该规则。可处理中断关闭自己的进程树及已知端口；缺证据、skip、清理/报告写入失败不得报通过。详见 [v2 协议](docs/configuration-v2.md)。
   - `node scripts/bootstrap.mjs test` 先构建，再编译并运行 L1–L3；`node scripts/bootstrap.mjs l4` 跑真实 `dsh web` 的 L4 harness（慢、需要本机 DSH）
   - 普通终端且 `node` 在 PATH 上时，也可以用根 `package.json` 的 `pnpm build` / `pnpm check` / `pnpm catalog` / `pnpm status` / `pnpm test`；**DSH 沙箱内不要用 `pnpm run`**（它会用管道 spawn 子进程，被沙箱拒绝后会卡住），直接用 `node scripts/bootstrap.mjs <cmd>`。

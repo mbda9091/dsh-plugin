@@ -102,15 +102,19 @@ node scripts/bootstrap.mjs dev-install --dry-run
 # 构建并以 link 方式安装兼容插件
 node scripts/bootstrap.mjs dev-install
 
-# 构建并打包到 dist/，再切换到 tarball 安装
+# 构建并生成固定批次，验收后安装同一份包（需匹配目标证据）
+node scripts/bootstrap.mjs target discover
+node scripts/bootstrap.mjs target bind daily --dsh-cli <外部CLI> --home <独立home> --profile web --surface web --platform windows
 node scripts/bootstrap.mjs pack
-node scripts/bootstrap.mjs stable-install --target daily
+node scripts/bootstrap.mjs verify-artifacts --manifest dist/batches/<批次>/manifest.json
+node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<批次>/manifest.json --dry-run
+node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<批次>/manifest.json
 
 # 查看安装模式及目标兼容性
 node scripts/bootstrap.mjs status --target daily
 ```
 
-开发链接使用仓库构建产物；tarball 安装使用打包副本。切换安装方式时使用脚本覆盖同名依赖，避免手工删除 `link:` 依赖。需要的共享逻辑会在构建时内联进插件。
+开发链接使用仓库构建产物；tarball 安装使用打包副本，可用 `--only @local/包名` 选择子集。交付报告位于 `dist/consumption/run-*/report.json`，分开记录文件、bundle/配置行、加载和能力验证；部分失败不自动回滚或重启。目标管理、精确版本证据、持久输入与重试规则见 [v2 协议](docs/configuration-v2.md#正式目标与交付恢复m6)。切换安装方式使用 add 覆盖与 update，避免手工删除 `link:` 依赖。
 
 ## 验证
 

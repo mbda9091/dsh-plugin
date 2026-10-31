@@ -9,15 +9,21 @@ import { childEnv, ensurePnpmShim, initProfile, runDsh, serveAndCheck } from '..
 import { runIsolatedTest } from '../core/test-run.js'
 import type { TestReport } from '../core/test-run.js'
 import { runBuild } from './build.js'
+import type { ArtifactSet } from '../core/artifacts.js'
+import { artifactPrerequisites, installArtifacts, checkArtifactInstallations } from '../core/artifact-harness.js'
 
-export interface L5Options { readonly keep: boolean; readonly timeoutMs?: number }
+export interface L5Options { readonly keep: boolean; readonly timeoutMs?: number; readonly artifacts?: ArtifactSet }
 
 /** Own both server and browser; never use an ambient GUI URL/profile. */
 export async function runL5(input: L5Options, settings: CommandContext = loadCommandContext({}, undefined, undefined, 'test'), onReport?: (report: TestReport) => void): Promise<number> {
   const options = { ...input, timeoutMs: input.timeoutMs ?? settings.config.test.timeoutMs }
   return runIsolatedTest('l5', settings, options, async context => {
     const { runDir, step } = context
-    await step('build', async () => {
+    await step(options.artifacts ? 'package-contracts' : 'build', async () => {
+      if (options.artifacts) {
+        if (!options.artifacts.packages.has('@local/notify-web')) throw new Error('artifact L5 currently requires notify-web; no generic UI pass is inferred')
+        return artifactPrerequisites(context, options.artifacts)
+      }
       const code = await runBuild({ check: false }, settings)
       if (code !== 0) throw new Error(`build exited with ${code}`)
       return 'built current source'
@@ -48,14 +54,17 @@ export async function runL5(input: L5Options, settings: CommandContext = loadCom
       })
       if (result.status !== 0 || result.timedOut) throw new Error(`browser checks failed (${result.status}, timedOut=${result.timedOut}):\n${result.stdout}\n${result.stderr}`)
       assertBrowserResults(join(runDir, 'artifacts', mode), mode)
+      if (mode === 'fixture' && options.artifacts) checkArtifactInstallations(context, options.artifacts)
       return result.stdout.trim()
     }))
     await browser('baseline')
-    await step('install-fixture', async () => {
-      for (const [name, target] of [['web-hello', 'test/fixtures/web-hello'], ['notify-web', 'notify-web']] as const) {
+    await step(options.artifacts ? 'install-artifacts' : 'install-fixture', async () => {
+      const evidence = options.artifacts ? await installArtifacts(context, options.artifacts) : ''
+      const fixtures: readonly (readonly [string, string])[] = options.artifacts ? [['web-hello', 'test/fixtures/web-hello']] : [['web-hello', 'test/fixtures/web-hello'], ['notify-web', 'notify-web']]
+      for (const [name, target] of fixtures) {
         await runDsh(context, `install-${name}`, ['plugin', '--profile', 'web', 'add', join(repoRoot, target)], context.home)
       }
-      return 'fixtures installed'
+      return evidence || 'fixtures installed'
     })
     await browser('fixture')
   }, onReport)

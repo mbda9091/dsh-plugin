@@ -1,6 +1,6 @@
 # 本机配置 v2：字段、命令与迁移
 
-M1–M4 实现协议（2026-10-31）。对应[环境计划](development-environment-plan.md)。M4 统一一次性测试上下文、清理和独立报告门禁；M5/M6 产物验收、目标管理尚未交付。
+M1–M6 实现协议（2026-10-31）。对应[环境计划](development-environment-plan.md)。M5 绑定固定产物与验收记录，M6 提供明确目标管理、安装预览和逐包交付报告；实际平台验收范围见计划中的实施记录。
 
 ## 字段归属
 
@@ -19,6 +19,7 @@ M1–M4 实现协议（2026-10-31）。对应[环境计划](development-environm
 | `targets[].dshCli` / `home` | 非空路径 | 目标 CLI 和数据根；不从环境变量补齐 |
 | `targets[].profile` | profile 名 | 同 name 字符规则，不允许目录穿越 |
 | `targets[].surface` / `platform` | `desktop` 或 `web` / `windows` 或 `mac` | 必填；目标选择是一组完整字段 |
+| `targets[].binding` | 可选真实路径对象 | `target bind` 保存 cli/engine/entry/home/profile；每次使用重验。手写完整目标也执行路径隔离检查，但没有历史路径身份可比较 |
 | `legacy.dshCli` | 路径或 `null` | 只保留 v1 待核对信息；任何命令都不将其当作宿主或目标 |
 
 所有对象拒绝未知字段。入口要求普通 Node 24；编译器、pnpm、开发 DSH 都由当前 `process.execPath` 执行。开发 DSH 只解析根 `devDependencies` 精确版本对应的 `node_modules/@deepseek-ai/dsh` 的公开 `bin`（当前为 `lib/bin.js`）。缺失或版本不符提示 `pnpm install --frozen-lockfile`，不查询 PATH、不回退到 `legacy.dshCli`。正式目标拒绝 workspace DSH 及其链接别名；Electron 目标保留自己的引擎。
@@ -77,15 +78,15 @@ node scripts/bootstrap.mjs web reset --yes
 | `web [start]` | 开发上下文；`--open/--no-open`、`--browser`、`--browser-path`、`--startup-timeout`、loopback `--host`、`--port` | `DSH_PNPM`；无浏览器变量覆盖 |
 | `web init/status/stop/reset` | 开发上下文；仅 reset 接受 `--yes`；status 同时显示开发插件安装状态 | `DSH_PNPM` 仅 init 需要 |
 | `dev-install` | 开发上下文；只安装开发 home；`--pnpm-script`、`--dry-run`、`--skip-build`、`--all` | `DSH_PNPM` |
-| `l4`、`l5`、`ci` | 测试上下文；`--pnpm-script`、`--test-browser`、`--test-browser-path`、`--timeout`、`--keep` | `DSH_PNPM`、`DSH_E2E_BROWSER`、`CHROME_PATH` |
+| `l4`、`l5`、`ci`、`verify-artifacts` | 测试上下文；L4/L5 可传 `--manifest`，verify-artifacts 必传且支持 `--check`；`--pnpm-script`、`--test-browser`、`--test-browser-path`、`--timeout`、`--keep` | `DSH_PNPM`、`DSH_E2E_BROWSER`、`CHROME_PATH` |
 | `stable-install`、`status` | 目标上下文；`--target NAME`，或完整的 `--dsh-cli PATH --home DIR --profile NAME --surface desktop\|web --platform windows\|mac`，两种方式互斥 | 仅 `DSH_PNPM`；不从环境变量拼目标 |
 | `test-env --suite fast` | 无本机配置依赖；可用 `--keep`、`--only ID,ID` | 不从个人配置获得被测值 |
-| `test-env --suite real\|all` | 无本机配置依赖；显式 `--pnpm-script PATH`，可用 `--keep`、`--only ID,ID`；TOOL-04 需网络、Git 和 tar | 不从个人配置获得被测值；子进程使用独立 home/store/userconfig |
+| `test-env --suite real\|all` | 无本机配置依赖；显式 `--pnpm-script PATH`，可用 `--keep`、`--only ID,ID`；ART 浏览器用例接受 `--test-browser`/`--test-browser-path`；TOOL-04 需网络、Git 和 tar | 不从个人配置获得被测值；子进程使用独立 home/store/userconfig |
 | `catalog`、`check-targets` | 无本机配置依赖 | 无目标选择 |
 
 `DSH_CLI`、`DSH_HOME`、`DSH_PROFILE`、`DSH_PROFILE_DIR`、`DSH_WEB_URL` 不再重定向上述命令。子进程清理这些变量以及 npm/pnpm store 覆盖和 Electron 标志，再由用途上下文填入选定地址。旧变量本身不会触发错误；不适用的显式目标参数会报错。`l4 --home` 仅代表新的仓库 `.tmp` 测试目录，不是正式目标 home。`--` 不能绕过 Web 参数校验。
 
-M1 中 `stable-install` 仍沿用已有 add/update 安装机制，仅增加完整目标选择；**具体 tarball 的验收门禁、目标发现/绑定/兼容证据是 M5/M6 的未完成项**，不将本阶段安装成功称作正式交付已验收。
+`stable-install` 必须传 `--manifest`，核验 M5 记录、包哈希及实际目标宿主版本，再执行 add/update；不能用 `--all` 绕过范围门禁。`--only @local/a,@local/b` 选择清单子集，未知、重复或不兼容包在安装前拒绝。`status --manifest PATH` 可只读核对已安装包内容和 bundle；不要求该清单仍为最新构建。
 
 ## 显式迁移与恢复
 
@@ -111,15 +112,17 @@ node scripts/bootstrap.mjs config check
 
 ## 独立验证
 
-`test-env --suite fast` 只编译 `test/tsconfig.environment.json`，运行 CFG-01–06、TOOL-01/02/03/05、DEV-01/02/04/05/06 和 ISO-01/02/04/06，共 19 项。DEV/ISO 使用假宿主、真实受控子进程和本地 HTTP。报告及每组证据写入 `.tmp/environment-tests/run-*/`；不要求个人配置、插件 build、真实 DSH 或浏览器。成功清理 fixture、失败保留、`--keep` 保留成功现场；缺证据、skip、清理失败都会失败。`--only ISO-01,ISO-02` 可选择当前 suite 的已实现用例，报告明确记录 selected，不代表完整阶段验收。
+`test-env --suite fast` 只编译 `test/tsconfig.environment.json`，运行 CFG、TOOL、DEV、ISO、ART 和 TGT-01/02/03/05/06，共 28 项。DEV/ISO 使用假宿主、真实受控子进程和本地 HTTP。报告及每组证据写入 `.tmp/environment-tests/run-*/`；不要求个人配置、插件 build、真实 DSH 或浏览器。成功清理 fixture、失败保留、`--keep` 保留成功现场；缺证据、skip、清理失败都会失败。`--only ISO-01,ISO-02` 可选择当前 suite 的已实现用例，报告明确记录 selected，不代表完整阶段验收。
 
 `test-env --suite real --pnpm-script <path>` 执行 TOOL-04，包含 TOOL-03/05 的真实断言：导出 Git 跟踪及未忽略的当前源码（不复制本机配置、产物或 node_modules），在独立用户目录/store 中冻结安装，探测公开 CLI、profile 初始化及内部 pnpm，构建并检查 notify-web tarball。选定 pnpm 包复制进临时工具目录，子进程 PATH 无全局 DSH/私有 runtime；不安装或切换用户工具。`TOOL-04-details.json` 记录版本、Node 调用轨迹、步骤与包内容。
 
-real 另执行 DEV-03，复用 workspace 的只读锁定宿主，在新的临时仓库内初始化、安装 fixture link、启动实际 Web、修改产物后重启验证实际加载、保留调试哨兵并重置。该组同时提供 DEV-01/04/05 的真实生命周期证据，详情在 `DEV-03-details.json`。开发 fixture 不使用真实 `.local/dsh-dev/`。real 的 ISO-01-real/02-real/03/05 验证污染配置、独立 pnpm store、重复/并发宿主、成功/失败/超时/可处理中断与 CI 契约。real 共 6 项，all 共 25 项（23 组编号，其中 ISO-01/02 分 fast/real），不证明 M5/M6 或未执行的平台。
+real 另执行 DEV-03、ISO-01-real/02-real/03/05、ART-01/02-real/04-real/05-real/06，以及 TGT-04/05-real/06-real，共 14 项；all 合计 42 项。DEV 使用临时开发环境；TGT 另准备真实普通 Node DSH，CLI 实际入口、home、store 均与开发环境分开，真实验收 fixture tarball 后交付。ART-04-real/06 需要显式测试浏览器（`--test-browser chromium` 或 `--test-browser-path <Chrome>`），验证固定 notify-web tarball 的真实 L4/L5。仅记录实际执行的平台，不证明桌面能力。
 
 两平台 CI 分别运行 fast 与 real，不预先初始化本机配置；完整 `ci` 先运行环境 all，再运行类型检查和 L1–L5。CI 报告只引用本次环境/L4/L5 的独立报告路径，并检查完整用例集合、逐项结果和清理证据；退出 0 但缺报告、缺项、重复、skip 或写报告失败均不通过。环境入口不回调整条 ci。报告不自动上传，平台通过与否以实际执行结果为准。
 
 ## 一次性测试生命周期（M4）
+
+固定产物模式见本文末的 M5 协议；下面的隔离、清理规则同样适用。
 
 L4/L5 通过同一 `runIsolatedTest` 创建 `.tmp/<suite>/run-*`，原子预留全新 home。`--home` 必须是仓库 `.tmp` 内的新目录，祖先链接、既有目录及与开发/配置中正式 home 的重叠均拒绝；两次或并发运行各有 home、store、日志和随机端口。测试仅使用公开 Web profile 与自己的 fixture，不加载开发 patch。
 
@@ -128,3 +131,61 @@ L4/L5 通过同一 `runIsolatedTest` 创建 `.tmp/<suite>/run-*`，原子预留�
 成功默认删除本次 home（包括显式 `--home`）、store/cache、shim、配置及 workspace，保留报告、日志、截图和 trace；`--keep` 保留成功数据，失败保留现场。清理先核对路径，再用 lstat 解除链接，不遍历到插件源码。清理失败记为独立失败步骤。报告含版本、平台/Node、宿主入口、起止时间、逐步结果和清理状态，`last-report.json` 仅作便利索引；并发 CI 使用回调拿到各自准确报告路径。
 
 异步进程等待支持 SIGINT/SIGTERM，退出时等待自己启动的进程树并检查已知 HTTP 端口关闭。Windows 使用活跃子进程的 PID 配合 taskkill /T；Unix 为测试子进程建立独立进程组。Windows 测试通过子进程内部派发 SIGINT 验证可处理的中断路径；强制终止 supervisor、断电和磁盘不可写不承诺生成完整报告。无法创建/写入报告时命令失败，不借用旧报告。原始日志只留本地，汇总与错误输出移除认证 token。
+
+## 固定产物与验收协议（M5）
+
+`pack` 默认构建，随后生成全新的 `dist/batches/<UUID>/`，内含 tarball 与 `manifest.json`，成功后原子更新 `dist/current.json`。没有同名文件覆盖；失败批次不发布为 current。`--skip-build` 只适用于已构建的输入，不免除包契约检查。
+
+清单 `version: 1` 包含批次、创建时间、Node/pnpm、commit、Git dirty 摘要、跟踪及未忽略源码的逐文件 SHA-256 和汇总值、构建代号；每包记录路径、名称、版本、targets、是否有 Client、tarball 哈希和包内文件哈希。非 Git fixture 使用排除临时/构建/依赖目录的源码快照。构建（不含 `--check`）在写产物前更新代号；新构建、新 pack、源码变化、清单/文件变化均使旧记录不可用于当前交付。仅文件名/版本相同不构成相同产物。
+
+```sh
+node scripts/bootstrap.mjs pack
+# 下列路径替换为 pack 打印的实际 manifest 路径
+node scripts/bootstrap.mjs verify-artifacts --manifest dist/batches/<UUID>/manifest.json
+node scripts/bootstrap.mjs verify-artifacts --manifest dist/batches/<UUID>/manifest.json --check
+# 单独诊断，不生成完整的交付成功记录
+node scripts/bootstrap.mjs l4 --manifest dist/batches/<UUID>/manifest.json
+node scripts/bootstrap.mjs l5 --manifest dist/batches/<UUID>/manifest.json
+node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<UUID>/manifest.json --dry-run
+```
+
+验收先预检**全部**清单文件，拒绝缺文件、错误 targets、逃逸/重复路径、链接、DSH/workspace 运行时依赖、本机配置与依赖目录。当前包契约要求零运行时依赖，接受 pnpm 生成的普通 USTAR 文件/目录；其他 tar 扩展明确失败。Host 在两个新 Node 进程中导入（含/不含 preserve-symlinks）。产物 L4/L5 不重建或重打包插件；L5 仍编译浏览器测试并安装专用 web-hello 测试驱动，它不是被测交付包。
+
+安装从独立快照消费已校验字节，前后复核快照、原包、清单、源码状态和 current 批次。核对 profile bundle 登记、tarball spec、真实安装路径与完整文件清单/字节；正常 pnpm store 链接允许，回到源码 junction 或包内额外文件拒绝。L4 验证启用的 loader 行、HTTP、Client 注册及适用 SSE；L5 当前有 notify-web 的真实通知/交互/主题/locale adapter，新增 Client 插件没有 adapter 时失败，不套用通用成功。
+
+`dist/verification/<UUID>/web-<platform>.json` 为 version=1 本机流程记录，内嵌 L4/L5 逐步报告与 browser results，不只存 `.tmp` 路径。环境初始化/安装/清理证据与功能结果分别列出；完整用例、安装哈希、起止时间、平台、工具链和宿主版本逐项校验。`status: passed` **仅指当前 Web 平台**；各包其他 surface/platform 均列为 `uncovered`。桌面包通过静态契约不等于桌面能力通过。日志、截图、trace 留在 `.tmp`，清理它们不会删除唯一的验收凭据。重新验收先写失败状态，失败不会继续保留上一次成功。
+
+`stable-install` 在写目标前验证记录和目标公开 `--version`，仅接受精确宿主版本及 surface/platform 匹配的成功证据，不重打包，也不升级宿主。add/update 使用 `dist/consumption/run-*/inputs/` 的独立固定副本并检查实际安装内容；该目录属于 profile 的持久 tarball 来源，不要在 profile 仍引用它时删除。`--all` 不能绕过门禁。
+
+## 正式目标与交付恢复（M6）
+
+```text
+node scripts/bootstrap.mjs target discover
+node scripts/bootstrap.mjs target bind daily --dsh-cli <外部CLI> --home <独立home> --profile web --surface web --platform windows --dry-run
+node scripts/bootstrap.mjs target bind daily --dsh-cli <外部CLI> --home <独立home> --profile web --surface web --platform windows
+node scripts/bootstrap.mjs target list
+node scripts/bootstrap.mjs target show daily
+node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<UUID>/manifest.json --only @local/notify-web --dry-run
+node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<UUID>/manifest.json --only @local/notify-web
+node scripts/bootstrap.mjs status --target daily --manifest dist/batches/<UUID>/manifest.json
+node scripts/bootstrap.mjs target unbind daily --dry-run
+```
+
+`discover` 不需要 local.json，只列 PATH/已知安装位置候选及拒绝原因，不执行 CLI、不自动选中或保存。workspace `.bin`、开发宿主真实路径及链接别名被排除。其余管理命令要求 v2。bind 只接受整组显式字段，保存绝对路径及真实身份；同名 bind 显式替换旧绑定。bind/unbind 使用配置事务备份与并发检查，只改变 targets，不保存环境覆盖、不修改个人 YAML。unbind 不卸载插件或删除目标数据；没有默认目标，仍须每次 `--target NAME`。
+
+目标平台必须匹配当前机器，保留的 web/desktop profile 必须匹配 surface；Web 拒绝 Electron 入口。home 不得与开发、测试、源码包、仓库工具目录或宿主程序重叠；profile、manifest、lockfile、node_modules 容器及其祖先不得通过链接重定向。绑定后的真实入口/home/profile 变化会要求重新检查并显式 bind。安装过程重新检查配置、目标路径、固定包和验收记录，不复用上次 dry-run 的授权计划。
+
+预览显示目标入口、实际路径、宿主版本、home/profile、场景、逐包路径/哈希、coverage、selected/skipped 和计划操作。无 `--only` 时按目标场景过滤，不兼容包显示 skipped；显式选择不兼容包则整体拒绝。预览允许在仓库 dist/.tmp 写版本探测日志及临时管理文件，不写配置或目标 profile。版本探测使用独立 probe home，包管理配置/cache 位于报告所在的 consumption 目录，不继承个人 npm/pnpm 配置来源。已有 profile 从 `.modules.yaml` 读取并验证当前 v11 store，保持 pnpm 的解析关联；新 profile 固定使用 `dist/target-stores/<profile身份哈希>`，预览/报告明确列出路径。store 不得与目标 home、开发/测试数据或源码重叠，异常 store 关联在写入前拒绝。
+
+执行报告为 `dist/consumption/run-*/report.json`（version=1），每次操作前后原子更新；包含目标身份、宿主版本、清单哈希、逐包 spec/实际路径/哈希、stage、warnings、bundle、row、loaded、capability。状态解释：
+
+- `installed` 表示固定文件和 bundle 已核对；Web 再用 `--dump-config` 核对同 id/name 且未禁用的配置行，`row=configured` 不代表运行时已经加载。
+- `loaded=unconfirmed` 是 CLI 没有运行中状态接口时的正常结果；诊断中的 `restart-required`、加载失败分别记录。`capability=unverified` 始终表示日常目标尚未执行能力验收。
+- warnings 导致整体 `needs-attention` 并退出 1；文件可已安装。加载诊断/行失败导致整体失败，保留文件安装事实。需要重启不会自动重启，退出 0 仅代表文件交付成功。
+- 多包失败立即停止，前包保留 `installed`，失败包记录 stage/error，后包为 `not-attempted`；不伪造回滚，不调用 remove。中断时最后的 `installing` 也是未完成证据，不能当作成功。
+
+恢复时先检查报告及对应 add/update/rows 日志，再用 `status --target ... --manifest ...` 核对磁盘状态；修复原因后重新 dry-run，可用 `--only` 重试失败/未执行的包。同一包 add 覆盖并 update 重解析，不手改 profile manifest、不删除源码 junction 的目标。旧批次因源码/构建变化失效时先重新打包验收，不绕过门禁。配置事务恢复继续沿用本页前述备份/pending 流程。报告与输入不自动上传或回收。
+
+桌面人工验收：当前 M5 证据仅覆盖 Web，桌面安装会在门禁处停止。需先在独立 Electron home 验证隔离，再建设对应固定包验收证据；届时完全退出桌面应用、安装、人工启动，检查 bundle/行状态、warnings、原生能力和必要重启，并记录 OS/宿主版本/包哈希。不得用日常 profile 替代隔离验收，也不得把 Web 的通过记录当作桌面通过。
+
+pack、验收、安装共用 `dist/.artifact-lock` 排斥仓库命令并发消费/发布。失联锁先确认所属进程已停止再人工移除；不自动凭 PID 回收。UUID 目录和多次哈希校验防止仓库命令静默替换，也能检测外部文件变化；这不是防恶意修改/改写后恢复的签名或文件系统事务。检测变化即失败，已发生的目标写入不自动回滚，保留现场以供诊断。

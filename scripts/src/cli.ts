@@ -14,6 +14,9 @@ import { runTestEnv } from './commands/test-env.js'
 import { runWeb } from './commands/web.js'
 import { runPack } from './commands/pack.js'
 import { runInstall } from './commands/install.js'
+import { runTarget } from './commands/target.js'
+import { runVerifyArtifacts } from './commands/verify-artifacts.js'
+import { artifactLock, loadArtifacts } from './core/artifacts.js'
 
 const TOOL_OPTIONS = { 'pnpm-script': { type: 'string' } } as const
 const TEST_OPTIONS = {
@@ -24,17 +27,19 @@ const TARGET_OPTIONS = { target: { type: 'string' }, 'dsh-cli': { type: 'string'
 const USAGE = `Usage: node scripts/bootstrap.mjs <command> [options]
 
   config init [--dry-run] | check | migrate [--dry-run]   Manage v2 disk configuration
-  test-env --suite fast|real|all [--only ID,ID] [--keep] [--pnpm-script PATH]  CFG/TOOL/DEV/ISO tests
+  test-env --suite fast|real|all [--only ID,ID] [--keep] [--pnpm-script PATH]  CFG/TOOL/DEV/ISO/ART tests
   web [init|start|status|stop|reset]   Managed development Web; reset previews, --yes executes
   build [--check]                     Build/type-check plugins
-  pack [--skip-build]                 Build and package plugins into dist/
+  pack [--skip-build]                 Build immutable dist/batches/<id>/manifest.json
+  verify-artifacts --manifest PATH [--check] [--keep]   Verify fixed tarballs; durable Web evidence
   dev-install [--skip-build]          Initialize development profile, build/install/verify links
-  stable-install                     Install compatible tarballs from dist/
-    [--profile <name>] [--surface desktop|web] [--platform windows|mac] [--all] [--dry-run]
+  target discover|list|show NAME|bind NAME|unbind NAME   Manage explicit formal targets
+  stable-install --manifest PATH [--only @local/name,...] Install verified compatible tarballs
+    [--profile <name>] [--surface desktop|web] [--platform windows|mac] [--dry-run]
   status --target <name>             Read an explicitly selected target
   test [--only l1,l2,l3] [--skip-build] Run L1-L3
-  l4 [--keep] [--home <new .tmp dir>] [--skip-tarball]
-  l5 [--keep]                         Run the isolated Web/browser harness
+  l4 [--keep] [--home <new .tmp dir>] [--skip-tarball | --manifest PATH]
+  l5 [--keep] [--manifest PATH]        Run the isolated Web/browser harness
   ci [--keep]                         Run environment all, type-check, L1-L3, L4 and L5 (fail-fast)
   check-targets                       Validate plugin metadata (no local config needed)
   catalog [--check] [--output <path>]  Generate/check CATALOG.md (no local config needed)
@@ -57,9 +62,18 @@ export async function main(argv: string[]): Promise<number> {
   }
   try {
     switch (command) {
+      case 'target': {
+        const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, options: {
+          'dsh-cli': TARGET_OPTIONS['dsh-cli'], home: TARGET_OPTIONS.home, profile: TARGET_OPTIONS.profile,
+          surface: TARGET_OPTIONS.surface, platform: TARGET_OPTIONS.platform, 'dry-run': { type: 'boolean', default: false },
+        } })
+        if (positionals.length > 2) throw new Error('unexpected target arguments')
+        return runTarget(positionals[0] ?? '', positionals[1], { dshCli: values['dsh-cli'], home: values.home,
+          profile: values.profile, surface: values.surface, platform: values.platform, dryRun: values['dry-run'] })
+      }
       case 'test-env': {
-        const { values } = parseArgs({ args: rest, options: { ...TOOL_OPTIONS, suite: { type: 'string', default: 'fast' }, only: { type: 'string' }, keep: { type: 'boolean', default: false } } })
-        return await runTestEnv(values.suite, values.keep, values['pnpm-script'], values.only)
+        const { values } = parseArgs({ args: rest, options: { ...TEST_OPTIONS, suite: { type: 'string', default: 'fast' }, only: { type: 'string' }, keep: { type: 'boolean', default: false } } })
+        return await runTestEnv(values.suite, values.keep, values['pnpm-script'], values.only, undefined, { browser: values['test-browser'], browserPath: values['test-browser-path'] })
       }
       case 'config': {
         const { values } = parseArgs({ args: rest.slice(1), options: {
@@ -83,21 +97,29 @@ export async function main(argv: string[]): Promise<number> {
         const { values } = parseArgs({ args: rest, options: { ...TOOL_OPTIONS, 'skip-build': { type: 'boolean', default: false } } })
         return await runPack({ skipBuild: values['skip-build'] }, settings(values))
       }
+      case 'verify-artifacts': {
+        const { values } = parseArgs({ args: rest, options: { ...TEST_OPTIONS, manifest: { type: 'string' }, check: { type: 'boolean', default: false }, keep: { type: 'boolean', default: false } } })
+        if (!values.manifest) throw new Error('--manifest is required')
+        return await runVerifyArtifacts({ manifest: values.manifest, check: values.check, keep: values.keep }, settings(values, 'test'))
+      }
       case 'dev-install':
       case 'stable-install': {
         const { values } = parseArgs({ args: rest, options: {
           ...TOOL_OPTIONS, ...TARGET_OPTIONS, 'dry-run': { type: 'boolean', default: false },
           'skip-build': { type: 'boolean', default: false }, all: { type: 'boolean', default: false },
+          manifest: { type: 'string' }, only: { type: 'string' },
         } })
         return await runInstall({
           mode: command === 'dev-install' ? 'link' : 'tarball', profile: values.profile,
           surface: values.surface, platform: values.platform, all: values.all,
           skipBuild: values['skip-build'], dryRun: values['dry-run'],
+          manifest: values.manifest,
+          only: values.only,
         }, settings(values, command === 'dev-install' ? 'development' : 'target'))
       }
       case 'status': {
-        const { values } = parseArgs({ args: rest, options: { ...TOOL_OPTIONS, ...TARGET_OPTIONS } })
-        return runStatus({ profile: values.profile, surface: values.surface, platform: values.platform }, settings(values, 'target'))
+        const { values } = parseArgs({ args: rest, options: { ...TOOL_OPTIONS, ...TARGET_OPTIONS, manifest: { type: 'string' } } })
+        return runStatus({ profile: values.profile, surface: values.surface, platform: values.platform, manifest: values.manifest }, settings(values, 'target'))
       }
       case 'test': {
         const { values } = parseArgs({ args: rest, options: {
@@ -110,13 +132,18 @@ export async function main(argv: string[]): Promise<number> {
       case 'l5': {
         const { values } = parseArgs({ args: rest, options: {
           ...TEST_OPTIONS, keep: { type: 'boolean', default: false },
+          ...(command !== 'ci' ? { manifest: { type: 'string' as const } } : {}),
           ...(command === 'l4' ? { home: { type: 'string' as const }, 'skip-tarball': { type: 'boolean' as const, default: false } } : {}),
         } })
         const context = settings({ ...values, home: undefined }, 'test')
         const options = { keep: values.keep, timeoutMs: context.config.test.timeoutMs }
         if (command === 'ci') return await runCi(options, context)
-        if (command === 'l5') return await runL5(options, context)
-        return await runL4({ ...options, home: typeof values.home === 'string' ? values.home : undefined, skipTarball: values['skip-tarball'] === true }, context)
+        const release = values.manifest ? artifactLock(context.root) : () => {}
+        try {
+          const artifacts = typeof values.manifest === 'string' ? loadArtifacts(context.root, values.manifest) : undefined
+          if (command === 'l5') return await runL5({ ...options, ...(artifacts ? { artifacts } : {}) }, context)
+          return await runL4({ ...options, ...(artifacts ? { artifacts } : {}), home: typeof values.home === 'string' ? values.home : undefined, skipTarball: values['skip-tarball'] === true }, context)
+        } finally { release() }
       }
       case 'check-targets': parseArgs({ args: rest, options: {} }); return runCheckTargets()
       case 'catalog': {

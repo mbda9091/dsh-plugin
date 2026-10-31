@@ -1,9 +1,9 @@
 # 插件开发环境统一与隔离方案与迭代记录（v0.1）
 
-> 状态：M1–M4 已实现；M4 Windows 环境测试与功能回归通过，macOS 待 CI；M5/M6 待实施。M1/M2 远端证据边界仍见 §9.5。
+> 状态：M1–M6 已实现；M6 Windows 环境 all 与完整功能 CI 通过，目标管理与逐包交付实施记录见 §9.11；macOS 与桌面能力待验。M1/M2 远端证据边界仍见 §9.5。
 > 更新日期：2026-10-31（Asia/Shanghai）。
-> 当前结论：M4 统一 L4/L5 的独立 home/store/npm 配置、进程树清理与持久报告，CI 先核验独立环境 all 再执行插件回归。`f481036` Windows 提交后复验通过，见 §9.9；该提交远端运行记录为 0，macOS 和双平台出口仍待验收。
-> 验收基线：M1 `ff461e0`、M2 `8478d76`、M3 `686c78d`、M4 `f481036`；环境报告记录逐文件哈希，M4 提交前实施记录见 §9.8、提交后复验见 §9.9。A1 配置范围有双平台证据；A2–A4 缺当前实现 macOS 证据，A5/A6 未验收。P0 历史基线 `ab745e9` 仅作为前置基础，见 §9.1。
+> 当前结论：M6 已接入目标发现/绑定/查看/解绑、整体预检、明确子集、同包安装与持久逐包报告，沿用 M5 的精确宿主版本与固定哈希门禁。M5 历史 Windows CI 见 §9.10；M6 本轮证据见 §9.11，双平台出口仍待验收。
+> 验收基线：M1 `ff461e0`、M2 `8478d76`、M3 `686c78d`、M4 `f481036`；M5/M6 为未提交源码，环境报告记录逐文件哈希，实施记录见 §9.10/§9.11。A1 配置范围有双平台证据；A2–A6 缺当前实现 macOS 证据，A6 Windows 自动化通过。P0 历史基线 `ab745e9` 仅作为前置基础，见 §9.1。
 > 关联文档：[方案与迭代记录模板](plan-template.md)、[本机配置方案](local-configuration-design.md)、[插件测试计划](testing-plan.md)、[仓库约定](../AGENTS.md)。
 
 ## 1. 结论摘要
@@ -11,8 +11,8 @@
 - **要解决的问题**：开发、测试和正式安装仍共用 DSH 入口；本机变量、全局工具和日常 profile 可能影响开发结果及安装目的地。
 - **采用的方案**：使用一套仓库 Node/pnpm、锁定的开发 DSH，分开管理持久开发环境、一次性验收环境和明确绑定的正式目标；交付同一份已验收 tarball。
 - **本轮边界**：实现六步配置与环境建设，并同步交付 35 组独立环境测试场景；插件功能继续由适用的 L1–L5 提供证据。桌面隔离能力、原生通知和真实重启不能以 Web 结果代替。
-- **当前进展**：M4 `f481036` Windows ISO/环境 all/完整功能回归提交后复验通过；开发数据仍留在 `.local/dsh-dev/`，测试数据进入独立 `.tmp`。环境和插件报告分开记录，CI 检查本次完整证据，见 §9.9。字段、命令与恢复见 [v2 协议](configuration-v2.md)。M5/M6 未实现。
-- **下一步**：补齐当前实现的两平台 fast/real 与功能 CI 证据，再推进 M5；执行顺序与第 10 节一致。
+- **当前进展**：M1–M6 实现齐备；开发数据留在 `.local/dsh-dev/`，测试数据进入独立 `.tmp`。M6 的 TGT 测试只使用隔离模拟正式宿主，交付报告区分文件、配置行、加载和能力验证；恢复协议见 [v2 协议](configuration-v2.md)。
+- **下一步**：补齐当前实现的两平台远端 CI，尤其是 macOS 证据；桌面能力按独立验收范围建设，不沿用 Web 通过状态。
 
 ## 2. 范围
 
@@ -54,8 +54,8 @@
 | TS 入口 | bootstrap 编译并加载 TS CLI，P0 已移除仓库 PS 入口 | 前置工作完成，不再重复纳入新环境实施 | [P0 记录](testing-plan.md#75-p0-脚本收尾2026-10-30) |
 | 本机配置与命令上下文 | M1：v2 分离 tools/development/test/target；v1 显式迁移 | 真实本机配置可以仍为 v1，运行前需用户显式迁移，不静默修改 | [配置类型](../scripts/src/core/config.ts)、[命令上下文](../scripts/src/core/command-context.ts) |
 | 开发依赖与发现 | M2：根精确依赖与锁文件包含开发 DSH/peer；pnpm 仅从显式脚本或 PATH 包布局选择 | Windows 干净冻结安装已验证，macOS 待 CI | [根清单](../package.json)、[工具检查](../scripts/src/core/toolchain.ts) |
-| 安装 | M3：dev-install 固定受管 Web，验证 link spec/实际路径；stable-install 显式目标 | 正式目标绑定及产物验收关联仍待 M5/M6 | [安装命令](../scripts/src/commands/install.ts) |
-| L4/L5 与包契约 | M4：统一测试上下文、包管理器配置、退出清理和独立报告；L2 消费已解析 pnpm | 固定交付包验收链仍待 M5；桌面能力另验 | [测试生命周期](../scripts/src/core/test-run.ts)、[Web harness](../scripts/src/core/web-harness.ts) |
+| 安装 | M3 固定开发 Web；M5/M6 固定包与明确目标交付 | M6 绑定真实路径、预览子集、逐包状态和恢复；平台证据见 §9.11 | [安装命令](../scripts/src/commands/install.ts) |
+| L4/L5 与包契约 | M4：统一测试上下文、包管理器配置、退出清理和独立报告；L2 消费已解析 pnpm | M5 已实现固定交付包验收链；桌面能力另验 | [测试生命周期](../scripts/src/core/test-run.ts)、[Web harness](../scripts/src/core/web-harness.ts) |
 | CI | M4：独立 fast/real job；完整 ci 先验证环境 all，再运行 L1–L5，引用准确报告路径 | Windows 本地通过；当前实现 macOS/远端仍待执行，历史结果不补齐 | [工作流](../.github/workflows/tests.yml)、§9.8 |
 
 - 已有可复用能力：配置校验、命令上下文、pnpm shim、进程/文件捕获 helper、一次性 profile、包契约与 L4/L5。
@@ -135,7 +135,7 @@ Node 负责运行编译器，产物目标由编译选项决定。目前 tsc/esbu
 
 旧 `tools.dshCli` 同时承担开发和正式安装语义，不能在升级时盲目复制给两边。迁移时将其作为待核对的旧目标信息保留，开发入口重新从锁定依赖派生；home/profile 没有明确依据时不启用正式安装。新 schema 必须有显式迁移、预览和备份，不在日常运行时静默改写 v1 文件。现有 `DSH_CLI` / profile 环境变量的兼容映射也要在该阶段明确，不能继续无差别影响所有命令。
 
-**入口状态：** 所有命令均从 `<repo>` 经 `node scripts/bootstrap.mjs` 进入；M1–M4 已实现，M5/M6 仍为规划。当前配置及工具要求见帮助和 [v2 协议](configuration-v2.md)。
+**入口状态：** 所有命令均从 `<repo>` 经 `node scripts/bootstrap.mjs` 进入；M1–M6 已实现。当前配置及工具要求见帮助和 [v2 协议](configuration-v2.md)。
 
 | 入口或目录 | 当前状态 | 拟调整及预期输出/副作用 |
 |---|---|---|
@@ -144,8 +144,8 @@ Node 负责运行编译器，产物目标由编译选项决定。目前 tsc/esbu
 | `web`、`dev-install`、`status` | M3 已分流 | 开发固定受管 Web；`web status` 看开发实例/插件，`status --target` 看正式目标 |
 | `.local/dsh-dev/`、`web init/start/status/stop/reset` | M3 已实现 | 前台 supervisor + 本地认证控制接口；reset 默认预览、`--yes` 执行；布局见 v2 协议 |
 | `test-env --suite fast/real/all` | 已接入 CFG/TOOL/DEV，real/all 需 `--pnpm-script` | real 含干净冻结安装与真实开发生命周期；不代表 ISO/ART/TGT 完成 |
-| `pack`、`l4/l5` 的指定产物验收入口 | pack 和 L4/L5 已有，指定产物协议拟新增 | M5：生成产物清单与哈希记录，验收阶段不重打包 |
-| `stable-install`、目标绑定入口 | stable-install 已有；绑定与验收门禁拟新增 | M6：完整目标与已验收包预检通过后才写指定 profile，输出逐包结果 |
+| `pack`、`verify-artifacts`、`l4/l5 --manifest` | M5 已实现；version=1 清单与记录 | 独立批次、全包预检、固定 tarball 验收；详见 v2 协议 |
+| `stable-install`、`target` | M6 已实现 | target discover/list/show/bind/unbind；完整目标与已验收包整体预检后才写指定 profile，输出逐包结果 |
 
 各步要确定的字段与命令细节列为 §7.2 的开放问题，不能把示意名称当成已实现接口。
 
@@ -331,8 +331,8 @@ P0 是已验收前置，历史证据见 §9.1。本轮保留原 P1–P4 的职�
 | M2 / 第二步（P1 下） | 锁定开发 DSH、同一 Node/pnpm、诊断与 TOOL 用例 | M1；核实 Q2 | A2 通过；干净机器能准备，入口互不回退 | 已实现；`8478d76` Windows 复验通过，远端 CI 待执行；§9.4/§9.5 |
 | M3 / 第三步（P2 上） | 持久开发目录、link 调试、启停/状态/重置 | M2；确定 Q3 | A3 通过；保护日常数据、其他进程和源码 | 已实现；`686c78d` Windows DEV/完整功能复验通过，精确提交暂无远端运行，macOS 待验；§9.7 |
 | M4 / 第四步（P2 下） | 测试宿主与 CI 切换、独立环境报告 | M3；确定 Q4 | A4 及 A1–A3 回归通过；两平台原有功能回归通过 | 已实现；`f481036` Windows 环境 all 及完整功能 ci 复验通过，精确提交远端无运行记录、macOS 待验；§9.9 |
-| M5 / 第五步（P3） | 固定产物验收、哈希清单与有效性记录 | M4；确定 Q5 | A5 通过；同一文件和实际验收范围可核对 | 待开始；无新增验收证据 |
-| M6 / 第六步（P4） | 明确目标绑定、预览、安装和逐包状态报告 | M5；确定 Q6 | A6 通过；所选交付范围证据齐备，未替换用户宿主 | 待开始；无新增验收证据 |
+| M5 / 第五步（P3） | 固定产物验收、哈希清单与有效性记录 | M4；确定 Q5 | A5 通过；同一文件和实际验收范围可核对 | 已实现；Windows ART 证据见 §9.10，macOS 待验 |
+| M6 / 第六步（P4） | 明确目标绑定、预览、安装和逐包状态报告 | M5；确定 Q6 | A6 通过；所选交付范围证据齐备，未替换用户宿主 | 已实现；本轮验证及边界见 §9.11，macOS/桌面待验 |
 
 条件性桌面隔离工作由 Q7 触发，不假定 Web 能替代。M1 必需的最小迁移随 schema 一起交付；完整 repair/模板升级仍延期，不扩入 M1。下面保留每步“解决什么、怎么做、交付什么、如何测试”的具体拆解。
 
@@ -517,7 +517,7 @@ Windows/macOS 均运行通用场景；Windows 专门验证 junction、文件占�
 | R5 | 包被重打、替换或记录不完整 | 将未验收内容当成通过交付 | 固定批次、哈希和逐项结果校验；ART/TGT | 待验证 |
 | R6 | CI 缺权限/浏览器/网络而跳过关键场景 | 假通过，缺少平台证据 | 前提诊断、skip 可见、缺证据不放行；ISO-05/06 | 待验证 |
 | R7 | 桌面不支持隔离 home 或单实例限制 | 无法安全自动验收桌面能力 | 独立探测，未支持不回退日常 profile；Q7 | 未验证 |
-| R8 | 正式多包安装部分失败或宿主需重启 | 文件已安装却尚未加载 | 逐包报告、安装/加载/能力分开；TGT-06 | 待验证 |
+| R8 | 正式多包安装部分失败或宿主需重启 | 文件已安装却尚未加载 | 逐包报告、安装/加载/能力分开；TGT-06 | Windows 自动化已验证，真实桌面重启未验 |
 
 <a id="10-实施前需确定的接口细节"></a>
 
@@ -529,13 +529,13 @@ Windows/macOS 均运行通用场景；Windows 专门验证 junction、文件占�
 | Q2 | 锁定包的公开 CLI、安装行为、版本探测和内部 pnpm 如何接入？ | M2 工具解析 | `bin.dsh=lib/bin.js`，当前 Node 执行；内部 pnpm 走 PATH shim；peer 自动解析并冻结 | 已决且 Windows 实测；macOS 待 CI，见 §9.4 |
 | Q3 | 开发 profile 名称、目录内部布局、生命周期命令和进程身份如何表达？ | M3 生命周期 | 固定 web；owner/runtime 记录、前台 supervisor、本地认证控制接口；命令与恢复见 v2 协议 | 已定并实现；Windows 已验证，§9.6 |
 | Q4 | harness 传递契约、环境清理清单、报告与失败现场如何统一？ | M4 测试/CI | `runIsolatedTest` 管理目录/信号/报告；`WebHarness` 传入工具、路径与 AbortSignal；报告 version=1，CI 精确核验 | 已定并实现；Windows ISO 已验，macOS 待 CI；§9.8、v2 协议 |
-| Q5 | 产物清单、源码状态、验收记录格式及失效规则如何实现？ | M5 产物验收 | 用固定包 fixture 验证重建/替换/报告缺项，再接真实 L4/L5 | 未决；同一份 tarball 按 D5 已定 |
-| Q6 | 目标绑定命令、版本兼容判定、安装预览与结果格式如何定义？ | M6 正式交付 | 明确目标版本证据要求，先在模拟用户宿主验证；不自动升级宿主 | 未决 |
+| Q5 | 产物清单、源码状态、验收记录格式及失效规则如何实现？ | M5 产物验收 | version=1，UUID 批次、源码/包逐文件哈希、构建代号、内嵌完整功能证据；显式 manifest 消费 | 已定并实现；v2 协议与 §9.10 |
+| Q6 | 目标绑定命令、版本兼容判定、安装预览与结果格式如何定义？ | M6 正式交付 | target 管理 + stable-install --only/--dry-run；精确宿主版本证据；version=1 逐包报告，文件/行/加载/能力分开 | 已定并实现；见 §9.11 与 v2 协议 |
 | Q7 | 桌面支持隔离 home、独立启动及怎样的单实例边界？ | 条件性桌面建设与对应包验收 | 在不会接触日常数据的前提下单独探测；不具备条件时记录未执行/受阻 | 未决；不能用 Web 结论替代 |
 
 ## 8. 验收状态
 
-> 截至：2026-10-31。验收对象：M1 `ff461e0`、M2 `8478d76`、M3 `686c78d`、M4 `f481036`；本机源码指纹见环境报告。M5/M6 尚未交付。
+> 截至：2026-10-31。验收对象：M1 `ff461e0`、M2 `8478d76`、M3 `686c78d`、M4 `f481036`；M5/M6 为本轮未提交源码，实施证据见 §9.10/§9.11，最终源码指纹见环境报告。
 > 环境：M4 Windows Node 24.19.0、pnpm 11.28.5、DSH 0.2.1-rc.2、Chrome 已完成本地复验；macOS 仅有 M1 配置 fast 历史证据。M1 功能 CI 失败、M2/M3 精确提交远端记录缺失均保留，不能引用 P0 历史通过补齐。
 
 | 验收项 | 实现状态 | Windows 自动化 | macOS 自动化 | 人工/桌面结果 | 证据与日期、尚未覆盖原因 |
@@ -544,10 +544,10 @@ Windows/macOS 均运行通用场景；Windows 专门验证 junction、文件占�
 | A2 工具与宿主 | 已实现 | TOOL-01–05 通过，含本次干净冻结安装复验 | M2 尚无远端运行记录 | 真实 Electron 行为不在本项自动验收范围 | §9.4/§9.5；2026-10-31；双平台出口尚缺 macOS |
 | A3 持久开发 | 已实现 | `686c78d` DEV fast/real 与同一次完整功能 ci 复验通过 | 未执行 | 桌面隔离未执行，见 Q7 | §9.6/§9.7；双平台出口仍缺 macOS |
 | A4 测试与 CI 隔离 | 已实现 | `f481036` ISO-01–06、CFG/TOOL/DEV 回归及同一次完整功能 ci 复验通过 | 未执行 | 不适用：Web 自动化与报告协议；强杀/断电不在可处理中断范围 | §9.8/§9.9，2026-10-31；精确提交远端无运行记录，双平台出口尚缺 macOS |
-| A5 产物验收 | 未实现 | 未执行 | 未执行 | 对应桌面包能力未执行 | 无产物及新增证据；M5 待开始 |
-| A6 正式交付 | 未实现 | 未执行 | 未执行 | 桌面真实加载/重启未执行 | 无目标交付证据；M6 待开始 |
+| A5 产物验收 | 已实现 | ART-01–06、环境 all 34/34 与完整功能 CI 通过 | 未执行 | 桌面包标为 uncovered，正式安装被阻断 | §9.10，2026-10-31；当前未提交源码 |
+| A6 正式交付 | 已实现 | TGT 8 组及环境 all/完整功能 CI 通过，见 §9.11 | 未执行 | 桌面真实加载/重启未执行 | 独立普通 Node 宿主自动化；不操作日常目标 |
 
-验收结论：M1 的 A1 配置范围已有双平台 CI 证据；M4 `f481036` 的 Windows 环境 all（25 项，涵盖 CFG 六组、TOOL 五组、DEV 六组、ISO 六组）及完整插件回归提交后复验通过。A2–A4 及当前基线的功能回归仍缺 macOS，整体未满足 §2.3；M1 功能 CI 失败保持原结论。A5/A6 与桌面能力未验收。
+验收结论：M1 的 A1 配置范围已有双平台 CI 证据；M4 提交后历史结果见 §9.9，M5 实施结果见 §9.10。M6 当前源码的 Windows 环境 all（42 项）及完整插件回归通过，A6 独立普通 Node 宿主交付证据见 §9.11。当前实现仍缺 macOS/远端 CI 和桌面能力证据，整体未满足 §2.3；M1 历史功能 CI 失败不改写为通过。
 
 ## 9. 实施结果与修正
 
@@ -852,6 +852,69 @@ M4 实现与 Windows 验证完成，双平台出口仍缺 macOS。Windows 的可
 
 本轮仅更新本计划，未修改运行时代码、工作流或本机配置，未执行真实开发环境的初始化/重置、日常 profile 安装、提交或推送。Windows 可处理中断仍沿用受控子进程内部派发 SIGINT 的覆盖边界；强杀/断电、macOS、桌面 Electron、原生能力及 M5/M6 不在通过范围。下一步补齐当前实现的两平台 fast/real/功能 CI，随后推进 M5。
 
+### 9.10 M5 固定产物与持久验收记录（2026-10-31）
+
+#### 实现与边界
+
+- 按本轮用户要求实施 M5/Q5/A5，验收对象为当前未提交源码；没有将 M4 尚缺的 macOS 证据补写为通过。协议与使用命令见 [v2 协议](configuration-v2.md#固定产物与验收协议m5)。
+- `pack` 生成 UUID 批次、version=1 manifest、逐包与包内文件 SHA-256、commit/dirty/源码快照和构建代号。批次互不覆盖，只有成功 pack 更新 current。新构建、新批次、未提交源码变化或文件变化使旧验收失效。
+- `verify-artifacts --manifest` 及 L4/L5 产物模式先检查所有包，再在全新 profile 安装固定快照，核对实际路径与逐文件内容；不从源码加载被测插件，不在验收内重打包。pnpm store 链接允许，源码 junction 不允许。L5 使用既有 web-hello 作为测试驱动，notify-web 始终来自指定 tarball。
+- `dist/verification/<批次>/web-<平台>.json` 内嵌完整环境与功能结果、工具/宿主版本、时间、哈希和 coverage。桌面/其他平台标为 uncovered；缺项、仅退出码、缺浏览器结果、范围/版本不匹配、失败清理均不能通过。清理 `.tmp` 不删除唯一凭据。
+- `stable-install` 现在要求显式清单及匹配验收证据，预检后用固定副本 add/update 并核对内容。持久来源留在 `dist/consumption/`。本步没有实现 M6 的目标发现/绑定、逐包交付报告与恢复，也没有对真实日常目标安装。
+- fast 新增 ART-02/03/04/05；real 新增 ART-01/02-real/04-real/05-real/06，纳入 environment all 和既有双平台工作流。real job 增加匹配 Chromium 准备。总计 fast 23、real 11、all 34 项；测试环境流程与适用 L4/L5 功能证据分别验证。
+
+#### 验证记录
+
+Windows 普通 Node 24.19.0、pnpm 11.28.5、workspace DSH 0.2.1-rc.2、系统 Chrome。ART 初次定向验证：fast 4/4（`.tmp/environment-tests/run-EmkhHQ/report.json`），real 5/5（`.tmp/environment-tests/run-MDbKlE/report.json`），含真实 notify-web tarball → 安装 → L4/L5 → 持久记录及 `.tmp` 清理后复核。随后补齐构建代号、安装文件清单、全部编译资源及 coverage 完整性核对；最终同一次完整 CI 于 2026-10-31 13:09:42（Asia/Shanghai）通过。环境源码指纹为 `dcb94be5d4e41fad726ead7d70345e6ade11d79aa5543c33ca82f49eba906c8b`。
+
+
+| 最终验证 | 结果 | 本地证据（相对仓库根） |
+|---|---|---|
+| 环境 all（CFG/TOOL/DEV/ISO/ART） | 34/34 pass，0 fail/skip，包含实际冻结安装与 ART L4/L5 | `.tmp/environment-tests/run-GOenxg/report.json`、`ART-01-details.json`、`ART-06-details.json` |
+| 类型检查与 L1–L3 | 通过；255/255，0 fail/skip；含安装前门禁与固定字节交付回归 | `.tmp/m5-validation/ci-final.log` |
+| 常规 L4 / L5 | 10/10、9/9 步通过，成功数据已清理 | `.tmp/l4/run-iaRd4Y/report.json`、`.tmp/l5/run-HgyY8c/report.json` |
+| 同一次完整编排 | environment → type-check → L1–L3 → L4 → L5 全部退出 0 | `.tmp/ci/run-Zg7hqf/report.json` |
+| 首轮完整回归 | 同样通过；后续资源/coverage 收尾后的结论以上述最终报告为准 | `.tmp/ci/run-sM8qA0/report.json` |
+
+验证沿用 M4 的临时内存 v2 上下文，显式提供已准备 pnpm 和 Chrome，并调用同一 `runCi`（`.tmp/m5-validation/ci.mjs`）。真实 v1 local.json 没有迁移；这不代表直接使用旧配置运行新命令已兼容。没有提交、推送或远端运行；双平台出口仍缺 macOS。
+
+首次沙箱内 real 因 junction EPERM 失败（`run-DY5HDV`）；获准沙箱外执行后发现 fixture 不应假定插件目录有 LICENSE，修正后 real 通过。失败证据保留，不算成功或跳过。未执行 macOS、远端 CI、桌面 Electron 或原生通知；记录不上传，临时证据可能随清理失效。本机 v1 local.json、个人 YAML、真实开发环境与日常 profile 均未修改。
+
+### 9.11 M6 目标管理与逐包交付（2026-10-31）
+
+#### 实现与边界
+
+- 按本轮用户要求实施 M6/Q6/A6，保留工作区已有的未提交 M5 改动；未把之前缺失的 macOS/桌面证据写成通过。当前验收对象为未提交源码，逐文件指纹由环境报告记录。
+- `target discover/list/show/bind/unbind` 管理完整目标。discover 只列候选并排除 workspace DSH/链接别名；bind/unbind 使用既有配置备份事务，保存绝对路径和真实 CLI/引擎/入口/home/profile 身份，不保存环境工具覆盖。安装前和每次变更前重验路径、配置及产物；不认领开发 home，不接受 profile/manifest 容器链接重定向。
+- `stable-install --manifest --target` 或完整显式目标；`--only` 精确选择清单子集，默认按场景过滤，`--all` 不能绕过门禁。预览列出目标、宿主版本、逐包哈希、coverage、selected/skipped、操作和缓存/store，不修改配置或目标 profile。精确宿主版本无匹配验收记录时停止，不升级宿主。
+- 只使用固定输入副本 add/update；核对 spec、实际路径、逐文件内容及 bundle，Web 再核对合成配置行。version=1 报告持久保存在 `dist/consumption/run-*/report.json`，每包分别记录文件状态、配置行、warnings、加载和能力验证。部分成功不回滚，后续包不伪装为成功；不调用 remove 或自动重启日常应用。
+- CLI 没有运行中行状态接口；`row=configured` 仅指 Web 合成配置存在且未禁用，不能证明宿主已加载。`loaded=unconfirmed`/诊断中的失败或待重启和 `capability=unverified` 明确分开；warnings 令整体 needs-attention。桌面固定包证据仍缺失，现有门禁继续拒绝桌面交付，人工隔离/加载/原生能力流程见 [v2 协议](configuration-v2.md#正式目标与交付恢复m6)。
+- 新目标使用按 profile 身份固定的独立 pnpm store；已安装目标复用 `.modules.yaml` 中经过路径隔离检查的 v11 store，避免换 store 导致 pnpm 拒绝覆盖。其他包管理配置/cache 归本次 consumption 所有；预览和报告列出必要缓存范围。
+- 新增 fast TGT-01/02/03/05/06 和 real TGT-04/05-real/06-real，纳入既有两平台工作流及 ci 门禁；fast/real/all 总数为 28/14/42。真实测试独立安装普通 Node DSH，入口不同于开发宿主，使用独立 home/store；断言同包哈希、其他 profile/模拟会话和凭据哨兵/开发环境/宿主程序不变，覆盖 link/旧 tarball 切换及第二消费进程注入失败。
+
+#### 验证记录
+
+Windows 普通 Node 24.19.0、pnpm 11.28.5、开发与模拟正式 DSH 0.2.1-rc.2；浏览器使用系统 Chrome。定向 TGT fast 5/5 通过：`.tmp/environment-tests/run-PYDJrC/report.json`。store 兼容修正后的最终同一次完整 CI 于 2026-10-31 13:40:40（Asia/Shanghai）通过。环境源码指纹为 `51fefa9b13464871dd7ffc331e9fb79439bd1d21e6a83006c25b5d53128b6ca8`；结束后复核其逐文件清单与当前脚本/测试/配置源码一致。
+
+| 最终验证 | 结果 | 本地证据（相对仓库根） |
+|---|---|---|
+| 环境 all | 42/42 pass，0 fail/skip；含全部 TGT fast/real、CFG/TOOL/DEV/ISO/ART | `.tmp/environment-tests/run-Q9OpPw/report.json`、各编号 JSON |
+| 真实目标交付 | 同包、隔离哨兵、link/旧 tarball 切换、第二消费进程失败均通过 | 同目录 `TGT-04-details.json`、`TGT-05-real-details.json`、`TGT-06-real-details.json` |
+| 类型检查与 L1–L3 | 通过；255/255 tests，0 fail/skip | `.tmp/m6-ci.log` |
+| L4 / L5 | 10/10、9/9 步通过；成功数据已清理，日志/报告保留 | `.tmp/l4/run-SayhN1/report.json`、`.tmp/l5/run-MOCk7U/report.json` |
+| 同一次完整编排 | environment → type-check → L1–L3 → L4 → L5 全部退出 0 | `.tmp/ci/run-myfnlR/report.json` |
+| macOS / 远端 CI / 桌面能力 | 未执行，不计通过 | 待对应环境补证 |
+
+本轮沿用 `.tmp/m5-validation/ci.mjs` 从 example 构造临时内存 v2 上下文调用 `runCi`，只显式指定已准备的 pnpm/Chrome。真实 local.json 仍为 v1，未迁移；没有初始化/重置真实开发环境、安装日常 profile、提交、推送或上传。当前实现的 macOS/远端 CI、桌面 Electron 和原生能力未执行，不能用 Windows 自动化替代。
+
+#### 发现的问题与修正
+
+| 问题 | 修正与验证边界 |
+|---|---|
+| 沙箱拒绝 Windows junction；文件 symlink 在普通权限下也受限制 | 授权的隔离测试在沙箱外运行，目录别名用 junction，保留开发宿主真实路径拒绝断言；失败记录 `run-SAWO2b`、`run-o2d28L` 保留 |
+| 独立宿主安装的 `--ignore-workspace` 同时忽略其构建脚本许可 | 从独立宿主自身 workspace 配置安装，复用仓库明确的 allowBuilds；没有放宽所有依赖脚本许可 |
+| 每次交付新建 store 导致旧 link profile 的 pnpm `ERR_PNPM_UNEXPECTED_STORE` | 读取并校验已有 v11 store 关联，新目标固定 store；失败保留 `run-x5qdoz`，最终 `run-Q9OpPw` 的 link→tarball 和 tarball→tarball 均通过 |
+
 ## 10. 当前未完成事项与下一步
 
 | 事项 | 分类与当前状态 | 下一步或启动条件 | 依据 |
@@ -860,9 +923,9 @@ M4 实现与 Windows 验证完成，双平台出口仍缺 macOS。Windows 的可
 | 锁定开发 DSH 和统一工具 | 已实现；M2 Windows 已复验，远端无运行记录 | 运行已接入的两平台 fast/real/功能工作流，补 macOS 与当前提交证据 | M2、Q2、A2、§5.3、§9.4、§9.5 |
 | 持久开发环境 | 已实现，`686c78d` Windows 提交后复验通过；macOS 待验 | 精确提交尚无远端运行；执行两平台 fast/real/功能 CI，补 macOS 证据 | M3、Q3、A3、§5.4、§9.6、§9.7 |
 | 测试宿主与 CI 隔离 | 已实现；`f481036` Windows 提交后环境与功能回归通过，精确提交远端无运行记录 | 补当前实现的 macOS 与远端 CI 证据，完成双平台出口 | M4、Q4、A4、§5.5、§9.8、§9.9 |
-| 固定产物验收 | 计划内，待实现/待验收 | M4 后确定清单/记录并接入真实产物验收与 ART 测试 | M5、Q5、A5、§5.6 |
-| 正式目标交付 | 计划内，待实现/待验收 | M5 后实现绑定、预览、同包安装与 TGT 测试 | M6、Q6、A6、§5.7 |
+| 固定产物验收 | 已实现；Windows 验证见 §9.10，macOS 待验 | 补齐当前实现双平台 CI；不得把未覆盖的桌面能力标为通过 | M5、Q5、A5、§5.6、§9.10 |
+| 正式目标交付 | M6 已实现，Windows 完整回归通过；见 §9.11 | 补当前实现 macOS/远端 CI 与所需桌面隔离证据 | M6、Q6、A6、§5.7、§9.11 |
 | 桌面隔离与对应人工能力证据 | 条件性建设/对应交付范围待验收 | 先验证隔离能力；需交付桌面包时补适用人工证据，不操作日常 profile 替代 | Q7、D7、§2.2 |
 | 完整 repair/Web 模板升级 | 延期 | 新结构稳定后沿既有维护方案建设；最小迁移已纳入 M1 | §4.6、[维护设计](local-configuration-design.md#14-第三阶段具体设计修复与格式升级) |
 
-执行顺序：M1–M4 实现与 Windows 验证已完成；补齐当前实现的两平台 fast/real/功能 CI 后按 **M5 → M6** 推进。每步同步交付环境测试和适用插件回归；P0 只作为前置基础。
+执行顺序：M1–M6 已实现，各阶段验证见实施节；完成当前源码两平台 fast/real/功能 CI 和所选交付范围证据。桌面原生能力仍需独立验收；P0 只作为前置基础。

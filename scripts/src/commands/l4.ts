@@ -10,6 +10,8 @@ import { isRecord, readJson, stringArray } from '../core/json.js'
 import { repoRoot } from '../core/repo.js'
 import { runIsolatedTest } from '../core/test-run.js'
 import type { TestReport } from '../core/test-run.js'
+import type { ArtifactSet } from '../core/artifacts.js'
+import { artifactPrerequisites, installArtifacts, checkArtifactInstallations, webArtifacts } from '../core/artifact-harness.js'
 
 /**
  * L4: install into a disposable profile, then assert the loader's observable
@@ -32,6 +34,7 @@ export interface L4Options {
   readonly home?: string | undefined
   readonly skipTarball: boolean
   readonly timeoutMs?: number
+  readonly artifacts?: ArtifactSet
 }
 
 interface Row {
@@ -46,6 +49,27 @@ export async function runL4(input: L4Options, settings: CommandContext = loadCom
   return runIsolatedTest('l4', settings, options, async run => {
     const context: L4Context = { ...run, artifactDir: join(run.runDir, 'artifacts'), options }
     const step = run.step
+    if (options.artifacts) {
+      const artifacts = options.artifacts
+      if (options.skipTarball) throw new Error('artifact mode cannot skip tarball checks')
+      await step('package-contracts', async () => artifactPrerequisites(context, artifacts))
+      await step('profile-init', () => initProfile(context, 'profile-init', context.home))
+      await step('install-artifacts', async () => {
+        const evidence = await installArtifacts(context, artifacts)
+        const rows = parseRows(await dumpConfig(context, 'dump-artifacts', context.home))
+        for (const item of webArtifacts(artifacts)) assertRow(rows, item.name.slice(7), item.name)
+        return evidence
+      })
+      await step('web-artifacts', () => serveAndCheck(context, 'artifacts', async (url, stderr) => {
+        const page = await fetchAuthorizedPage(url)
+        if (/did not activate|@local\//.test(stderr)) throw new Error(`artifact activation failed: ${stderr}`)
+        for (const item of webArtifacts(artifacts).filter(p => p.client)) if (!page.html.includes(item.name)) throw new Error(`missing client: ${item.name}`)
+        if (artifacts.packages.has('@local/notify-web')) await checkSse(page.pageUrl, page.cookie)
+        checkArtifactInstallations(context, artifacts)
+        return `HTTP, client modules and applicable SSE passed; manifest ${artifacts.hash}`
+      }))
+      return
+    }
     await step('prerequisites', () => checkPrerequisites(context))
     await step('profile-init', () => initProfile(context, 'profile-init', context.home))
     await step('install-link', () => installLinks(context))

@@ -11,6 +11,7 @@ export interface InstallTarget {
   profile: string
   surface: 'desktop' | 'web'
   platform: 'windows' | 'mac'
+  binding?: import('./formal-target.js').TargetIdentity
 }
 
 export interface RepoConfig {
