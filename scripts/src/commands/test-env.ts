@@ -8,16 +8,12 @@ import { repoRoot } from '../core/repo.js'
 import { digest, safeConfigPath } from '../core/config-transaction.js'
 import { assertEnvironmentResults, environmentIds } from '../core/environment-results.js'
 import { redactLaunchTokens } from '../core/web-harness.js'
+import { failureAnnotation } from '../core/github-annotations.js'
 
 function reportFailure(detail: string): void {
   const message = redactLaunchTokens(detail)
   console.error(message)
-  if (process.env.GITHUB_ACTIONS === 'true') {
-    // Preserve multiline assertion causes in check annotations without allowing
-    // error text to become a separate workflow command.
-    const escaped = message.slice(0, 60000).replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A')
-    console.error(`::error title=Environment test failure::${escaped}`)
-  }
+  if (process.env.GITHUB_ACTIONS === 'true') console.error(failureAnnotation(message))
 }
 
 /** Deliberately dispatched before local configuration loading. */

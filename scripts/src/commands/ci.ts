@@ -13,6 +13,7 @@ import { runTestEnv } from './test-env.js'
 import { assertEnvironmentResults, environmentIds } from '../core/environment-results.js'
 import type { TestReport } from '../core/test-run.js'
 import { assertTestReport } from '../core/test-run.js'
+import { failureAnnotation } from '../core/github-annotations.js'
 
 /** The same fail-fast verification pipeline runs locally and on CI runners. */
 export async function runCi(options: { readonly keep: boolean; readonly timeoutMs?: number }, context: CommandContext = loadCommandContext({}, undefined, undefined, 'test')): Promise<number> {
@@ -23,7 +24,8 @@ export async function runCi(options: { readonly keep: boolean; readonly timeoutM
   const startedAt = new Date().toISOString()
   const steps: Array<{ name: string; exitCode: number; durationMs: number; error?: string }> = []
   const evidence: Record<string, string> = {}
-  const collect = (report: TestReport) => { evidence[report.kind] = join(report.runDir, 'report.json') }
+  const functionalReports: Record<string, TestReport> = {}
+  const collect = (report: TestReport) => { evidence[report.kind] = join(report.runDir, 'report.json'); functionalReports[report.kind] = report }
   const stages = [
     { name: 'environment', run: async () => {
       const started = new Date().toISOString()
@@ -56,7 +58,10 @@ export async function runCi(options: { readonly keep: boolean; readonly timeoutM
       }
       steps.push({ name: stage.name, exitCode, durationMs: Date.now() - started, ...(error === undefined ? {} : { error }) })
       console.log(`ci: ${exitCode === 0 ? 'PASS' : 'FAIL'} ${stage.name}`)
-      if (exitCode !== 0) break
+      if (exitCode !== 0) {
+        if (process.env.GITHUB_ACTIONS === 'true') console.error(failureAnnotation(`CI ${stage.name} exited ${exitCode}: ${error ?? ''}\n${JSON.stringify(functionalReports[stage.name]?.steps.filter(s => !s.ok) ?? [])}`))
+        break
+      }
     }
   } finally {
     const report = {

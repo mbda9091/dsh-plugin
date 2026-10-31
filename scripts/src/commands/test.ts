@@ -62,6 +62,8 @@ export async function runTest(options: TestOptions, context: CommandContext = lo
       '--test-isolation=none',
       '--test-concurrency=1',
       '--test-reporter=spec',
+      ...(env.GITHUB_ACTIONS === 'true' ? ['--test-reporter-destination=stdout',
+        `--test-reporter=${new URL('../core/github-reporter.js', import.meta.url).href}`, '--test-reporter-destination=stderr'] : []),
       ...files.map((file) => relative(repoRoot, file)),
     ],
     { cwd: repoRoot, stdio: 'inherit', env },

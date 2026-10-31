@@ -5,6 +5,7 @@ import { environmentTest as it } from '../../harness/environment.js'
 import { checkPnpm, workspaceDsh } from '../../../../scripts/.build/core/toolchain.js'
 import { runToFiles } from '../../../../scripts/.build/core/exec.js'
 import { writePnpmShim } from '../../../../scripts/.build/core/pnpm.js'
+import { readPackage } from '../../../../scripts/.build/core/artifact-package.js'
 import { environmentCase, sourceRoot } from '../../harness/environment.js'
 
 it('TOOL-04 clean frozen install, public CLI, internal pnpm and real tarball (TOOL-03/05 real)', { timeout: 600_000 }, () => environmentCase('TOOL-04', async f => {
@@ -81,7 +82,9 @@ it('TOOL-04 clean frozen install, public CLI, internal pnpm and real tarball (TO
   run('pack', process.execPath, [pnpm, 'pack', '--pack-destination', artifacts], join(clean, 'notify-web'))
   const pluginVersion = JSON.parse(readFileSync(join(clean, 'notify-web/package.json'), 'utf8')).version
   const tgz = join(artifacts, `local-notify-web-${pluginVersion}.tgz`)
-  const files = run('tar-content', 'tar', ['-tf', tgz]).split(/\r?\n/).filter(Boolean)
+  // Windows' system tar can corrupt Unicode paths through its locale encoding.
+  const files = [...readPackage(readFileSync(tgz)).files.keys()].map(file => `package/${file}`)
+  evidence.push({ label: 'tar-content', status: 0 })
   assert.ok(files.includes('package/lib/index.js')); assert.ok(files.includes('package/lib/client.js'))
   for (const file of files) assert.doesNotMatch(file, /node_modules|\.local\/|local\.json|\.credentials|node\.exe|dsh\/lib\/bin/)
   const records = readFileSync(trace, 'utf8').trim().split('\n').map(line => JSON.parse(line) as { node: string; entry: string })
