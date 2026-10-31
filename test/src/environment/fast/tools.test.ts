@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { delimiter, dirname, join } from 'node:path'
-import { it } from 'node:test'
+import { environmentTest as it } from '../../harness/environment.js'
 import { workspaceDsh, checkNode, checkPnpm } from '../../../../scripts/.build/core/toolchain.js'
 import { assertExternalDsh, discoverDsh } from '../../../../scripts/.build/core/config-tools.js'
 import { configuredDsh, loadCommandContext } from '../../../../scripts/.build/core/command-context.js'

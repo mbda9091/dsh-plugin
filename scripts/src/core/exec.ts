@@ -17,6 +17,8 @@ export interface OutputPaths {
 }
 
 export interface RunOptions extends OutputPaths {
+  readonly ownProcessTree?: boolean | undefined
+  readonly signal?: AbortSignal | undefined
   readonly cwd?: string | undefined
   readonly env?: NodeJS.ProcessEnv | undefined
   readonly timeoutMs?: number | undefined
@@ -93,6 +95,7 @@ export function startToFiles(command: string, args: readonly string[], options: 
       stdio: ['ignore', outFd, errFd],
       windowsHide: true,
       windowsVerbatimArguments: options.verbatim === true,
+      detached: options.ownProcessTree === true && process.platform !== 'win32',
     })
     let error: Error | undefined
     child.once('error', (cause) => { error = cause })
@@ -102,6 +105,25 @@ export function startToFiles(command: string, args: readonly string[], options: 
     closeSync(outFd)
     closeSync(errFd)
   }
+}
+
+/** Async file capture keeps signal handling live while DSH/pnpm/browser work. */
+export async function runToFilesAsync(command: string, args: readonly string[], options: RunOptions): Promise<RunResult> {
+  options.signal?.throwIfAborted()
+  const started = startToFiles(command, args, { ...options, ownProcessTree: true })
+  const deadline = Date.now() + (options.timeoutMs ?? 120_000)
+  let timedOut = false
+  try {
+    while (started.child.exitCode === null && started.child.signalCode === null) {
+      options.signal?.throwIfAborted()
+      if (started.spawnError()) throw started.spawnError()
+      if (Date.now() >= deadline) { timedOut = true; break }
+      await sleep(50)
+    }
+  } finally { await stopOwnedTree(started.child) }
+  options.signal?.throwIfAborted()
+  return { status: started.child.exitCode, signal: started.child.signalCode, timedOut,
+    stdout: readOrEmpty(options.stdoutPath), stderr: readOrEmpty(options.stderrPath) }
 }
 
 export function sleep(ms: number): Promise<void> {
@@ -161,7 +183,27 @@ export async function stopChild(child: ChildProcess, timeoutMs = 10_000): Promis
   }
 }
 
+/** Only for children spawned with ownProcessTree; never use recorded/ambient PIDs. */
+export async function stopOwnedTree(child: ChildProcess): Promise<void> {
+  if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return
+  if (process.platform === 'win32') {
+    // Windows has no POSIX process groups; /T covers this live child's pnpm/browser descendants.
+    const result = spawnSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true, timeout: 10_000 })
+    if (result.error) throw result.error
+    if (result.status !== 0 && child.exitCode === null && child.signalCode === null) {
+      try { process.kill(child.pid, 0) } catch { return }
+      throw new Error('failed to stop owned test process tree')
+    }
+    await waitForExit(child, 10_000)
+  } else {
+    try { process.kill(-child.pid, 'SIGTERM') } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error }
+    await stopChild(child)
+    try { process.kill(-child.pid, 'SIGKILL') } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error }
+  }
+}
+
 export interface ServerWaitOptions {
+  readonly signal?: AbortSignal | undefined
   readonly urlPattern: RegExp
   readonly timeoutMs: number
   readonly pollMs?: number | undefined
@@ -175,6 +217,7 @@ export async function waitForServerUrl(started: StartedProcess, options: ServerW
   const pollMs = options.pollMs ?? 200
   const deadline = Date.now() + options.timeoutMs
   for (;;) {
+    options.signal?.throwIfAborted()
     const error = started.spawnError()
     if (error !== undefined) throw new Error(`cannot start server: ${error.message}`)
     if (existsSync(started.stdoutPath)) {
@@ -226,12 +269,13 @@ export async function fetchPage(url: string, timeoutMs = 10_000): Promise<{ stat
 }
 
 /** GET a URL until it answers or the timeout expires. Returns the HTTP status. */
-export async function waitForHttp(url: string, timeoutMs: number, pollMs = 300): Promise<number> {
+export async function waitForHttp(url: string, timeoutMs: number, pollMs = 300, signal?: AbortSignal): Promise<number> {
   const deadline = Date.now() + timeoutMs
   let lastError: unknown
   for (;;) {
+    signal?.throwIfAborted()
     try {
-      const { status } = await fetchPage(url, Math.max(1, deadline - Date.now()))
+      const { status } = await fetchPage(url, Math.max(1, Math.min(1000, deadline - Date.now())))
       return status
     } catch (error) {
       lastError = error

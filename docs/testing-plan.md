@@ -1,5 +1,7 @@
 # 测试与 Web L5 方案（v0.1）
 
+> 2026-10-31 环境 M4：L4/L5 已统一全新测试 home/store、npm/pnpm 配置来源和进程树清理；成功保留报告/日志、删除可变数据，失败或 `--keep` 保留现场。`ci` 新顺序为环境 all → 类型检查 → L1–L3 → L4 → L5，核验本次独立报告，缺项/skip/清理或报告写入失败均不通过。ISO-01–06 实现及当前平台证据见[开发环境计划 §9.8](development-environment-plan.md#98-m4-测试隔离与-ci-证据门禁2026-10-31)。这里的环境 M4 与本文历史测试 M4 是不同编号。
+
 > 2026-10-31 环境 M1/M2：已交付独立 `test-env --suite fast/real/all`。M1 `ff461e0` 的 Windows/macOS 配置 fast 均通过，功能 CI 均在过渡 DSH 准备步骤失败；M2 `8478d76` 的 Windows CFG/TOOL、L1–L4 及单独复验 L5 通过，尚无远端运行记录。提交、job 链接、失败及复验证据见[开发环境计划 §9.5](development-environment-plan.md#95-m1m2-提交后-ci-核查与-windows-复验2026-10-31)。当前配置/参数适用范围以[配置 v2](configuration-v2.md)为准；环境 M1/M2 与本文历史测试里程碑分别编号。
 
 > 状态：M1–M5 已完成；提交 `d9f2a12` 的 Windows/macOS 远端 CI 全部通过（§19.7）。更新日期：2026-10-30（Asia/Shanghai）。

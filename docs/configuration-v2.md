@@ -1,6 +1,6 @@
 # 本机配置 v2：字段、命令与迁移
 
-M1–M3 实现协议（2026-10-31）。对应[环境计划](development-environment-plan.md)。M3 已加入持久开发环境和启停/重置；M4 隔离编排与 M5/M6 产物验收、目标管理尚未交付。
+M1–M4 实现协议（2026-10-31）。对应[环境计划](development-environment-plan.md)。M4 统一一次性测试上下文、清理和独立报告门禁；M5/M6 产物验收、目标管理尚未交付。
 
 ## 字段归属
 
@@ -79,8 +79,8 @@ node scripts/bootstrap.mjs web reset --yes
 | `dev-install` | 开发上下文；只安装开发 home；`--pnpm-script`、`--dry-run`、`--skip-build`、`--all` | `DSH_PNPM` |
 | `l4`、`l5`、`ci` | 测试上下文；`--pnpm-script`、`--test-browser`、`--test-browser-path`、`--timeout`、`--keep` | `DSH_PNPM`、`DSH_E2E_BROWSER`、`CHROME_PATH` |
 | `stable-install`、`status` | 目标上下文；`--target NAME`，或完整的 `--dsh-cli PATH --home DIR --profile NAME --surface desktop\|web --platform windows\|mac`，两种方式互斥 | 仅 `DSH_PNPM`；不从环境变量拼目标 |
-| `test-env --suite fast` | 无本机配置依赖；可用 `--keep` 保留成功 fixture | 不从个人配置获得被测值 |
-| `test-env --suite real\|all` | 无本机配置依赖；显式 `--pnpm-script PATH`，可用 `--keep`；需网络、Git 和 tar | 不从个人配置获得被测值；子进程使用独立 home/store/userconfig |
+| `test-env --suite fast` | 无本机配置依赖；可用 `--keep`、`--only ID,ID` | 不从个人配置获得被测值 |
+| `test-env --suite real\|all` | 无本机配置依赖；显式 `--pnpm-script PATH`，可用 `--keep`、`--only ID,ID`；TOOL-04 需网络、Git 和 tar | 不从个人配置获得被测值；子进程使用独立 home/store/userconfig |
 | `catalog`、`check-targets` | 无本机配置依赖 | 无目标选择 |
 
 `DSH_CLI`、`DSH_HOME`、`DSH_PROFILE`、`DSH_PROFILE_DIR`、`DSH_WEB_URL` 不再重定向上述命令。子进程清理这些变量以及 npm/pnpm store 覆盖和 Electron 标志，再由用途上下文填入选定地址。旧变量本身不会触发错误；不适用的显式目标参数会报错。`l4 --home` 仅代表新的仓库 `.tmp` 测试目录，不是正式目标 home。`--` 不能绕过 Web 参数校验。
@@ -111,10 +111,20 @@ node scripts/bootstrap.mjs config check
 
 ## 独立验证
 
-`test-env --suite fast` 只编译 `test/tsconfig.environment.json`，运行 CFG-01–06、TOOL-01/02/03/05、DEV-01/02/04/05/06。DEV 使用假宿主、真实受控子进程和本地 HTTP。报告及每组证据写入 `.tmp/environment-tests/run-*/`；不要求个人配置、插件 build、真实 DSH 或浏览器。成功清理 fixture、失败保留、`--keep` 保留成功现场；缺证据、skip、清理失败都会失败。
+`test-env --suite fast` 只编译 `test/tsconfig.environment.json`，运行 CFG-01–06、TOOL-01/02/03/05、DEV-01/02/04/05/06 和 ISO-01/02/04/06，共 19 项。DEV/ISO 使用假宿主、真实受控子进程和本地 HTTP。报告及每组证据写入 `.tmp/environment-tests/run-*/`；不要求个人配置、插件 build、真实 DSH 或浏览器。成功清理 fixture、失败保留、`--keep` 保留成功现场；缺证据、skip、清理失败都会失败。`--only ISO-01,ISO-02` 可选择当前 suite 的已实现用例，报告明确记录 selected，不代表完整阶段验收。
 
 `test-env --suite real --pnpm-script <path>` 执行 TOOL-04，包含 TOOL-03/05 的真实断言：导出 Git 跟踪及未忽略的当前源码（不复制本机配置、产物或 node_modules），在独立用户目录/store 中冻结安装，探测公开 CLI、profile 初始化及内部 pnpm，构建并检查 notify-web tarball。选定 pnpm 包复制进临时工具目录，子进程 PATH 无全局 DSH/私有 runtime；不安装或切换用户工具。`TOOL-04-details.json` 记录版本、Node 调用轨迹、步骤与包内容。
 
-real 另执行 DEV-03，复用 workspace 的只读锁定宿主，在新的临时仓库内初始化、安装 fixture link、启动实际 Web、修改产物后重启验证实际加载、保留调试哨兵并重置。该组同时提供 DEV-01/04/05 的真实生命周期证据，详情在 `DEV-03-details.json`。开发 fixture 不使用真实 `.local/dsh-dev/`。`all` 合并 CFG/TOOL/DEV，不证明 M4–M6。
+real 另执行 DEV-03，复用 workspace 的只读锁定宿主，在新的临时仓库内初始化、安装 fixture link、启动实际 Web、修改产物后重启验证实际加载、保留调试哨兵并重置。该组同时提供 DEV-01/04/05 的真实生命周期证据，详情在 `DEV-03-details.json`。开发 fixture 不使用真实 `.local/dsh-dev/`。real 的 ISO-01-real/02-real/03/05 验证污染配置、独立 pnpm store、重复/并发宿主、成功/失败/超时/可处理中断与 CI 契约。real 共 6 项，all 共 25 项（23 组编号，其中 ISO-01/02 分 fast/real），不证明 M5/M6 或未执行的平台。
 
-两平台 CI 分别运行 fast 与 real，不预先初始化本机配置；功能 CI 直接使用锁定 workspace DSH，已移除全局 DSH 与临时 add 过渡步骤。报告不自动上传。平台通过与否以实际 CI 结果为准。
+两平台 CI 分别运行 fast 与 real，不预先初始化本机配置；完整 `ci` 先运行环境 all，再运行类型检查和 L1–L5。CI 报告只引用本次环境/L4/L5 的独立报告路径，并检查完整用例集合、逐项结果和清理证据；退出 0 但缺报告、缺项、重复、skip 或写报告失败均不通过。环境入口不回调整条 ci。报告不自动上传，平台通过与否以实际执行结果为准。
+
+## 一次性测试生命周期（M4）
+
+L4/L5 通过同一 `runIsolatedTest` 创建 `.tmp/<suite>/run-*`，原子预留全新 home。`--home` 必须是仓库 `.tmp` 内的新目录，祖先链接、既有目录及与开发/配置中正式 home 的重叠均拒绝；两次或并发运行各有 home、store、日志和随机端口。测试仅使用公开 Web profile 与自己的 fixture，不加载开发 patch。
+
+测试子进程清理继承的 DSH（仅保留解析后的浏览器选择）、npm_config、pnpm、Corepack 及 XDG 配置覆盖；显式设置 user/global npmrc、pnpm store/cache/home 和 XDG config/data 目录。DSH 从运行目录启动，避免消费仓库的安装配置；pnpm 内部命令走已选定 shim。保留系统 HOME/USERPROFILE 等正常变量，避免破坏 Chrome 的用户目录判断。L2 打包也使用已解析 pnpm 和独立包管理器配置。
+
+成功默认删除本次 home（包括显式 `--home`）、store/cache、shim、配置及 workspace，保留报告、日志、截图和 trace；`--keep` 保留成功数据，失败保留现场。清理先核对路径，再用 lstat 解除链接，不遍历到插件源码。清理失败记为独立失败步骤。报告含版本、平台/Node、宿主入口、起止时间、逐步结果和清理状态，`last-report.json` 仅作便利索引；并发 CI 使用回调拿到各自准确报告路径。
+
+异步进程等待支持 SIGINT/SIGTERM，退出时等待自己启动的进程树并检查已知 HTTP 端口关闭。Windows 使用活跃子进程的 PID 配合 taskkill /T；Unix 为测试子进程建立独立进程组。Windows 测试通过子进程内部派发 SIGINT 验证可处理的中断路径；强制终止 supervisor、断电和磁盘不可写不承诺生成完整报告。无法创建/写入报告时命令失败，不借用旧报告。原始日志只留本地，汇总与错误输出移除认证 token。

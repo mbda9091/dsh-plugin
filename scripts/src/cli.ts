@@ -24,7 +24,7 @@ const TARGET_OPTIONS = { target: { type: 'string' }, 'dsh-cli': { type: 'string'
 const USAGE = `Usage: node scripts/bootstrap.mjs <command> [options]
 
   config init [--dry-run] | check | migrate [--dry-run]   Manage v2 disk configuration
-  test-env --suite fast|real|all [--keep] [--pnpm-script PATH]  CFG/TOOL/DEV tests; real needs prepared pnpm
+  test-env --suite fast|real|all [--only ID,ID] [--keep] [--pnpm-script PATH]  CFG/TOOL/DEV/ISO tests
   web [init|start|status|stop|reset]   Managed development Web; reset previews, --yes executes
   build [--check]                     Build/type-check plugins
   pack [--skip-build]                 Build and package plugins into dist/
@@ -35,7 +35,7 @@ const USAGE = `Usage: node scripts/bootstrap.mjs <command> [options]
   test [--only l1,l2,l3] [--skip-build] Run L1-L3
   l4 [--keep] [--home <new .tmp dir>] [--skip-tarball]
   l5 [--keep]                         Run the isolated Web/browser harness
-  ci [--keep]                         Run type-check, L1-L3, L4 and L5 (fail-fast)
+  ci [--keep]                         Run environment all, type-check, L1-L3, L4 and L5 (fail-fast)
   check-targets                       Validate plugin metadata (no local config needed)
   catalog [--check] [--output <path>]  Generate/check CATALOG.md (no local config needed)
 
@@ -58,8 +58,8 @@ export async function main(argv: string[]): Promise<number> {
   try {
     switch (command) {
       case 'test-env': {
-        const { values } = parseArgs({ args: rest, options: { ...TOOL_OPTIONS, suite: { type: 'string', default: 'fast' }, keep: { type: 'boolean', default: false } } })
-        return runTestEnv(values.suite, values.keep, values['pnpm-script'])
+        const { values } = parseArgs({ args: rest, options: { ...TOOL_OPTIONS, suite: { type: 'string', default: 'fast' }, only: { type: 'string' }, keep: { type: 'boolean', default: false } } })
+        return await runTestEnv(values.suite, values.keep, values['pnpm-script'], values.only)
       }
       case 'config': {
         const { values } = parseArgs({ args: rest.slice(1), options: {

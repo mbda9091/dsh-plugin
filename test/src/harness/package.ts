@@ -2,7 +2,10 @@ import assert from 'node:assert/strict'
 import { mkdirSync, readdirSync, readFileSync } from 'node:fs'
 import { join, matchesGlob, relative } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { configuredPnpm, loadCommandContext } from '../../../scripts/.build/core/command-context.js'
+import { envValue } from '../../../scripts/.build/core/config.js'
+import { checkPnpm } from '../../../scripts/.build/core/toolchain.js'
+import { repoRoot } from '../../../scripts/.build/core/repo.js'
+import { packageEnvironment, preparePackageEnvironment } from '../../../scripts/.build/core/test-isolation.js'
 import { runToFiles } from '../../../scripts/.build/core/exec.js'
 
 /** Metadata shape already validated by the package contract suite. */
@@ -31,8 +34,15 @@ export function packageFiles(root: string): string[] {
 /** Use the real package manager and archive, not a second implementation of files filtering. */
 export function packAndExtract(source: string, destination: string): string {
   mkdirSync(destination, { recursive: true })
-  const pack = runToFiles(process.execPath, [configuredPnpm(loadCommandContext()), 'pack', '--pack-destination', destination], {
+  // The parent test command already resolved the tool. Never reload disk config
+  // here: it may be older/different from the explicitly supplied command context.
+  const selected = envValue(process.env, 'DSH_PNPM')
+  assert.ok(selected, 'run package contracts through the repository test command with configured pnpm')
+  const pnpm = checkPnpm(selected, repoRoot)
+  preparePackageEnvironment(destination)
+  const pack = runToFiles(process.execPath, [pnpm, 'pack', '--pack-destination', destination], {
     cwd: source,
+    env: packageEnvironment(process.env, destination),
     timeoutMs: 120_000,
     stdoutPath: join(destination, 'pack.out.log'),
     stderrPath: join(destination, 'pack.err.log'),

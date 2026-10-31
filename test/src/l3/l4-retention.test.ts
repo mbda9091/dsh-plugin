@@ -10,9 +10,8 @@ import { removeDir, repoRoot } from '../harness/tmp.js'
 
 it('L3 L4 harness: retains logs and a per-run report on failure without --keep', async () => {
   // Node rejects DSH flags without touching any profile or starting a server.
-  const reportPath = join(repoRoot, '.tmp/l4/last-report.json')
-  const previous = existsSync(reportPath) ? readFileSync(reportPath) : undefined
   const f = configFixture()
+  const reportPath = join(f.root, '.tmp/l4/last-report.json')
   try {
     initializeConfig(f.options, f.root, f.env)
     writeFileSync(f.entry, 'console.error("deliberate fixture failure"); process.exit(1)')
@@ -27,7 +26,7 @@ it('L3 L4 harness: retains logs and a per-run report on failure without --keep',
     }
     const runDir = report.runDir
     // Never delete anything outside the harness's generated run directory.
-    const inside = relative(join(repoRoot, '.tmp/l4'), runDir)
+    const inside = relative(join(f.root, '.tmp/l4'), runDir)
     assert.ok(inside !== '' && !inside.startsWith('..') && !inside.includes(':'))
     try {
       assert.equal(report.ok, false)
@@ -40,8 +39,5 @@ it('L3 L4 harness: retains logs and a per-run report on failure without --keep',
     }
   } finally {
     removeDir(f.root)
-    // A deliberate failure in this unit test must not replace the user's real L4 result.
-    if (previous === undefined) rmSync(reportPath, { force: true })
-    else writeFileSync(reportPath, previous)
   }
 })

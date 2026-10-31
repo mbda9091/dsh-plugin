@@ -4,7 +4,7 @@
 
 > 概念与机制（bundle / patch / profile 的定义、安装与配置流程）见 [docs/dsh-concepts.md](docs/dsh-concepts.md)。本文件只讲规则，那份文档解释"为什么"。
 
-> M1 配置协议已升级为 v2，M2 已锁定 workspace 开发 DSH，M3 已交付受管开发环境；字段、命令适用表和恢复步骤见 [docs/configuration-v2.md](docs/configuration-v2.md)。仓库命令不再从日常 DSH 环境变量推断宿主或安装目的地；外部 dsh CLI 自身的参数规则不变。`web init`/首次 `web`/`dev-install` 初始化开发数据，不回退日常宿主、不认领已有未知目录。
+> M1 配置协议已升级为 v2，M2 已锁定 workspace 开发 DSH，M3 已交付受管开发环境，M4 统一一次性测试隔离与报告门禁；字段、命令适用表和恢复步骤见 [docs/configuration-v2.md](docs/configuration-v2.md)。仓库命令不再从日常 DSH 环境变量推断宿主或安装目的地；外部 dsh CLI 自身的参数规则不变。`web init`/首次 `web`/`dev-install` 初始化开发数据，不回退日常宿主、不认领已有未知目录。
 
 ## 1. 仓库定位
 
@@ -468,8 +468,9 @@ node scripts/bootstrap.mjs status --target daily
 - **构建**：`src/*.ts` → `lib/*.js` + `lib/*.d.ts`，产物**不入库**（`.gitignore` 忽略 `lib/`）。链接安装和打包都不会替你编译，所以 `dev-install` / `pack` 都会先构建，缺产物时直接报错。构建命令：
   - `node scripts/bootstrap.mjs build` 重新构建
   - `node scripts/bootstrap.mjs build --check` 只做类型检查
-  - `node scripts/bootstrap.mjs ci` 运行完整本地检查（类型检查 → L1–L3 → L4 → L5），失败即停止；汇总在 `.tmp/ci/last-report.json`。需要 workspace 开发 DSH（M2）；不接受 `--dsh-cli` / `DSH_CLI` 重定向。该入口不提交、推送或上传产物。
-  - `node scripts/bootstrap.mjs test-env --suite fast` 独立验证 CFG-01–06、TOOL-01/02/03/05 与 DEV-01/02/04/05/06，不要求本机配置、真实 DSH 或插件 build；DEV 使用受控假宿主和本地 HTTP。报告在 `.tmp/environment-tests/`。`--suite real --pnpm-script <path>` 验证干净冻结安装、DSH/内部 pnpm、代表包，以及独立开发 fixture 的 link、实际重启加载、停止和重置（DEV-03，含 DEV-01/04/05 real）。`all` 合并两套，M4–M6 不在该通过范围。
+  - `node scripts/bootstrap.mjs ci` 运行完整本地检查（独立环境 all → 类型检查 → L1–L3 → L4 → L5），失败即停止；汇总在 `.tmp/ci/last-report.json`，引用本次独立报告并校验完整结果。需要 workspace 开发 DSH、已准备 pnpm 和冻结安装所需网络；不接受 `--dsh-cli` / `DSH_CLI` 重定向。该入口不提交、推送或上传产物。
+  - `node scripts/bootstrap.mjs test-env --suite fast` 独立验证 CFG/TOOL/DEV 与 ISO-01/02/04/06，共 19 项，不要求本机配置、真实 DSH 或插件 build。`--suite real --pnpm-script <path>` 验证干净冻结安装、DSH/内部 pnpm、代表包、真实开发生命周期及 ISO 污染/并发/退出清理，共 6 项。`all` 合并为 25 项；`--only ID,ID` 定向选择已实现用例。报告在 `.tmp/environment-tests/`，不代替未执行的平台、M5/M6 或桌面验收。
+  - L4/L5 共用一次性目录和包管理器配置；成功清理可变 home/store/cache/shim，保留报告与日志，失败或 `--keep` 保留现场。显式 `l4 --home` 也遵守该规则。可处理中断关闭自己的进程树及已知端口；缺证据、skip、清理/报告写入失败不得报通过。详见 [v2 协议](docs/configuration-v2.md)。
   - `node scripts/bootstrap.mjs test` 先构建，再编译并运行 L1–L3；`node scripts/bootstrap.mjs l4` 跑真实 `dsh web` 的 L4 harness（慢、需要本机 DSH）
   - 普通终端且 `node` 在 PATH 上时，也可以用根 `package.json` 的 `pnpm build` / `pnpm check` / `pnpm catalog` / `pnpm status` / `pnpm test`；**DSH 沙箱内不要用 `pnpm run`**（它会用管道 spawn 子进程，被沙箱拒绝后会卡住），直接用 `node scripts/bootstrap.mjs <cmd>`。
   - 脚本层自身也会先被编译到 `scripts/.build/`（不入库）；`scripts/bootstrap.mjs` 是唯一手写 JS

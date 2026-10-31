@@ -2,10 +2,19 @@ import assert from 'node:assert/strict'
 import { copyFileSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { it as test } from 'node:test'
+import type { TestOptions } from 'node:test'
 import { configPaths } from '../../../scripts/.build/core/config.js'
 import { digest } from '../../../scripts/.build/core/config-transaction.js'
 
 export const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+/** node:test run() does not filter in-process registrations on Node 24. */
+export function environmentTest(name: string, optionsOrBody: TestOptions | (() => void | Promise<void>), body?: () => void | Promise<void>): void {
+  const selected = process.env.DSH_ENV_TEST_ONLY?.split(',')
+  if (selected && !selected.includes(name.split(' ')[0]!)) return
+  if (typeof optionsOrBody === 'function') test(name, optionsOrBody)
+  else test(name, optionsOrBody, body)
+}
 export function snapshot(root: string): Record<string, string> {
   const result: Record<string, string> = {}
   function visit(path: string, key: string): void {

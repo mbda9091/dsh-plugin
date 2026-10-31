@@ -63,7 +63,8 @@ it('L1 harness configuration: disposable homes override session settings and do 
     const env = childEnv({ settings, runner: configuredDsh(settings, true), home, runDir: f.root, logDir: f.root, options: { timeoutMs: 10 } }, home)
     assert.equal(env.DSH_HOME, home)
     assert.equal(env.DSH_PROFILE, 'web')
-    for (const key of ['DSH_PROFILE_DIR', 'DSH_WEB_URL']) assert.equal(Object.keys(env).some(k => k.toUpperCase() === key), false)
+    assert.equal(env.DSH_PROFILE_DIR, join(home, 'profiles/web'))
+    assert.equal(Object.keys(env).some(k => k.toUpperCase() === 'DSH_WEB_URL'), false)
     assert.deepEqual(Object.keys(env).filter(k => k.toUpperCase() === 'DSH_HOME'), ['DSH_HOME'])
     assert.equal(env.pnpm_config_store_dir, join(f.root, 'pnpm-store'))
   } finally { removeDir(f.root) }

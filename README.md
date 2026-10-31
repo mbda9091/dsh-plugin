@@ -118,9 +118,11 @@ node scripts/bootstrap.mjs status --target daily
 # 类型与元数据检查
 node scripts/bootstrap.mjs build --check
 
-# 完整本地检查：类型检查 → L1–L3 → L4 → L5
+# 完整本地检查：独立环境 all → 类型检查 → L1–L3 → L4 → L5
 node scripts/bootstrap.mjs ci
 ```
+
+`ci` 先核验本次 CFG/TOOL/DEV/ISO 环境报告，再执行插件功能回归；环境 all 包含一次独立冻结安装，需要网络。单独快速验证可运行 `node scripts/bootstrap.mjs test-env --suite fast`，定向验证支持 `--only ISO-01,ISO-02`。L4/L5 成功清理可变数据但保留报告/日志，失败或 `--keep` 保留现场；报告路径收录在 `.tmp/ci/last-report.json`。平台验收进度见[环境计划](docs/development-environment-plan.md)。
 
 L1–L3 覆盖逻辑、包契约和集成行为；L4 使用一次性 profile 验证真实 DSH 安装与加载；L5 通过 Playwright 验证 Web 交互和通知。L4/L5 需要普通 Node 版 DSH 和配置中的 pnpm，L5 使用 `test.browser` / `test.browserPath`；Chromium 需先通过 Playwright 安装。`test.timeoutMs` 控制测试操作和浏览器场景的超时。测试说明和环境覆盖参数见 [测试方案](docs/testing-plan.md)。
 

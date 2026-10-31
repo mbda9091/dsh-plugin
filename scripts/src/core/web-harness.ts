@@ -1,31 +1,24 @@
-import { existsSync, readFileSync, realpathSync } from 'node:fs'
-import { delimiter, dirname, isAbsolute, join, relative, resolve } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { delimiter, join } from 'node:path'
 import type { DshRunner } from './dsh-cli.js'
-import { runToFiles, sleep, startToFiles, stopChild, tail, waitForHttp, waitForHttpClosed, waitForServerUrl } from './exec.js'
+import { runToFilesAsync, sleep, startToFiles, stopOwnedTree, tail, waitForHttp, waitForHttpClosed, waitForServerUrl } from './exec.js'
 import type { RunResult } from './exec.js'
 import { repoRoot } from './repo.js'
 import { commandEnv, configuredPnpm } from './command-context.js'
 import type { CommandContext } from './command-context.js'
 import { writePnpmShim } from './pnpm.js'
+import { freshTestHome, packageEnvironment } from './test-isolation.js'
 
 const WEB_PROFILE = 'web'
 
 /** Never accept an existing home or a symlink escaping the workspace scratch area. */
 export function freshHome(runDir: string, requested?: string): string {
-  const home = resolve(requested || join(runDir, 'dsh-home'))
-  const scratch = realpathSync(join(repoRoot, '.tmp'))
-  let ancestor = dirname(home)
-  while (!existsSync(ancestor)) ancestor = dirname(ancestor)
-  const actual = resolve(realpathSync(ancestor), relative(ancestor, home))
-  const inside = relative(scratch, actual)
-  if (!inside || inside.startsWith('..') || isAbsolute(inside) || existsSync(home)) {
-    throw new Error('--home must be a new directory inside the workspace .tmp (existing profiles are never reused)')
-  }
-  return home
+  return freshTestHome(repoRoot, runDir, requested)
 }
 
 /** Shared disposable-profile lifecycle for L4 and L5. */
 export interface WebHarness {
+  readonly signal?: AbortSignal | undefined
   readonly settings: CommandContext
   readonly runner: DshRunner
   readonly home: string
@@ -35,15 +28,16 @@ export interface WebHarness {
   pnpmDir?: string | undefined
 }
 export function childEnv(context: WebHarness, home: string): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
+  const env: NodeJS.ProcessEnv = packageEnvironment({
     ...commandEnv(context.settings),
     ...context.runner.env,
-  }
+  }, context.runDir)
   for (const key of Object.keys(env)) {
-    if (['DSH_HOME', 'DSH_PROFILE', 'DSH_PROFILE_DIR', 'DSH_WEB_URL', 'PNPM_CONFIG_STORE_DIR', 'NPM_CONFIG_STORE_DIR'].includes(key.toUpperCase())) delete env[key]
+    if (/^DSH_/i.test(key) && !['DSH_E2E_BROWSER'].includes(key.toUpperCase())) delete env[key]
   }
   env.DSH_HOME = home
   env.DSH_PROFILE = WEB_PROFILE
+  env.DSH_PROFILE_DIR = join(home, 'profiles', WEB_PROFILE)
   // Keep both pnpm 11 and older runtime stores inside this disposable run.
   env.pnpm_config_store_dir = join(context.runDir, 'pnpm-store')
   env.npm_config_store_dir = join(context.runDir, 'pnpm-store')
@@ -53,15 +47,16 @@ export function childEnv(context: WebHarness, home: string): NodeJS.ProcessEnv {
   return env
 }
 
-export function runDsh(
+export async function runDsh(
   context: WebHarness,
   label: string,
   args: readonly string[],
   home: string,
   timeoutMs = context.options.timeoutMs,
-): RunResult {
-  const result = runToFiles(context.runner.command, context.runner.build(args), {
-    cwd: repoRoot,
+): Promise<RunResult> {
+  const result = await runToFilesAsync(context.runner.command, context.runner.build(args), {
+    cwd: context.runDir,
+    signal: context.signal,
     env: childEnv(context, home),
     timeoutMs,
     verbatim: context.runner.verbatim,
@@ -90,7 +85,7 @@ export function ensurePnpmShim(context: WebHarness): string {
 }
 
 export async function initProfile(context: WebHarness, label: string, home: string): Promise<string> {
-  const result = runDsh(context, label, ['--profile', WEB_PROFILE, '--dump-config'], home)
+  const result = await runDsh(context, label, ['--profile', WEB_PROFILE, '--dump-config'], home)
   for (const expected of ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app']) {
     if (!result.stdout.includes(expected)) throw new Error(`shipped web profile is missing ${expected}`)
   }
@@ -104,32 +99,35 @@ export async function serveAndCheck(
   check: (url: string, stderr: string) => Promise<string>,
   home: string | undefined = context.home,
 ): Promise<string> {
+  context.signal?.throwIfAborted()
   const stdoutPath = join(context.logDir, `${label}.web.out.log`)
   const stderrPath = join(context.logDir, `${label}.web.err.log`)
   const started = startToFiles(context.runner.command, context.runner.build(['web', '--no-open', '--host', '127.0.0.1', '--port', '0']), {
-    cwd: repoRoot,
+    cwd: context.runDir,
     env: childEnv(context, home ?? context.home),
     verbatim: context.runner.verbatim,
     stdoutPath,
     stderrPath,
+    ownProcessTree: true,
   })
 
   let url: string | undefined
   try {
-    url = await waitForServerUrl(started, { urlPattern: /dsh web:\s*(http:\/\/\S+)/, timeoutMs: context.options.timeoutMs })
-    const status = await waitForHttp(url, context.options.timeoutMs)
+    url = await waitForServerUrl(started, { urlPattern: /dsh web:\s*(http:\/\/\S+)/, timeoutMs: context.options.timeoutMs, signal: context.signal })
+    const status = await waitForHttp(url, context.options.timeoutMs, 300, context.signal)
     if (status !== 200) throw new Error(`GET ${url} returned ${status}, expected 200`)
 
     // Loader warnings are written while plugins activate; wait briefly so the
     // captured stderr is complete before asserting on it.
     await sleep(500)
     const detail = await check(url, readTextSafe(stderrPath))
+    context.signal?.throwIfAborted()
     return `${detail} (${url.replace(/\?.*$/, '')})`
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     throw new Error(redactLaunchTokens(`${message}\nstdout:\n${tail(stdoutPath, 15) || '(empty)'}\nstderr:\n${tail(stderrPath, 25) || '(empty)'}`))
   } finally {
-    await stopChild(started.child, 15_000)
+    await stopOwnedTree(started.child)
     if (url !== undefined) {
       const clean = new URL(url)
       clean.search = ''
@@ -140,7 +138,9 @@ export async function serveAndCheck(
 
 /** Raw logs stay local; reports and CI console must not expose launch tokens. */
 export function redactLaunchTokens(text: string): string {
-  return text.replace(/([?&]token=)[^\s&#"']+/g, '$1[redacted]')
+  return text.replace(/([?&](?:token|access_token|auth|key)=)[^\s&#"']+/gi, '$1[redacted]')
+    .replace(/(Bearer\s+)[\w.+/=-]+/gi, '$1[redacted]')
+    .replace(/((?:_authToken|password|secret|token)\s*[=:]\s*)[^\s,;"']+/gi, '$1[redacted]')
 }
 
 function readTextSafe(path: string): string {

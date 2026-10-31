@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { it } from 'node:test'
+import { environmentTest as it } from '../../harness/environment.js'
 import { runWeb } from '../../../../scripts/.build/commands/web.js'
 import { runInstall } from '../../../../scripts/.build/commands/install.js'
 import { loadCommandContext } from '../../../../scripts/.build/core/command-context.js'

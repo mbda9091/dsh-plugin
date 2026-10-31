@@ -1,13 +1,15 @@
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { configuredDsh, configuredPnpm, loadCommandContext } from '../core/command-context.js'
+import { configuredPnpm, loadCommandContext } from '../core/command-context.js'
 import type { CommandContext } from '../core/command-context.js'
 import { fetchPage } from '../core/exec.js'
-import { ensurePnpmShim, initProfile, runDsh, childEnv, serveAndCheck, freshHome } from '../core/web-harness.js'
+import { ensurePnpmShim, initProfile, runDsh, childEnv, serveAndCheck } from '../core/web-harness.js'
 import type { WebHarness } from '../core/web-harness.js'
-import { runToFiles } from '../core/exec.js'
-import { isRecord, readJson, stringArray, writeText } from '../core/json.js'
+import { runToFilesAsync } from '../core/exec.js'
+import { isRecord, readJson, stringArray } from '../core/json.js'
 import { repoRoot } from '../core/repo.js'
+import { runIsolatedTest } from '../core/test-run.js'
+import type { TestReport } from '../core/test-run.js'
 
 /**
  * L4: install into a disposable profile, then assert the loader's observable
@@ -32,13 +34,6 @@ export interface L4Options {
   readonly timeoutMs?: number
 }
 
-interface StepRecord {
-  name: string
-  ok: boolean
-  durationMs: number
-  detail?: string
-}
-
 interface Row {
   name: string
   disabled: boolean
@@ -46,41 +41,11 @@ interface Row {
 
 const WEB_PROFILE = 'web'
 
-export async function runL4(input: L4Options, settings: CommandContext = loadCommandContext()): Promise<number> {
+export async function runL4(input: L4Options, settings: CommandContext = loadCommandContext({}, undefined, undefined, 'test'), onReport?: (report: TestReport) => void): Promise<number> {
   const options = { ...input, timeoutMs: input.timeoutMs ?? settings.config.test.timeoutMs }
-  const runner = configuredDsh(settings, true)
-  const runId = new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)
-  const runBase = join(repoRoot, '.tmp', 'l4')
-  mkdirSync(runBase, { recursive: true })
-  const runDir = mkdtempSync(join(runBase, `${runId}-`))
-  const logDir = join(runDir, 'logs')
-  const artifactDir = join(runDir, 'artifacts')
-  const home = freshHome(runDir, options.home)
-  const reportPath = join(repoRoot, '.tmp', 'l4', 'last-report.json')
-  const steps: StepRecord[] = []
-
-  console.log(`l4: dsh  -> ${runner.source}`)
-  console.log(`l4: home -> ${home}`)
-  console.log(`l4: run  -> ${runDir}`)
-
-  const context: L4Context = { runner, home, runDir, logDir, artifactDir, options, settings }
-
-  const step = async (name: string, body: () => Promise<string | undefined>): Promise<void> => {
-    const started = Date.now()
-    try {
-      const detail = await body()
-      steps.push({ name, ok: true, durationMs: Date.now() - started, detail })
-      console.log(`l4: ok   ${name} (${Date.now() - started}ms)`)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      steps.push({ name, ok: false, durationMs: Date.now() - started, detail: message })
-      console.error(`l4: FAIL ${name} (${Date.now() - started}ms)\n${message}`)
-      throw error
-    }
-  }
-
-  let passed = true
-  try {
+  return runIsolatedTest('l4', settings, options, async run => {
+    const context: L4Context = { ...run, artifactDir: join(run.runDir, 'artifacts'), options }
+    const step = run.step
     await step('prerequisites', () => checkPrerequisites(context))
     await step('profile-init', () => initProfile(context, 'profile-init', context.home))
     await step('install-link', () => installLinks(context))
@@ -125,38 +90,7 @@ export async function runL4(input: L4Options, settings: CommandContext = loadCom
         ),
       )
     }
-  } catch {
-    passed = false
-  }
-
-  const report = {
-    ok: passed,
-    dsh: runner.source,
-    home,
-    runDir,
-    logDir,
-    steps,
-  }
-  writeText(join(runDir, 'report.json'), `${JSON.stringify(report, null, 2)}\n`)
-  writeText(reportPath, `${JSON.stringify(report, null, 2)}\n`)
-  console.log(`l4: report -> ${reportPath}`)
-  for (const entry of steps) {
-    console.log(`l4: ${entry.ok ? 'PASS' : 'FAIL'} ${entry.name} (${entry.durationMs}ms)`)
-  }
-
-  if (passed && !options.keep && (options.home === undefined || options.home === '')) {
-    rmSync(runDir, { recursive: true, force: true })
-    console.log('l4: temporary run directory removed (--keep to retain successful runs)')
-  } else {
-    console.log(`l4: ${passed ? 'logs' : 'failure logs and report'} kept under ${runDir}`)
-  }
-
-  if (!passed) {
-    console.error('l4: FAILED; see the report and logs above')
-    return 1
-  }
-  console.log('l4: all checks passed')
-  return 0
+  }, onReport)
 }
 
 interface L4Context extends WebHarness {
@@ -188,7 +122,7 @@ async function installLinks(context: L4Context): Promise<string> {
     join(repoRoot, 'notify-web'),
   ]
   for (const target of targets) {
-    runDsh(
+    await runDsh(
       context,
       `install-link-${lastSegment(target)}`,
       ['plugin', '--profile', WEB_PROFILE, 'add', target],
@@ -208,7 +142,7 @@ async function installLinks(context: L4Context): Promise<string> {
     if (!bundles.includes(name)) throw new Error(`${name} is missing from dsh.profile.bundles`)
   }
 
-  const rows = parseRows(dumpConfig(context, 'dump-link', context.home))
+  const rows = parseRows(await dumpConfig(context, 'dump-link', context.home))
   assertRow(rows, 'web-hello', '@local/web-hello')
   assertRow(rows, 'approval-allowlist', '@local/approval-allowlist')
   assertRow(rows, 'notify-web', '@local/notify-web')
@@ -216,14 +150,14 @@ async function installLinks(context: L4Context): Promise<string> {
 }
 
 async function installMismatch(context: L4Context): Promise<string> {
-  runDsh(
+  await runDsh(
     context,
     'install-mismatch',
     ['plugin', '--profile', WEB_PROFILE, 'add', join(repoRoot, 'test', 'fixtures', 'target-mismatch')],
     context.home,
     context.options.timeoutMs,
   )
-  const rows = parseRows(dumpConfig(context, 'dump-mismatch', context.home))
+  const rows = parseRows(await dumpConfig(context, 'dump-mismatch', context.home))
   assertRow(rows, 'target-mismatch', '@local/target-mismatch')
   return 'mismatched fixture installed; failure asserted at runtime'
 }
@@ -236,8 +170,9 @@ async function installTarball(context: L4Context): Promise<string> {
   const pnpm = configuredPnpm(context.settings)
   const packDir = join(context.artifactDir, 'tarball')
   mkdirSync(packDir, { recursive: true })
-  const pack = runToFiles(process.execPath, [pnpm, 'pack', '--pack-destination', packDir], {
+  const pack = await runToFilesAsync(process.execPath, [pnpm, 'pack', '--pack-destination', packDir], {
     cwd: join(repoRoot, 'approval-allowlist'),
+    signal: context.signal,
     env: childEnv(context, home),
     timeoutMs: context.options.timeoutMs,
     stdoutPath: join(context.logDir, 'pack.out.log'),
@@ -254,7 +189,7 @@ async function installTarball(context: L4Context): Promise<string> {
   const tarball = tarballs[0]
   if (tarball === undefined) throw new Error('packed tarball path is missing')
 
-  runDsh(context, 'install-tarball', ['plugin', '--profile', WEB_PROFILE, 'add', tarball], home, context.options.timeoutMs)
+  await runDsh(context, 'install-tarball', ['plugin', '--profile', WEB_PROFILE, 'add', tarball], home, context.options.timeoutMs)
 
   const profile = readProfile(home)
   const dependencies = isRecord(profile['dependencies']) ? profile['dependencies'] : {}
@@ -272,13 +207,13 @@ async function installTarball(context: L4Context): Promise<string> {
     throw new Error(`${installed} is still a link; the stable install did not copy files`)
   }
 
-  assertRow(parseRows(dumpConfig(context, 'dump-tarball', home)), 'approval-allowlist', '@local/approval-allowlist')
+  assertRow(parseRows(await dumpConfig(context, 'dump-tarball', home)), 'approval-allowlist', '@local/approval-allowlist')
   return `tarball install is a real copy (${lastSegment(tarball)})`
 }
 
 /** Start `dsh web`, run the assertions, then stop it and prove the port closed. */
-function dumpConfig(context: L4Context, label: string, home: string): string {
-  return runDsh(context, label, ['--profile', WEB_PROFILE, '--dump-config'], home).stdout
+async function dumpConfig(context: L4Context, label: string, home: string): Promise<string> {
+  return (await runDsh(context, label, ['--profile', WEB_PROFILE, '--dump-config'], home)).stdout
 }
 
 function readProfile(home: string): Record<string, unknown> {

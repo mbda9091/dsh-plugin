@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { delimiter, dirname, join } from 'node:path'
-import { it } from 'node:test'
+import { environmentTest as it } from '../../harness/environment.js'
 import { checkPnpm, workspaceDsh } from '../../../../scripts/.build/core/toolchain.js'
 import { runToFiles } from '../../../../scripts/.build/core/exec.js'
 import { writePnpmShim } from '../../../../scripts/.build/core/pnpm.js'
