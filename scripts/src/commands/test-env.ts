@@ -1,12 +1,24 @@
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { inspect } from 'node:util'
 import { run } from 'node:test'
 import type { TestEvent } from 'node:test/reporters'
 import { repoRoot } from '../core/repo.js'
 import { digest, safeConfigPath } from '../core/config-transaction.js'
 import { assertEnvironmentResults, environmentIds } from '../core/environment-results.js'
 import { redactLaunchTokens } from '../core/web-harness.js'
+
+function reportFailure(detail: string): void {
+  const message = redactLaunchTokens(detail)
+  console.error(message)
+  if (process.env.GITHUB_ACTIONS === 'true') {
+    // Preserve multiline assertion causes in check annotations without allowing
+    // error text to become a separate workflow command.
+    const escaped = message.slice(0, 60000).replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A')
+    console.error(`::error title=Environment test failure::${escaped}`)
+  }
+}
 
 /** Deliberately dispatched before local configuration loading. */
 export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: string, only?: string, onReport?: (path: string) => void, browser?: { browser?: string | undefined; browserPath?: string | null | undefined }): Promise<number> {
@@ -61,7 +73,7 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
       const status = event.type === 'test:fail' ? 'fail' : data.skip ? 'skip' : 'pass'
       results.push({ id, name: data.name, status, durationMs: data.details.duration_ms ?? 0, evidence: `${id}.json` })
       console.log(`test-env: ${status} ${data.name}`)
-      if (event.type === 'test:fail') console.error(redactLaunchTokens(String(event.data.details.error)))
+      if (event.type === 'test:fail') reportFailure(`${id}: ${inspect(event.data.details.error, { depth: 6, colors: false })}`)
     }
     for (const id of expected) {
       if (!results.some(result => result.id === id && result.status === 'pass')) throw new Error(`missing passing evidence: ${id}`)
@@ -76,7 +88,7 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
   } catch (error) {
     report.status = 'failed'
     report.reason = redactLaunchTokens(error instanceof Error ? error.message : 'environment test runner failed')
-    console.error(`test-env: ${report.reason}`)
+    reportFailure(`test-env: ${report.reason}`)
     return 1
   } finally {
     if (oldRun === undefined) delete process.env.DSH_ENV_TEST_RUN; else process.env.DSH_ENV_TEST_RUN = oldRun
