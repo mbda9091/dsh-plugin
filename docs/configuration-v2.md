@@ -40,7 +40,7 @@ node scripts/bootstrap.mjs config check
 
 锁定依赖的安装脚本策略见 `pnpm-workspace.yaml`：允许 esbuild、node-pty、koffi 和 DSH spawn-helper 准备；明确拒绝已发布纯 JS 包的非必需脚本。开启 peer 自动解析并锁定，因为公开 DSH 需要这些宿主服务才能启动。插件交付仍不含 DSH、Node 或 workspace 依赖。
 
-`web` 配置字段只表示开发浏览器偏好，不包含个人 YAML。开发数据固定为 `.local/dsh-dev/home`、`store`、profile `web`；patch 为 `.local/dsh-dev/cordis.patch.yml`。`web init`、首次 `web` 或 `dev-install` 通过锁定 DSH 的公开 `--profile web --dump-config` 初始化，并从独立的 `profiles/web/cordis.dev.patch.yml` 生成开发 patch。重复初始化不覆盖已有设置，不导入个人 patch、模型凭据或审批规则。
+`web` 配置字段只表示开发浏览器偏好，不包含个人 YAML。开发数据固定为 `.local/dsh-dev/home`、profile `web`；patch 为 `.local/dsh-dev/cordis.patch.yml`。`web init`、首次 `web` 或 `dev-install` 通过锁定 DSH 的公开 `--profile web --dump-config` 初始化，并从独立的 `profiles/web/cordis.dev.patch.yml` 生成开发 patch。重复初始化不覆盖已有设置，不导入个人 patch、模型凭据或审批规则。
 
 ## 持久开发环境（M3）
 
@@ -57,9 +57,9 @@ node scripts/bootstrap.mjs web reset --yes
 
 `web`/`web start` 前台运行，默认 `127.0.0.1:3000`；只允许 loopback，`--port 0` 可选空闲端口。启动须通过 URL 与 HTTP 就绪检查；端口被占或 DSH 改选端口则失败，不停止占用者。运行期间保留 supervisor，另一个终端通过本地、带随机令牌的控制端口请求状态/停止。PID 仅供诊断，不凭 PID 发信号；supervisor 只停止自己持有的子进程。正常停止保留数据，退出清除运行记录。
 
-目录含 `owner.json`（真实仓库根、用途、环境 ID、已知插件链接）、`runtime.json`（运行 ID、supervisor/child PID、控制端口/令牌）、`home/`、`store/`、`logs/`、`bin/`、独立 npm 配置/缓存和开发 patch，全部被 `.local/` 忽略。原始日志可能含启动令牌，保持本地。创建、复用和重置验证祖先路径与 symlink/junction；开发、`.tmp`、所有配置目标 home 不得相等或互为父子。对尚不存在的目标也检查最近已有祖先的真实位置。
+目录含 `owner.json`（真实仓库根、用途、环境 ID、已知插件链接）、`runtime.json`（运行 ID、supervisor/child PID、控制端口/令牌）、`home/`、`logs/`、`bin/` 和开发 patch，全部被 `.local/` 忽略。原始日志可能含启动令牌，保持本地。创建、复用和重置验证祖先路径与 symlink/junction；开发、`.tmp`、所有配置目标 home 不得相等或互为父子。对尚不存在的目标也检查最近已有祖先的真实位置。
 
-`dev-install` 默认先构建，再初始化和 add/update，验证 profile 的 `link:` spec 与实际链接均指向预期插件；不删除依赖。操作锁 `.local/dsh-dev.lock` 防止初始化、安装、启动与重置相互竞争。开发子进程清理继承的 npm/pnpm 配置覆盖，使用受管 user/global config、store 和 cache；不改父环境或全局配置。
+`dev-install` 默认先构建，再初始化和 add/update，验证 profile 的 `link:` spec 与实际链接均指向预期插件；不删除依赖。操作锁 `.local/dsh-dev.lock` 防止初始化、安装、启动与重置相互竞争。开发子进程沿用系统 npm/pnpm 配置、registry、代理、证书、缓存、store 和状态；不修改父环境或全局配置。所有环境统一使用系统包管理设置，不创建专属包管理目录，也不读取 `.modules.yaml` 来选择或覆盖 store；不提供旧 store 兼容、迁移或自动重装。
 
 `web reset` 默认仅列范围，`--yes` 执行：检查目录归属及整棵树 → 请求自己的实例停止 → 再核对路径和归属 → 按 lstat 逐项清理。已登记插件链接只解除链接本身，不递归到源码；未知外部链接、缺失/错误归属或无法验证的进程身份都阻止清理。不要用 `pnpm remove`。
 
@@ -81,10 +81,10 @@ node scripts/bootstrap.mjs web reset --yes
 | `l4`、`l5`、`ci`、`verify-artifacts` | 测试上下文；L4/L5 可传 `--manifest`，verify-artifacts 必传且支持 `--check`；`--pnpm-script`、`--test-browser`、`--test-browser-path`、`--timeout`、`--keep` | `DSH_PNPM`、`DSH_E2E_BROWSER`、`CHROME_PATH` |
 | `stable-install`、`status` | 目标上下文；`--target NAME`，或完整的 `--dsh-cli PATH --home DIR --profile NAME --surface desktop\|web --platform windows\|mac`，两种方式互斥 | 仅 `DSH_PNPM`；不从环境变量拼目标 |
 | `test-env --suite fast` | 无本机配置依赖；可用 `--keep`、`--only ID,ID` | 不从个人配置获得被测值 |
-| `test-env --suite real\|all` | 无本机配置依赖；显式 `--pnpm-script PATH`，可用 `--keep`、`--only ID,ID`；ART 浏览器用例接受 `--test-browser`/`--test-browser-path`；TOOL-04 需网络、Git 和 tar | 不从个人配置获得被测值；子进程使用独立 home/store/userconfig |
+| `test-env --suite real\|all` | 无本机配置依赖；显式 `--pnpm-script PATH`，可用 `--keep`、`--only ID,ID`；ART 浏览器用例接受 `--test-browser`/`--test-browser-path`；TOOL-04 需网络、Git 和 tar | 不从个人配置获得被测值；子进程独立 DSH home；包管理设置继承，冷安装/污染场景显式使用模拟设置 |
 | `catalog`、`check-targets` | 无本机配置依赖 | 无目标选择 |
 
-`DSH_CLI`、`DSH_HOME`、`DSH_PROFILE`、`DSH_PROFILE_DIR`、`DSH_WEB_URL` 不再重定向上述命令。子进程清理这些变量以及 npm/pnpm store 覆盖和 Electron 标志，再由用途上下文填入选定地址。旧变量本身不会触发错误；不适用的显式目标参数会报错。`l4 --home` 仅代表新的仓库 `.tmp` 测试目录，不是正式目标 home。`--` 不能绕过 Web 参数校验。
+`DSH_CLI`、`DSH_HOME`、`DSH_PROFILE`、`DSH_PROFILE_DIR`、`DSH_WEB_URL` 不再重定向上述命令。子进程清理这些变量和 Electron 标志，再由用途上下文填入选定地址。旧变量本身不会触发错误；不适用的显式目标参数会报错。`l4 --home` 仅代表新的仓库 `.tmp` 测试目录，不是正式目标 home。`--` 不能绕过 Web 参数校验。
 
 `stable-install` 必须传 `--manifest`，核验 M5 记录、包哈希及实际目标宿主版本，再执行 add/update；不能用 `--all` 绕过范围门禁。`--only @local/a,@local/b` 选择清单子集，未知、重复或不兼容包在安装前拒绝。`status --manifest PATH` 可只读核对已安装包内容和 bundle；不要求该清单仍为最新构建。
 
@@ -112,11 +112,13 @@ node scripts/bootstrap.mjs config check
 
 ## 独立验证
 
+`test-env` 不支持 `--timeout`，显式传入时报错；各环境用例使用自身超时。`l4/l5/ci/verify-artifacts` 的 `--timeout` 保持原语义。
+
 `test-env --suite fast` 只编译 `test/tsconfig.environment.json`，运行 CFG、TOOL、DEV、ISO、ART 和 TGT-01/02/03/05/06，共 28 项。DEV/ISO 使用假宿主、真实受控子进程和本地 HTTP。报告及每组证据写入 `.tmp/environment-tests/run-*/`；不要求个人配置、插件 build、真实 DSH 或浏览器。成功清理 fixture、失败保留、`--keep` 保留成功现场；缺证据、skip、清理失败都会失败。`--only ISO-01,ISO-02` 可选择当前 suite 的已实现用例，报告明确记录 selected，不代表完整阶段验收。
 
 `test-env --suite real --pnpm-script <path>` 执行 TOOL-04，包含 TOOL-03/05 的真实断言：导出 Git 跟踪及未忽略的当前源码（不复制本机配置、产物或 node_modules），在独立用户目录/store 中冻结安装，探测公开 CLI、profile 初始化及内部 pnpm，构建并检查 notify-web tarball。选定 pnpm 包复制进临时工具目录，子进程 PATH 无全局 DSH/私有 runtime；不安装或切换用户工具。`TOOL-04-details.json` 记录版本、Node 调用轨迹、步骤与包内容。
 
-real 另执行 DEV-03、ISO-01-real/02-real/03/05、ART-01/02-real/04-real/05-real/06，以及 TGT-04/05-real/06-real，共 14 项；all 合计 42 项。DEV 使用临时开发环境；TGT 另准备真实普通 Node DSH，CLI 实际入口、home、store 均与开发环境分开，真实验收 fixture tarball 后交付。ART-04-real/06 需要显式测试浏览器（`--test-browser chromium` 或 `--test-browser-path <Chrome>`），验证固定 notify-web tarball 的真实 L4/L5。仅记录实际执行的平台，不证明桌面能力。
+real 另执行 DEV-03、ISO-01-real/02-real/03/05、ART-01/02-real/04-real/05-real/06/07，以及 TGT-04/05-real/06-real，共 15 项；all 合计 43 项。DEV 使用临时开发环境；TGT 另准备真实普通 Node DSH，CLI 实际入口与 home 分开，包管理 store 允许共享，真实验收 fixture tarball 后交付。ART-04-real/06 需要显式测试浏览器（`--test-browser chromium` 或 `--test-browser-path <Chrome>`），验证固定 notify-web tarball 的真实 L4/L5。仅记录实际执行的平台，不证明桌面能力。
 
 两平台 CI 分别运行 fast 与 real，不预先初始化本机配置；完整 `ci` 先运行环境 all，再运行类型检查和 L1–L5。CI 报告只引用本次环境/L4/L5 的独立报告路径，并检查完整用例集合、逐项结果和清理证据；退出 0 但缺报告、缺项、重复、skip 或写报告失败均不通过。环境入口不回调整条 ci。报告不自动上传，平台通过与否以实际执行结果为准。
 
@@ -124,17 +126,17 @@ real 另执行 DEV-03、ISO-01-real/02-real/03/05、ART-01/02-real/04-real/05-re
 
 固定产物模式见本文末的 M5 协议；下面的隔离、清理规则同样适用。
 
-L4/L5 通过同一 `runIsolatedTest` 创建 `.tmp/<suite>/run-*`，原子预留全新 home。`--home` 必须是仓库 `.tmp` 内的新目录，祖先链接、既有目录及与开发/配置中正式 home 的重叠均拒绝；两次或并发运行各有 home、store、日志和随机端口。测试仅使用公开 Web profile 与自己的 fixture，不加载开发 patch。
+L4/L5 通过同一 `runIsolatedTest` 创建 `.tmp/<suite>/run-*`，原子预留全新 home。`--home` 必须是仓库 `.tmp` 内的新目录，祖先链接、既有目录及与开发/配置中正式 home 的重叠均拒绝；两次或并发运行各有 home、日志和随机端口，store/cache/状态可共享。测试仅使用公开 Web profile 与自己的 fixture，不加载开发 patch。
 
-测试子进程清理继承的 DSH（仅保留解析后的浏览器选择）、npm_config、pnpm、Corepack 及 XDG 配置覆盖；显式设置 user/global npmrc、pnpm store/cache/home 和 XDG config/data 目录。DSH 从运行目录启动，避免消费仓库的安装配置；pnpm 内部命令走已选定 shim。保留系统 HOME/USERPROFILE 等正常变量，避免破坏 Chrome 的用户目录判断。L2 打包也使用已解析 pnpm 和独立包管理器配置。
+测试子进程仅清理继承的 DSH（保留解析后的浏览器选择），npm/pnpm/Corepack/XDG 包管理设置沿用系统，不创建每次运行专属的配置、store、cache 或状态目录。DSH 从运行目录启动，避免消费仓库的安装配置；pnpm 内部命令走已选定 shim。保留系统 HOME/USERPROFILE 等正常变量，避免破坏 Chrome 的用户目录判断。L2 打包也使用已解析 pnpm 和系统包管理设置。仅冷安装或配置继承回归在 fixture 内显式设置模拟用户配置/空 store。
 
-成功默认删除本次 home（包括显式 `--home`）、store/cache、shim、配置及 workspace，保留报告、日志、截图和 trace；`--keep` 保留成功数据，失败保留现场。清理先核对路径，再用 lstat 解除链接，不遍历到插件源码。清理失败记为独立失败步骤。报告含版本、平台/Node、宿主入口、起止时间、逐步结果和清理状态，`last-report.json` 仅作便利索引；并发 CI 使用回调拿到各自准确报告路径。
+成功默认删除本次 home（包括显式 `--home`）、shim 及 workspace；共享包管理配置、store/cache/状态不参与清理，保留报告、日志、截图和 trace；`--keep` 保留成功数据，失败保留现场。清理先核对路径，再用 lstat 解除链接，不遍历到插件源码。清理失败记为独立失败步骤。报告含版本、平台/Node、宿主入口、起止时间、逐步结果和清理状态，`last-report.json` 仅作便利索引；并发 CI 使用回调拿到各自准确报告路径。
 
 异步进程等待支持 SIGINT/SIGTERM，退出时等待自己启动的进程树并检查已知 HTTP 端口关闭。Windows 使用活跃子进程的 PID 配合 taskkill /T；Unix 为测试子进程建立独立进程组。Windows 测试通过子进程内部派发 SIGINT 验证可处理的中断路径；强制终止 supervisor、断电和磁盘不可写不承诺生成完整报告。无法创建/写入报告时命令失败，不借用旧报告。原始日志只留本地，汇总与错误输出移除认证 token。
 
 ## 固定产物与验收协议（M5）
 
-`pack` 默认构建，随后生成全新的 `dist/batches/<UUID>/`，内含 tarball 与 `manifest.json`，成功后原子更新 `dist/current.json`。没有同名文件覆盖；失败批次不发布为 current。`--skip-build` 只适用于已构建的输入，不免除包契约检查。
+`pack` 默认构建，随后生成全新的 `dist/batches/<UUID>/`，内含 tarball 与 `manifest.json`，成功后原子更新 `dist/current.json`。没有同名文件覆盖；失败批次不发布为 current。`--skip-build` 要求 `dist/build-record.json` 的成功记录：源码状态、构建代号及所有插件/共享库 lib 文件哈希与当前完全一致。仅有 lib 不够；源码编辑、产物修改、失败构建或缺失记录均在 pack 调用前拒绝。完整构建开始更新代号，全部成功且源码未变化后才写记录。
 
 清单 `version: 1` 包含批次、创建时间、Node/pnpm、commit、Git dirty 摘要、跟踪及未忽略源码的逐文件 SHA-256 和汇总值、构建代号；每包记录路径、名称、版本、targets、是否有 Client、tarball 哈希和包内文件哈希。非 Git fixture 使用排除临时/构建/依赖目录的源码快照。构建（不含 `--check`）在写产物前更新代号；新构建、新 pack、源码变化、清单/文件变化均使旧记录不可用于当前交付。仅文件名/版本相同不构成相同产物。
 
@@ -151,7 +153,7 @@ node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches
 
 验收先预检**全部**清单文件，拒绝缺文件、错误 targets、逃逸/重复路径、链接、DSH/workspace 运行时依赖、本机配置与依赖目录。当前包契约要求零运行时依赖，接受 pnpm 生成的普通 USTAR 文件/目录；其他 tar 扩展明确失败。Host 在两个新 Node 进程中导入（含/不含 preserve-symlinks）。产物 L4/L5 不重建或重打包插件；L5 仍编译浏览器测试并安装专用 web-hello 测试驱动，它不是被测交付包。
 
-安装从独立快照消费已校验字节，前后复核快照、原包、清单、源码状态和 current 批次。核对 profile bundle 登记、tarball spec、真实安装路径与完整文件清单/字节；正常 pnpm store 链接允许，回到源码 junction 或包内额外文件拒绝。L4 验证启用的 loader 行、HTTP、Client 注册及适用 SSE；L5 当前有 notify-web 的真实通知/交互/主题/locale adapter，新增 Client 插件没有 adapter 时失败，不套用通用成功。
+安装从独立快照消费已校验字节，前后复核快照、原包、清单、源码状态和 current 批次。核对 profile bundle 登记、tarball spec、真实安装路径与完整文件清单/字节；正常 pnpm store 链接允许，回到源码 junction 或包内额外文件拒绝。L4 验证启用的 loader 行、HTTP、Client 注册及适用 SSE，并执行 `host-capabilities`。当前 Host-only 适配器为 approval-allowlist：从实际安装的固定包入口验证默认 observe、精确匹配、不同工具/参数、次数限制、root scope 和审计日志。未知 Host-only 包没有适配器即失败；记录逐包哈希、适配器版本和完整检查列表，缺失旧证据不能用于交付。该契约与 L3 复用，不使用源码包替代 tarball。L5 当前有 notify-web 的真实通知/交互/主题/locale adapter，新增 Client 插件没有 adapter 时失败，不套用通用成功。
 
 `dist/verification/<UUID>/web-<platform>.json` 为 version=1 本机流程记录，内嵌 L4/L5 逐步报告与 browser results，不只存 `.tmp` 路径。环境初始化/安装/清理证据与功能结果分别列出；完整用例、安装哈希、起止时间、平台、工具链和宿主版本逐项校验。`status: passed` **仅指当前 Web 平台**；各包其他 surface/platform 均列为 `uncovered`。桌面包通过静态契约不等于桌面能力通过。日志、截图、trace 留在 `.tmp`，清理它们不会删除唯一的验收凭据。重新验收先写失败状态，失败不会继续保留上一次成功。
 
@@ -175,7 +177,7 @@ node scripts/bootstrap.mjs target unbind daily --dry-run
 
 目标平台必须匹配当前机器，保留的 web/desktop profile 必须匹配 surface；Web 拒绝 Electron 入口。home 不得与开发、测试、源码包、仓库工具目录或宿主程序重叠；profile、manifest、lockfile、node_modules 容器及其祖先不得通过链接重定向。绑定后的真实入口/home/profile 变化会要求重新检查并显式 bind。安装过程重新检查配置、目标路径、固定包和验收记录，不复用上次 dry-run 的授权计划。
 
-预览显示目标入口、实际路径、宿主版本、home/profile、场景、逐包路径/哈希、coverage、selected/skipped 和计划操作。无 `--only` 时按目标场景过滤，不兼容包显示 skipped；显式选择不兼容包则整体拒绝。预览允许在仓库 dist/.tmp 写版本探测日志及临时管理文件，不写配置或目标 profile。版本探测使用独立 probe home，包管理配置/cache 位于报告所在的 consumption 目录，不继承个人 npm/pnpm 配置来源。已有 profile 从 `.modules.yaml` 读取并验证当前 v11 store，保持 pnpm 的解析关联；新 profile 固定使用 `dist/target-stores/<profile身份哈希>`，预览/报告明确列出路径。store 不得与目标 home、开发/测试数据或源码重叠，异常 store 关联在写入前拒绝。
+预览显示目标入口、实际路径、宿主版本、home/profile、场景、逐包路径/哈希、coverage、selected/skipped 和计划操作。无 `--only` 时按目标场景过滤，不兼容包显示 skipped；显式选择不兼容包则整体拒绝。预览允许在仓库 dist/.tmp 写版本探测日志及临时管理文件，不写配置或目标 profile。版本探测使用独立 probe home，包管理设置、缓存和状态沿用系统，consumption 仅保存输入快照、shim、版本探测和报告。所有 profile 统一沿用系统包管理设置；仓库不根据已有安装选择或覆盖 store。预览及报告用 `packageConfiguration: "system"` 表示配置来源，不再提供 store 路径字段。
 
 执行报告为 `dist/consumption/run-*/report.json`（version=1），每次操作前后原子更新；包含目标身份、宿主版本、清单哈希、逐包 spec/实际路径/哈希、stage、warnings、bundle、row、loaded、capability。状态解释：
 

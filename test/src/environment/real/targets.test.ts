@@ -10,19 +10,19 @@ import { inspectTarget } from '../../../../scripts/.build/core/formal-target.js'
 import { runArtifactInstall } from '../../../../scripts/.build/commands/install-artifacts.js'
 import { runVerifyArtifacts } from '../../../../scripts/.build/commands/verify-artifacts.js'
 import { runToFilesAsync } from '../../../../scripts/.build/core/exec.js'
-import { preparePackageEnvironment, packageEnvironment } from '../../../../scripts/.build/core/test-isolation.js'
 import { ensurePnpmShim, initProfile, runDsh, serveAndCheck } from '../../../../scripts/.build/core/web-harness.js'
 import type { WebHarness } from '../../../../scripts/.build/core/web-harness.js'
 import { runTarget } from '../../../../scripts/.build/commands/target.js'
 import { readPackage } from '../../../../scripts/.build/core/artifact-package.js'
+import { checkFixtureCapabilities } from '../../harness/fixture-capability.js'
 
 async function prepare(f: ReturnType<typeof fixture>, names: string[]) {
-  prepareIsolation(f, true)
+  const prepared = prepareIsolation(f, true)
   const host = join(f.root, '.formal-host'), preparation = join(f.root, '.formal-preparation'), home = join(f.root, '.formal-home')
-  mkdirSync(host); preparePackageEnvironment(preparation)
+  mkdirSync(host); mkdirSync(preparation)
   writeFileSync(join(host, 'package.json'), JSON.stringify({ private: true, dependencies: { '@deepseek-ai/dsh': '0.2.1-rc.2' } }))
   writeFileSync(join(host, 'pnpm-workspace.yaml'), readFileSync(join(sourceRoot, 'pnpm-workspace.yaml'), 'utf8').replace(/packages:\r?\n(?:  .*\r?\n)+/, 'packages: []\n'))
-  const env = packageEnvironment({ ...process.env, CI: 'true' }, preparation)
+  const env: NodeJS.ProcessEnv = { ...prepared.env, CI: 'true' }
   for (const key of Object.keys(env)) if (/^(DSH_|NODE_OPTIONS$|NODE_PATH$)/i.test(key)) delete env[key]
   const result = await runToFilesAsync(process.execPath, [process.env.DSH_ENV_TEST_PNPM!, 'install'], {
     cwd: host, env, timeoutMs: 300_000, stdoutPath: join(preparation, 'install.out'), stderrPath: join(preparation, 'install.err') })
@@ -32,14 +32,14 @@ async function prepare(f: ReturnType<typeof fixture>, names: string[]) {
   const fields = { dshCli: cli, home, profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : 'mac' }
   runTarget('bind', 'simulated', fields, f.root, env)
   const context = loadCommandContext({ target: 'simulated' }, f.root, env, 'target')
-  const runner = inspectTarget(context).runner, runDir = join(f.root, '.formal-run'); preparePackageEnvironment(runDir)
+  const runner = inspectTarget(context).runner, runDir = join(f.root, '.formal-run'); mkdirSync(runDir)
   const harness: WebHarness = { settings: context, runner, home, runDir, logDir: runDir, options: { timeoutMs: 120000 } }
   ensurePnpmShim(harness); await initProfile(harness, 'initialize-target', home)
   const other = join(home, 'profiles/other'); mkdirSync(other, { recursive: true })
   writeFileSync(join(other, 'package.json'), '{"sentinel":true}')
   for (const file of ['session.sentinel', 'credentials.sentinel']) writeFileSync(join(home, file), 'simulated data only')
   const set = targetPackages(f.root, names)
-  assert.equal(await runVerifyArtifacts({ manifest: set.path, keep: false }, loadCommandContext({}, f.root, env, 'test')), 0)
+  assert.equal(await runVerifyArtifacts({ manifest: set.path, keep: false }, loadCommandContext({}, f.root, env, 'test'), checkFixtureCapabilities), 0)
   return { context, harness, set, host, home, other, preparation, env }
 }
 function assertUnchangedOutsideProfile(before: Record<string, string>, after: Record<string, string>) {

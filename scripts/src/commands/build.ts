@@ -1,7 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, rmSync, mkdirSync, writeFileSync } from 'node:fs'
-import { randomUUID } from 'node:crypto'
-import { safeConfigPath } from '../core/config-transaction.js'
+import { existsSync, readFileSync, readdirSync, rmSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { discoverPlugins } from '../core/plugins.js'
@@ -10,6 +8,7 @@ import { runCatalog } from './catalog.js'
 import { runCheckTargets } from './check-targets.js'
 import { commandEnv, loadCommandContext } from '../core/command-context.js'
 import type { CommandContext } from '../core/command-context.js'
+import { beginBuild, completeBuild } from '../core/build-record.js'
 
 export interface BuildOptions {
   readonly check: boolean
@@ -148,11 +147,7 @@ async function bundlePlugin(dir: string, spec: BuildSpec, env: NodeJS.ProcessEnv
  * @returns process status.
  */
 export async function runBuild(options: BuildOptions, context: CommandContext = loadCommandContext()): Promise<number> {
-  if (!options.check) {
-    const generation = join(repoRoot, 'dist/build-generation')
-    safeConfigPath(repoRoot, generation); mkdirSync(dirname(generation), { recursive: true })
-    writeFileSync(generation, randomUUID())
-  }
+  const source = options.check ? undefined : beginBuild(repoRoot)
   const env = commandEnv(context)
   const targetsCode = runCheckTargets()
   if (targetsCode !== 0) return targetsCode
@@ -201,5 +196,6 @@ export async function runBuild(options: BuildOptions, context: CommandContext = 
     }
   }
 
+  if (source) completeBuild(repoRoot, source)
   return 0
 }

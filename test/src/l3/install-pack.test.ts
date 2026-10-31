@@ -8,6 +8,7 @@ import { runInstall } from '../../../scripts/.build/commands/install.js'
 import { runPack } from '../../../scripts/.build/commands/pack.js'
 import { configFixture, developmentPatch } from '../harness/local-config.js'
 import { removeDir } from '../harness/tmp.js'
+import { beginBuild, completeBuild } from '../../../scripts/.build/core/build-record.js'
 
 function fixture(failure = '') {
   const f = configFixture()
@@ -57,7 +58,7 @@ for (const mode of ['link'] as const) {
   it(`L3 install: ${mode} runs add then update, preserves quoted paths, and targets an isolated profile`, async () => {
     const f = fixture()
     try {
-      mkdirSync(join(f.root, 'dist'))
+      mkdirSync(join(f.root, 'dist'), { recursive: true })
       for (const name of ['alpha', 'beta']) writeFileSync(join(f.root, `dist/local-${name}-1.0.0.tgz`), '')
       const context = f.context
       assert.equal(await runInstall({ ...f.options, mode }, context), 0)
@@ -79,7 +80,7 @@ for (const mode of ['link'] as const) {
 it('L3 install/pack: preflight checks all artifacts before invoking tools', async () => {
   const f = fixture()
   try {
-    mkdirSync(join(f.root, 'dist'))
+    mkdirSync(join(f.root, 'dist'), { recursive: true })
     writeFileSync(join(f.root, 'dist/local-alpha-1.0.0.tgz'), '')
     const targetContext = loadCommandContext({ dshCli: f.cli, home: 'chosen-home', profile: 'web', surface: 'web', platform: 'windows' }, f.root, f.context.env, 'target')
     await assert.rejects(runInstall({ ...f.options, mode: 'tarball' }, targetContext), /requires.*--manifest/)
@@ -104,6 +105,7 @@ it('L3 pack: uses configured pnpm, requires actual archives even on exit zero, a
   for (const failure of ['', 'pack']) {
     const f = fixture(failure)
     try {
+      completeBuild(f.root, beginBuild(f.root))
       if (failure) assert.equal(await runPack({ skipBuild: true }, f.context), 9)
       else await assert.rejects(runPack({ skipBuild: true }, f.context), /ENOENT/)
       assert.equal(f.calls().length, 1)
@@ -112,4 +114,15 @@ it('L3 pack: uses configured pnpm, requires actual archives even on exit zero, a
       assert.equal(f.calls()[0]?.cwd, join(f.root, 'alpha'))
     } finally { removeDir(f.root) }
   }
+})
+
+it('L3 pack: missing and stale build records reject before invoking pnpm', async () => {
+  const f = fixture()
+  try {
+    await assert.rejects(runPack({ skipBuild: true }, f.context), /missing successful build/)
+    completeBuild(f.root, beginBuild(f.root))
+    writeFileSync(join(f.root, 'alpha/source.ts'), 'changed after build')
+    await assert.rejects(runPack({ skipBuild: true }, f.context), /stale build/)
+    assert.deepEqual(f.calls(), [])
+  } finally { removeDir(f.root) }
 })

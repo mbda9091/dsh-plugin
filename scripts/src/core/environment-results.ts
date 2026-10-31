@@ -5,7 +5,7 @@ import { isRecord } from './json.js'
 export function environmentIds(suite: string): string[] {
   return [...(suite !== 'real' ? ['CFG-01', 'CFG-02', 'CFG-03', 'CFG-04', 'CFG-05', 'CFG-06', 'TOOL-01', 'TOOL-02', 'TOOL-03', 'TOOL-05', 'DEV-01', 'DEV-02', 'DEV-04', 'DEV-05', 'DEV-06', 'ISO-01', 'ISO-02', 'ISO-04', 'ISO-06'] : []),
     ...(suite !== 'real' ? ['ART-02', 'ART-03', 'ART-04', 'ART-05', 'TGT-01', 'TGT-02', 'TGT-03', 'TGT-05', 'TGT-06'] : []),
-    ...(suite !== 'fast' ? ['TOOL-04', 'DEV-03', 'ISO-01-real', 'ISO-02-real', 'ISO-03', 'ISO-05', 'ART-01', 'ART-02-real', 'ART-04-real', 'ART-05-real', 'ART-06', 'TGT-04', 'TGT-05-real', 'TGT-06-real'] : [])]
+    ...(suite !== 'fast' ? ['TOOL-04', 'DEV-03', 'ISO-01-real', 'ISO-02-real', 'ISO-03', 'ISO-05', 'ART-01', 'ART-02-real', 'ART-04-real', 'ART-05-real', 'ART-06', 'ART-07', 'TGT-04', 'TGT-05-real', 'TGT-06-real'] : [])]
 }
 
 /** Exit zero is insufficient: require the exact case set and assertion/cleanup evidence. */

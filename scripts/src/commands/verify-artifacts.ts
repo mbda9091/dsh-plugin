@@ -9,8 +9,9 @@ import { validateArtifactReport, validateVerification, verificationPath } from '
 import type { Verification } from '../core/artifact-verification.js'
 import { runL4 } from './l4.js'
 import { runL5 } from './l5.js'
+import type { HostCapabilityCheck } from '../core/host-capability.js'
 
-export async function runVerifyArtifacts(input: { manifest: string; keep: boolean; check?: boolean }, settings: CommandContext): Promise<number> {
+export async function runVerifyArtifacts(input: { manifest: string; keep: boolean; check?: boolean }, settings: CommandContext, hostCapabilityCheck?: HostCapabilityCheck): Promise<number> {
   const release = artifactLock(settings.root)
   try {
     const artifacts = loadArtifacts(settings.root, input.manifest), target = resolveTarget({ surface: 'web' }), host = workspaceDsh(settings.root).version
@@ -28,7 +29,7 @@ export async function runVerifyArtifacts(input: { manifest: string; keep: boolea
     writeFileSync(path, JSON.stringify(record, null, 2))
     try {
       if (!selected.length) throw new Error('no artifacts applicable to this Web platform')
-      const options = { keep: input.keep, artifacts }
+      const options = { keep: input.keep, artifacts, ...(hostCapabilityCheck ? { hostCapabilityCheck } : {}) }
       const l4 = await runL4({ ...options, skipTarball: false }, settings, report => { record.functions.l4 = report })
       if (l4 !== 0) throw new Error('artifact L4 failed')
       validateArtifactReport(record.functions.l4, 'l4', artifacts, record.startedAt)

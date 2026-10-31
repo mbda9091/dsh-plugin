@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { fixture, sourceRoot, snapshot } from './environment.js'
 import { prepareDevelopment } from './development.js'
+import { packageEnvironment, preparePackageEnvironment } from './package-environment.js'
 import { startToFiles, sleep, stopChild, waitForExit, waitForHttpClosed } from '../../../scripts/.build/core/exec.js'
 
 export function prepareIsolation(f: ReturnType<typeof fixture>, real = false) {
@@ -21,12 +22,12 @@ export function prepareIsolation(f: ReturnType<typeof fixture>, real = false) {
   }
   f.write()
   const development = join(f.root, '.local/dsh-dev'); mkdirSync(development, { recursive: true }); writeFileSync(join(development, 'sentinel'), 'persistent')
-  const npmrc = join(f.personal, '.npmrc'); writeFileSync(npmrc, `store-dir=${f.personal}\nregistry=http://personal.invalid\n//personal.invalid/:_authToken=fake-secret`)
-  f.personalBefore = snapshot(f.personal)
-  // Simulated user files are added intentionally before refreshing the immutable snapshot.
-  const env = { ...d.env, npm_CONFIG_USERCONFIG: npmrc, NPM_CONFIG_GLOBALCONFIG: npmrc, PNPM_CONFIG_STORE_DIR: f.personal,
-    pnpm_config_registry: 'http://personal.invalid', PNPM_HOME: f.personal, XDG_CONFIG_HOME: f.personal,
-    DSH_PATCH: f.paths.patch, DSH_WEB_PORT: '1', DSH_STORE: f.personal, NPM_CONFIG_PREFIX: f.personal }
+  // Explicit simulated system package settings are shared across all runs in this fixture.
+  // DSH personal files remain protected by the read audit below.
+  const shared = join(f.root, '.shared-package'); preparePackageEnvironment(shared)
+  const env = { ...packageEnvironment(d.env, shared), DSH_PATCH: f.paths.patch, DSH_WEB_PORT: '1', DSH_STORE: f.personal }
+  mkdirSync(join(shared, 'config/pnpm'), { recursive: true })
+  writeFileSync(join(shared, 'config/pnpm/config.yaml'), 'networkConcurrency: 7\n')
   const audit = join(f.root, 'read-audit.cjs')
   writeFileSync(audit, `const fs=require('node:fs'),path=require('node:path');
     const check=p=>{if(typeof p==='string'&&path.resolve(p).startsWith(${JSON.stringify(f.personal)}))throw new Error('personal read blocked: '+p)};
@@ -48,8 +49,10 @@ export function prepareIsolation(f: ReturnType<typeof fixture>, real = false) {
       const env=childEnv(c,c.home);
       if(mode==='probe') await c.step('pnpm-config',async()=>{
         const result=await runToFilesAsync(process.execPath,[settings.config.tools.pnpmScript,'store','path'],{cwd:c.runDir,env,timeoutMs:30000,stdoutPath:join(c.logDir,'store.out'),stderrPath:join(c.logDir,'store.err')});
-        if(result.status!==0||!result.stdout.trim().startsWith(join(c.runDir,'pnpm-store')))throw new Error('pnpm store escaped: '+result.stdout+result.stderr);
-        return 'real pnpm store inside run';
+        if(result.status!==0||!result.stdout.trim().startsWith(env.pnpm_config_store_dir))throw new Error('pnpm ignored shared store: '+result.stdout+result.stderr);
+        const config=await runToFilesAsync(process.execPath,[settings.config.tools.pnpmScript,'config','get','network-concurrency'],{cwd:c.runDir,env,timeoutMs:30000,stdoutPath:join(c.logDir,'config.out'),stderrPath:join(c.logDir,'config.err')});
+        if(config.status!==0||config.stdout.trim()!=='7')throw new Error('pnpm ignored shared system configuration');
+        return 'real pnpm uses shared store and system config';
       });
       fs.writeFileSync(join(root,id+'.env.json'),JSON.stringify({home:env.DSH_HOME,profile:env.DSH_PROFILE_DIR,store:env.pnpm_config_store_dir,userconfig:env.npm_config_userconfig,globalconfig:env.npm_config_globalconfig,config:env.XDG_CONFIG_HOME,patch:env.DSH_PATCH,web:env.DSH_WEB_URL}));
       if(mode==='install-fail') await c.step('install',()=>runDsh(c,'install',['plugin','--profile','web','add',join(root,'missing-package.tgz')],c.home).then(()=>''));
@@ -63,7 +66,7 @@ export function prepareIsolation(f: ReturnType<typeof fixture>, real = false) {
       }));
     },report=>fs.writeFileSync(join(root,id+'.report.json'),JSON.stringify(report)));
   `)
-  return { script, env, development }
+  return { script, env, development, shared }
 }
 
 export async function isolationWorker(root: string, prepared: ReturnType<typeof prepareIsolation>, id: string, mode = 'success') {

@@ -25,7 +25,7 @@ export function prepareDevelopment(f: ReturnType<typeof fixture>) {
     else { const server=require('node:http').createServer((req,res)=>res.end('ready'));
       server.listen(Number(process.argv[process.argv.indexOf('--port')+1]),'127.0.0.1',()=>console.log('dsh web: http://127.0.0.1:'+server.address().port+'/')); }
   `)
-  const env = { ...process.env, DSH_HOME: f.personal, DSH_PROFILE: 'daily', DSH_PROFILE_DIR: f.personal, DSH_WEB_URL: 'http://daily.invalid', DSH_PNPM: '', PNPM_CONFIG_STORE_DIR: f.personal }
+  const env = { ...process.env, DSH_HOME: f.personal, DSH_PROFILE: 'daily', DSH_PROFILE_DIR: f.personal, DSH_WEB_URL: 'http://daily.invalid', DSH_PNPM: '', PNPM_CONFIG_STORE_DIR: join(f.root, '.shared-package/pnpm-store') }
   return { entry, pnpm, env, context: loadCommandContext({}, f.root, env, 'development') }
 }
 

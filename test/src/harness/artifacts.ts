@@ -23,7 +23,7 @@ export function tarball(files: Record<string, string | Buffer>): Buffer {
 export function packageFixture() {
   const manifest = { name: '@local/alpha', version: '1.0.0', type: 'module', exports: { '.': { default: './lib/index.js' }, './icon': './icon.svg' },
     dsh: { bundle: { patch: './cordis.patch.yml' }, targets: { surfaces: ['web'], platforms: ['windows', 'mac'] } } }
-  const files: Record<string, string> = { 'package.json': JSON.stringify(manifest), 'lib/index.js': "export const name='alpha'; export function apply() {}",
+  const files: Record<string, string> = { 'package.json': JSON.stringify(manifest), 'lib/index.js': "export const name='alpha'; export function apply(ctx) { ctx.on('fixture/check', () => name) }",
     'cordis.patch.yml': "- insert:\n    - id: alpha\n      name: '@local/alpha'\n", 'README.md': 'test Web plugin', 'icon.svg': '<svg/>',
     'locale/en.json': JSON.stringify({ meta: { title: 'Alpha', description: '[Web · All platforms] Test' } }),
     'locale/zh.json': JSON.stringify({ meta: { title: 'Alpha', description: '【Web · 通用平台】测试' } }) }
@@ -38,7 +38,7 @@ export function artifactFixture(root: string, bytes = tarball(packageFixture().f
 export function verificationFixture(set: ArtifactSet): Verification {
   const startedAt = new Date().toISOString(), platform = process.platform === 'win32' ? 'windows' : 'mac'
   const report: TestReport = { version: 1, kind: 'l4', ok: true, runDir: 'removed', platform: process.platform, node: process.version, startedAt, finishedAt: startedAt, cleanup: 'removed',
-    steps: artifactSteps.l4.map(name => ({ name, ok: true, durationMs: 1, detail: name === 'package-contracts' ? set.hash : name === 'install-artifacts' ? JSON.stringify(set.manifest.packages.filter(p => p.surfaces.includes('web') && p.platforms.includes(platform)).map(p => ({ name: p.name, sha256: p.sha256, actual: 'isolated/store/' + p.name }))) : 'checked' })) }
+    steps: artifactSteps.l4.map(name => ({ name, ok: true, durationMs: 1, detail: name === 'host-capabilities' ? JSON.stringify(set.manifest.packages.filter(p => !p.client && p.surfaces.includes('web') && p.platforms.includes(platform)).map(p => ({name:p.name,sha256:p.sha256,adapter:'fixture-v1',checks:['registration','response'],status:'passed'}))) : name === 'package-contracts' ? set.hash : name === 'install-artifacts' ? JSON.stringify(set.manifest.packages.filter(p => p.surfaces.includes('web') && p.platforms.includes(platform)).map(p => ({ name: p.name, sha256: p.sha256, actual: 'isolated/store/' + p.name }))) : 'checked' })) }
   return { version: 1, batch: set.manifest.batch, manifestSha256: set.hash, sourceSha256: set.manifest.source.sha256, startedAt, finishedAt: startedAt, status: 'passed',
     tools: { node: process.version, pnpm: '11.28.5', dsh: '0.2.1-rc.2' }, platform, surface: 'web', contracts: set.manifest.packages.map(p => ({ name: p.name, sha256: p.sha256, status: 'passed' })),
     environment: [{ kind: 'l4', cleanup: 'removed', steps: ['context', 'profile-init', 'install-artifacts', 'cleanup'] }], functions: { l4: report },

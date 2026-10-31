@@ -12,6 +12,8 @@ import { runIsolatedTest } from '../core/test-run.js'
 import type { TestReport } from '../core/test-run.js'
 import type { ArtifactSet } from '../core/artifacts.js'
 import { artifactPrerequisites, installArtifacts, checkArtifactInstallations, webArtifacts } from '../core/artifact-harness.js'
+import { checkHostCapabilities } from '../core/host-capability.js'
+import type { HostCapabilityCheck } from '../core/host-capability.js'
 
 /**
  * L4: install into a disposable profile, then assert the loader's observable
@@ -35,6 +37,7 @@ export interface L4Options {
   readonly skipTarball: boolean
   readonly timeoutMs?: number
   readonly artifacts?: ArtifactSet
+  readonly hostCapabilityCheck?: HostCapabilityCheck
 }
 
 interface Row {
@@ -60,6 +63,7 @@ export async function runL4(input: L4Options, settings: CommandContext = loadCom
         for (const item of webArtifacts(artifacts)) assertRow(rows, item.name.slice(7), item.name)
         return evidence
       })
+      await step('host-capabilities', () => (options.hostCapabilityCheck ?? checkHostCapabilities)(context, artifacts))
       await step('web-artifacts', () => serveAndCheck(context, 'artifacts', async (url, stderr) => {
         const page = await fetchAuthorizedPage(url)
         if (/did not activate|@local\//.test(stderr)) throw new Error(`artifact activation failed: ${stderr}`)

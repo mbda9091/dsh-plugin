@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { createServer } from 'node:http'
 import { environmentTest as it } from '../../harness/environment.js'
 import { runWeb } from '../../../../scripts/.build/commands/web.js'
-import { acquireDevelopmentLock, assertSeparatePaths, developmentPaths, readDevelopmentOwner, recordDevelopmentLinks, validateDevelopmentPaths } from '../../../../scripts/.build/core/development.js'
+import { acquireDevelopmentLock, assertSeparatePaths, developmentEnvironment, developmentPaths, readDevelopmentOwner, recordDevelopmentLinks, validateDevelopmentPaths } from '../../../../scripts/.build/core/development.js'
 import { developmentStatus, stopDevelopment } from '../../../../scripts/.build/core/development-process.js'
 import { waitForExit } from '../../../../scripts/.build/core/exec.js'
 import { environmentCase, snapshot } from '../../harness/environment.js'
@@ -13,6 +13,17 @@ import { launchDevelopment, prepareDevelopment } from '../../harness/development
 it('DEV-01 initialization and supervised restart preserve development data', () => environmentCase('DEV-01', async f => {
   const d = prepareDevelopment(f), p = developmentPaths(f.root)
   await runWeb(['init'], f.root, d.env)
+  // Old or malformed pnpm metadata must not select package configuration.
+  mkdirSync(join(p.profile, 'node_modules'), { recursive: true })
+  const stores = (env: NodeJS.ProcessEnv) => Object.fromEntries(Object.entries(env).filter(([key]) => /^(npm|pnpm)_config_store_dir$/i.test(key)))
+  for (const metadata of [JSON.stringify({ storeDir: join(f.root, 'legacy-store/v11') }), '[invalid yaml']) {
+    writeFileSync(join(p.profile, 'node_modules/.modules.yaml'), metadata)
+    for (const explicit of [true, false]) {
+      const env = { ...d.env } as NodeJS.ProcessEnv
+      if (!explicit) for (const key of Object.keys(stores(env))) delete env[key]
+      assert.deepEqual(stores(developmentEnvironment({ ...d.context, env })), stores(env))
+    }
+  }
   writeFileSync(join(p.home, 'debug-session'), 'retained')
   writeFileSync(p.patch, readFileSync(p.patch, 'utf8') + '\n# developer setting\n')
   const before = snapshot(p.directory)

@@ -11,13 +11,14 @@ import { runIsolatedTest } from '../../../../scripts/.build/core/test-run.js'
 import { loadCommandContext } from '../../../../scripts/.build/core/command-context.js'
 import { digest } from '../../../../scripts/.build/core/config-transaction.js'
 
-it('ISO-01 child configuration sources ignore poisoned parent and preserve daily/development data', () => environmentCase('ISO-01', async f => {
+it('ISO-01 child DSH destinations are isolated while system package settings are shared', () => environmentCase('ISO-01', async f => {
   const prepared = prepareIsolation(f), before = snapshot(prepared.development), parent = { ...process.env }
   const worker = await isolationWorker(f.root, prepared, 'one')
   const report = await worker.finish(); assert.equal(report.ok, true)
   const env = JSON.parse(readFileSync(join(f.root, 'one.env.json'), 'utf8'))
   assert.equal(env.home, report.home); assert.equal(env.profile, join(report.home, 'profiles/web'))
-  assert.equal(env.store, join(report.runDir, 'pnpm-store')); assert.equal(env.userconfig, join(report.runDir, 'npmrc'))
+  assert.equal(env.store, join(prepared.shared, 'pnpm-store')); assert.equal(env.userconfig, join(prepared.shared, 'npmrc'))
+  assert.ok(existsSync(prepared.shared), 'test cleanup must preserve shared package data')
   assert.equal(env.patch, undefined); assert.equal(env.web, undefined)
   assert.equal(digest(JSON.stringify({ ...process.env })), digest(JSON.stringify(parent)), 'parent environment unchanged'); assert.deepEqual(snapshot(prepared.development), before)
   assert.equal(existsSync(report.home), false); assert.ok(existsSync(join(report.runDir, 'report.json')))
@@ -71,7 +72,7 @@ it('ISO-06 missing skipped incomplete unwritable reports and cleanup failures ne
   assert.doesNotMatch(JSON.stringify(failed), /FAKE_TOKEN|FAKE_BEARER/)
   const context = loadCommandContext({}, f.root, prepared.env, 'test')
   const code = await runIsolatedTest('cleanup-test', context, { keep: false, timeoutMs: 1000 }, async c => {
-    const escape = join(c.runDir, 'cache'); rmSync(escape, { recursive: true }); symlinkSync(f.personal, escape, process.platform === 'win32' ? 'junction' : 'dir')
+    const escape = join(c.runDir, 'workspace'); symlinkSync(f.personal, escape, process.platform === 'win32' ? 'junction' : 'dir')
   })
   assert.equal(code, 1)
   const report = JSON.parse(readFileSync(join(f.root, '.tmp/cleanup-test/last-report.json'), 'utf8'))

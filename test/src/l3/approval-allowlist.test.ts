@@ -7,6 +7,7 @@ import { apply, name } from '@local/approval-allowlist'
 import type { Config } from '@local/approval-allowlist'
 import { createFakeContext } from '../harness/fake-context.js'
 import { makeTempDir, removeDir } from '../harness/tmp.js'
+import { checkApprovalCapability } from '../../../scripts/.build/core/host-capability.js'
 
 const supported = process.platform === 'win32' || process.platform === 'darwin'
 
@@ -114,6 +115,10 @@ function readLog(path: string): Record<string, unknown>[] {
 }
 
 describe('L3 approval-allowlist: registration', { skip: !supported && 'windows/mac targets only' }, () => {
+  it('satisfies the same behavioral contract used for fixed tarball acceptance', async () => {
+    await checkApprovalCapability({ apply }, tempRoot)
+    await assert.rejects(checkApprovalCapability({ apply() {} }, tempRoot), /register approval/)
+  })
   it('exposes the loader identity and registers a global waterfall listener', () => {
     assert.equal(name, 'approval-allowlist')
     const harness = setup({ mode: 'observe', rules: [] })

@@ -27,10 +27,10 @@ const TARGET_OPTIONS = { target: { type: 'string' }, 'dsh-cli': { type: 'string'
 const USAGE = `Usage: node scripts/bootstrap.mjs <command> [options]
 
   config init [--dry-run] | check | migrate [--dry-run]   Manage v2 disk configuration
-  test-env --suite fast|real|all [--only ID,ID] [--keep] [--pnpm-script PATH]  CFG/TOOL/DEV/ISO/ART tests
+  test-env --suite fast|real|all [--only ID,ID] [--keep] [--pnpm-script PATH]  CFG/TOOL/DEV/ISO/ART/TGT tests (per-case deadlines; no --timeout)
   web [init|start|status|stop|reset]   Managed development Web; reset previews, --yes executes
   build [--check]                     Build/type-check plugins
-  pack [--skip-build]                 Build immutable dist/batches/<id>/manifest.json
+  pack [--skip-build]                 Build immutable batch; --skip-build requires matching source/output record
   verify-artifacts --manifest PATH [--check] [--keep]   Verify fixed tarballs; durable Web evidence
   dev-install [--skip-build]          Initialize development profile, build/install/verify links
   target discover|list|show NAME|bind NAME|unbind NAME   Manage explicit formal targets
@@ -72,7 +72,9 @@ export async function main(argv: string[]): Promise<number> {
           profile: values.profile, surface: values.surface, platform: values.platform, dryRun: values['dry-run'] })
       }
       case 'test-env': {
-        const { values } = parseArgs({ args: rest, options: { ...TEST_OPTIONS, suite: { type: 'string', default: 'fast' }, only: { type: 'string' }, keep: { type: 'boolean', default: false } } })
+        // Environment cases own their individual deadlines; there is no suite timeout override.
+        const { timeout: _timeout, ...environmentOptions } = TEST_OPTIONS
+        const { values } = parseArgs({ args: rest, options: { ...environmentOptions, suite: { type: 'string', default: 'fast' }, only: { type: 'string' }, keep: { type: 'boolean', default: false } } })
         return await runTestEnv(values.suite, values.keep, values['pnpm-script'], values.only, undefined, { browser: values['test-browser'], browserPath: values['test-browser-path'] })
       }
       case 'config': {

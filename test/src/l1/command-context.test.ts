@@ -66,6 +66,6 @@ it('L1 harness configuration: disposable homes override session settings and do 
     assert.equal(env.DSH_PROFILE_DIR, join(home, 'profiles/web'))
     assert.equal(Object.keys(env).some(k => k.toUpperCase() === 'DSH_WEB_URL'), false)
     assert.deepEqual(Object.keys(env).filter(k => k.toUpperCase() === 'DSH_HOME'), ['DSH_HOME'])
-    assert.equal(env.pnpm_config_store_dir, join(f.root, 'pnpm-store'))
+    assert.equal(env.PNPM_CONFIG_STORE_DIR, 'personal-store')
   } finally { removeDir(f.root) }
 })

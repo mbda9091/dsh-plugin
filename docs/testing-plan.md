@@ -1,6 +1,6 @@
 # 测试与 Web L5 方案（v0.1）
 
-> 2026-10-31 环境 M4：L4/L5 已统一全新测试 home/store、npm/pnpm 配置来源和进程树清理；成功保留报告/日志、删除可变数据，失败或 `--keep` 保留现场。`ci` 新顺序为环境 all → 类型检查 → L1–L3 → L4 → L5，核验本次独立报告，缺项/skip/清理或报告写入失败均不通过。ISO-01–06 实现及当前平台证据见[开发环境计划 §9.8](development-environment-plan.md#98-m4-测试隔离与-ci-证据门禁2026-10-31)。这里的环境 M4 与本文历史测试 M4 是不同编号。
+> 2026-10-31 环境 M4：L4/L5 已统一全新测试 home/profile 和进程树清理；包管理配置、缓存/store/状态按用户确认沿用系统（最新修正见环境方案 §9.12）；成功保留报告/日志、删除可变数据，失败或 `--keep` 保留现场。`ci` 新顺序为环境 all → 类型检查 → L1–L3 → L4 → L5，核验本次独立报告，缺项/skip/清理或报告写入失败均不通过。ISO-01–06 实现及当前平台证据见[开发环境计划 §9.8](development-environment-plan.md#98-m4-测试隔离与-ci-证据门禁2026-10-31)。这里的环境 M4 与本文历史测试 M4 是不同编号。
 
 > 2026-10-31 环境 M1/M2：已交付独立 `test-env --suite fast/real/all`。M1 `ff461e0` 的 Windows/macOS 配置 fast 均通过，功能 CI 均在过渡 DSH 准备步骤失败；M2 `8478d76` 的 Windows CFG/TOOL、L1–L4 及单独复验 L5 通过，尚无远端运行记录。提交、job 链接、失败及复验证据见[开发环境计划 §9.5](development-environment-plan.md#95-m1m2-提交后-ci-核查与-windows-复验2026-10-31)。当前配置/参数适用范围以[配置 v2](configuration-v2.md)为准；环境 M1/M2 与本文历史测试里程碑分别编号。
 
@@ -8,7 +8,7 @@
 > 本文保留历史实施记录；原远端基线见 §19.7，P0 本机及 Windows/macOS 远端验收见 §7.5（2026-10-31 补验），未完成事项与范围边界集中在 §20。M6 等首个真实 UI 组件需要时再启动。
 > 历史日志中的机器路径已脱敏；`<repo>`、`%USERPROFILE%`、`%LOCALAPPDATA%` 为路径占位符。新的本机配置入口见 [本机配置方案](local-configuration-design.md)，L4/L5 不读取日常 Web 本机 patch。
 > TS 脚本收尾已实现；后续环境统一与开发隔离见[独立规划](development-environment-plan.md)。以下历史通过记录不代表 P1–P4 已实现。
-> 环境配置的新增测试另见[环境方案 §4.7](development-environment-plan.md#47-验证设计独立环境配置测试)：包含独立入口、35 组场景及逐步交付安排；CFG/TOOL 已实现，后续 DEV/ISO/ART/TGT 待实现。它验证配置迁移、宿主选择、目录/进程隔离和交付一致性，与本文插件 L1–L5 分别报告。
+> 环境配置的新增测试另见[环境方案 §4.7](development-environment-plan.md#47-验证设计独立环境配置测试)：包含独立入口、36 组场景及逐步交付安排；CFG/TOOL/DEV/ISO/ART/TGT 均已实现。它验证配置迁移、宿主选择、目录/进程隔离和交付一致性，与本文插件 L1–L5 分别报告。
 
 ## 1. 结论摘要
 
@@ -68,7 +68,7 @@
 
 ### 与环境配置测试的分工
 
-现有配置、命令上下文和 harness 回归测试可复用于[环境测试方案](development-environment-plan.md#472-测试入口隔离设施与证据)，但 L1–L5 通过不能替代配置迁移、错误宿主、路径越界、故障恢复等场景的证据。新增环境测试采用独立的 `test-env` 入口和报告（尚未实现），快速组不要求先构建插件或准备健康的本机配置，真实组在隔离目录中使用真实 DSH。
+现有配置、命令上下文和 harness 回归测试可复用于[环境测试方案](development-environment-plan.md#472-测试入口隔离设施与证据)，但 L1–L5 通过不能替代配置迁移、错误宿主、路径越界、故障恢复等场景的证据。新增环境测试采用独立的 `test-env` 入口和报告（已实现），快速组不要求先构建插件或准备健康的本机配置，真实组在隔离目录中使用真实 DSH。
 
 环境测试随[六步建设](development-environment-plan.md#58-环境测试逐步接入与判定完成)逐步加入：第 1 步先交付配置测试与快速入口，第 2–3 步加入真实工具/开发环境，第 4 步接入完整两平台 CI，第 5–6 步验证产物与正式目标。插件功能检查仍由本文 L1–L5 承担；验收包时，应将结果关联到指定 tarball 的哈希，不能内部重打包后将另一份文件的结果记到该包上。
 
@@ -1071,7 +1071,7 @@ node scripts/bootstrap.mjs l5
 - 优先 PATH 上的默认 Node 版 dsh。若 PATH 只有 Electron 桌面 wrapper，需设置 `DSH_CLI` 到 npm/pnpm 安装的 dsh；不能用 Electron 版伪装 Web surface。
 - `.github/workflows/tests.yml` 在 main push、PR、手动运行时执行 Windows/macOS 矩阵：冻结 lockfile 安装、runner 配置初始化、Chromium 安装、类型检查、L1–L3、L4、L5。远端通过记录见 §19.7；这不包含系统原生通知或桌面 Electron 的人工验收。
 - L5 每次生成 `.tmp/l5/run-*/`，保存 `report.json`、服务/浏览器日志、每项检查的 screenshot/trace/错误列表与 `results.json`；`.tmp/l5/last-report.json` 指向最近结果。
-- 成功默认清理临时 profile、pnpm store、shim，保留浏览器证据；`--keep` 额外保留完整成功现场。失败保留全部现场。浏览器套件截止时间现由 `test.timeoutMs` / `--timeout` 控制，父进程另留 30 秒退出宽限。
+- 成功默认清理临时 profile、shim（共享系统包缓存/store 不清理），保留浏览器证据；`--keep` 额外保留完整成功现场。失败保留全部现场。浏览器套件截止时间现由 `test.timeoutMs` / `--timeout` 控制，父进程另留 30 秒退出宽限。
 - 原始日志和 trace 可能含临时认证信息，仅留在本地或临时 CI runner，不配置 GitHub artifact 上传；控制台中的启动 token 会脱敏。自动审批审核曾因此拒绝上传配置，已采用不上传的替代方案。
 - [Playwright 官方 CI 文档](https://playwright.dev/docs/ci)用于核对浏览器安装、串行执行和超时；[BrowserContext 文档](https://playwright.dev/docs/api/class-browsercontext)用于隔离 context 与 `addInitScript`。
 
@@ -1107,7 +1107,7 @@ node scripts/bootstrap.mjs l5
 
 首次运行前先安装 workspace 依赖，再执行 `config init`。构建、打包、安装、状态和测试共用 `core/command-context.ts`；PowerShell 入口只负责 Node 启动与参数转发。`DSH_CLI` / `DSH_PNPM` / `DSH_E2E_BROWSER` / `CHROME_PATH` 继续兼容，优先级低于命令行、高于本机 JSON；详见 [配置方案 §12](local-configuration-design.md#12-第二阶段实现与使用)。
 
-L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profile、测试 patch 和 pnpm store。`test.timeoutMs` 控制外部操作与浏览器场景的截止时间；不读取个人 Web YAML。CI 在 runner 内通过 example 初始化，不依赖开发者的本机配置。
+L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profile 和测试 patch；包管理配置、缓存/store/状态沿用系统。`test.timeoutMs` 控制外部操作与浏览器场景的截止时间；不读取个人 Web YAML。CI 在 runner 内通过 example 初始化，不依赖开发者的本机配置。
 
 此阶段 Windows 类型检查及 249 项 L1–L3 通过；完整 L4、L5 分别通过。另用新安装入口在同一临时 profile 验证 link → tarball → link，确认 spec 与实际链接状态匹配、本机配置字节不变，测试 home/store 清理完成。L5 证据位于 `.tmp/l5/run-2owMgf/`，安装切换报告位于 `.tmp/phase2-switch-At2HTV/report.json`，均不入库。当时尚未确认远端通过；后续修复及远端结果见 §19.7。
 
@@ -1142,7 +1142,7 @@ L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profi
 | 事项 | 当前状态与下一步 | 依据 |
 |---|---|---|
 | TS 脚本收尾与 PS 退场 | **已完成**：Node/TS 主入口、帮助/文档/调用方迁移，移除 PS 入口；Windows 本机 252 项测试与真实 L4/L5 通过，迁移提交 `ab745e9` 的 Windows/macOS CI 均通过 | 本文 §7.5、[本机配置方案 §14.10](local-configuration-design.md#1410-powershell-兼容层移除计划) |
-| 环境统一与开发隔离 | **环境 M1–M6 已实现**：固定产物 ART 与正式目标 TGT 纳入 CI，环境 fast/real/all 为 28/14/42 项，真实产物验证复用 L4/L5；平台与桌面覆盖边界见实施记录 | [开发环境方案 §9.11](development-environment-plan.md#911-m6-目标管理与逐包交付2026-10-31) |
+| 环境统一与开发隔离 | **环境 M1–M6 已实现**：固定产物 ART 与正式目标 TGT 纳入 CI，环境 fast/real/all 为 28/15/43 项，真实产物验证复用 L4/L5；平台与桌面覆盖边界见实施记录 | [开发环境方案 §9.11](development-environment-plan.md#911-m6-目标管理与逐包交付2026-10-31) |
 | 本机配置第三阶段 | **维护机制已设计，尚未实现**：保留字段归属、预览、备份、repair/migrate 与故障恢复设计，按 P1 的新配置职责调整字段与迁移；不作为 TS 收尾前置。当前新增命令不可用 | [本机配置方案 §14](local-configuration-design.md#14-第三阶段具体设计修复与格式升级) |
 | M6 / UI 组件测试 | **条件性待建设**：首个真实 React/JSX UI 组件需要时，引入 `src/client.tsx` 构建和 Vitest 组件测试，并复用现有 Playwright L5；不为了完成里程碑而新增插件或迁移全部 Host 测试 | 本文 §8、§10 |
 | 插件场景 UI 徽章/页面 | **可选、暂不实施**：场景元数据、目录、安装过滤、运行时守卫已完成；将来有展示需求时再做插件管理器伴生 UI | [插件场景方案](plugin-targets.md) 阶段 3 |

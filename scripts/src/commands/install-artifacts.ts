@@ -9,8 +9,7 @@ import { runToFilesAsync } from '../core/exec.js'
 import { writePnpmShim } from '../core/pnpm.js'
 import { resolveTarget, isTargetCompatible } from '../core/targets.js'
 import { digest, safeConfigPath } from '../core/config-transaction.js'
-import { deliveryStore, inspectTarget } from '../core/formal-target.js'
-import { packageEnvironment, preparePackageEnvironment } from '../core/test-isolation.js'
+import { inspectTarget } from '../core/formal-target.js'
 import { redactLaunchTokens } from '../core/web-harness.js'
 import type { InstallOptions } from './install.js'
 import { parseDocument } from 'yaml'
@@ -28,7 +27,7 @@ export interface DeliveryReport {
   version: 1; batch: string; manifestSha256: string; startedAt: string; finishedAt?: string
   status: 'installing' | 'installed' | 'needs-attention' | 'failed'; target: ReturnType<typeof inspectTarget>['target']
   identity: ReturnType<typeof inspectTarget>['identity']; host: string; packages: DeliveryPackage[]; error?: string
-  store: string
+  packageConfiguration: 'system'
 }
 
 /** CLI output is diagnostics, never positive evidence of runtime activation. */
@@ -72,14 +71,13 @@ export async function runArtifactInstall(options: InstallOptions, context: Comma
     const selected = set.manifest.packages.filter(p => names ? names.includes(p.name) : isTargetCompatible(p, target))
     if (!selected.length) throw new Error('no compatible artifacts')
     if (selected.some(p => !isTargetCompatible(p, target))) throw new Error('selected artifact is incompatible with target surface/platform')
-    const { runner, directory } = initial, pnpm = configuredPnpm(context), store = deliveryStore(context, initial)
+    const { runner, directory } = initial, pnpm = configuredPnpm(context)
     const base = join(context.root, 'dist/consumption'); safeConfigPath(context.root, base); mkdirSync(base, { recursive: true })
     const scratch = mkdtempSync(join(base, 'run-'))
-    preparePackageEnvironment(scratch); writePnpmShim(scratch, pnpm)
-    const env = packageEnvironment({ ...commandEnv(context), ...runner.env }, scratch)
+    writePnpmShim(scratch, pnpm)
+    const env = { ...commandEnv(context), ...runner.env }
     for (const key of Object.keys(env)) if (/^DSH_/i.test(key)) delete env[key]
     env.DSH_HOME = initial.target.home; env.DSH_PROFILE = initial.target.profile; env.DSH_PROFILE_DIR = directory
-    env.pnpm_config_store_dir = store; env.npm_config_store_dir = store
     env.PATH = `${scratch}${delimiter}${env.PATH ?? ''}`
     const version = await runToFilesAsync(runner.command, runner.build(['--version']), { cwd: scratch,
       env: { ...env, DSH_HOME: join(scratch, 'probe-home'), DSH_PROFILE_DIR: join(scratch, 'probe-home/profiles', initial.target.profile) },
@@ -93,16 +91,15 @@ export async function runArtifactInstall(options: InstallOptions, context: Comma
     console.log(JSON.stringify({ target: initial.target, identity: initial.identity, host, manifest: set.path, manifestSha256: set.hash,
       coverage: evidence.coverage.filter(c => selected.some(p => p.name === c.name)),
       packages: packages.map(p => ({ ...p, path: join(dirname(set.path), set.manifest.packages.find(a => a.name === p.name)!.path), operations: p.selected ? ['dsh plugin add', 'pnpm update', 'verify spec/path/content/bundle'] : [] })),
-      caches: scratch, store, dryRun: options.dryRun }, null, 2))
+      inputsAndLogs: scratch, packageConfiguration: 'system', dryRun: options.dryRun }, null, 2))
     if (options.dryRun) return 0
-    const report: DeliveryReport = { version: 1, batch: set.manifest.batch, manifestSha256: set.hash, startedAt: new Date().toISOString(), status: 'installing', target: initial.target, identity: initial.identity, host, store, packages }
+    const report: DeliveryReport = { version: 1, batch: set.manifest.batch, manifestSha256: set.hash, startedAt: new Date().toISOString(), status: 'installing', target: initial.target, identity: initial.identity, host, packageConfiguration: 'system', packages }
     const reportPath = join(scratch, 'report.json'), candidate = join(scratch, 'report.next.json')
     const save = () => { safeConfigPath(context.root, reportPath); writeFileSync(candidate, JSON.stringify(report, null, 2) + '\n'); renameSync(candidate, reportPath) }
     const recheck = () => {
       if ((existsSync(configPath) ? digest(readFileSync(configPath)) : null) !== configHash) throw new Error('configuration changed during delivery; preview again')
       const next = inspectTarget(context)
       if (JSON.stringify(next.identity) !== JSON.stringify(initial.identity)) throw new Error('target real paths changed during delivery')
-      if (deliveryStore(context, next) !== store) throw new Error('target pnpm store changed during delivery')
       assertArtifactsUnchanged(set); readVerification(set, target, host, selected.map(p => p.name))
     }
     save(); onReport?.(reportPath)

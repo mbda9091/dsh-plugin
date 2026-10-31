@@ -48,7 +48,7 @@ export function loadCommandContext(
 /** Export only resolved supported values; avoid Windows Path/PATH duplicates. */
 export function commandEnv(context: CommandContext): NodeJS.ProcessEnv {
   const env = { ...context.env }
-  const managed = ['PATH', 'DSH_CLI', 'DSH_PNPM', 'CHROME_PATH', 'DSH_E2E_BROWSER', 'DSH_HOME', 'DSH_PROFILE', 'DSH_PROFILE_DIR', 'DSH_WEB_URL', 'PNPM_CONFIG_STORE_DIR', 'NPM_CONFIG_STORE_DIR', 'ELECTRON_RUN_AS_NODE']
+  const managed = ['PATH', 'DSH_CLI', 'DSH_PNPM', 'CHROME_PATH', 'DSH_E2E_BROWSER', 'DSH_HOME', 'DSH_PROFILE', 'DSH_PROFILE_DIR', 'DSH_WEB_URL', 'ELECTRON_RUN_AS_NODE']
   for (const key of Object.keys(env)) if (managed.includes(key.toUpperCase())) delete env[key]
   env.PATH = [dirname(process.execPath), envValue(context.env, 'PATH')].filter(Boolean).join(delimiter)
   if (context.target) {
@@ -59,7 +59,6 @@ export function commandEnv(context: CommandContext): NodeJS.ProcessEnv {
     env.DSH_HOME = join(context.root, '.local/dsh-dev/home')
     env.DSH_PROFILE = 'web'
     env.DSH_PROFILE_DIR = join(env.DSH_HOME, 'profiles/web')
-    env.pnpm_config_store_dir = join(context.root, '.local/dsh-dev/store')
   }
   if (context.config.tools.pnpmScript !== null) env.DSH_PNPM = context.config.tools.pnpmScript
   if (context.config.test.browserPath !== null) env.CHROME_PATH = context.config.test.browserPath

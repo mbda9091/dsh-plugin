@@ -33,6 +33,9 @@ it('ART-03 stale batches dirty source missing corrupt future and exit-only evide
   const set = artifactFixture(f.root), good = verificationFixture(set), target = resolveTarget({ surface: 'web' })
   const check = (v: unknown) => validateVerification(set, v, target, '0.2.1-rc.2', ['@local/alpha'])
   check(good)
+  const missingCapability = structuredClone(good)
+  missingCapability.functions.l4!.steps.find(s => s.name === 'host-capabilities')!.detail = '[]'
+  assert.throws(() => check(missingCapability), /Host capability/)
   for (const invalid of [null, { exitCode: 0 }, { ...good, version: 2 }, { ...good, contracts: [] }, { ...good, environment: [] },
     { ...good, functions: { l4: { ...good.functions.l4, steps: [] } } }, { ...good, coverage: [] }, { ...good, status: 'failed' }]) assert.throws(() => check(invalid))
   assert.throws(() => readVerification(set, target, '0.2.1-rc.2', ['@local/alpha']), /ENOENT/)

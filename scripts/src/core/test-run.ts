@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { configuredDsh } from './command-context.js'
 import type { CommandContext } from './command-context.js'
-import { freshTestHome, preparePackageEnvironment, removeTestData, validateTestRoot } from './test-isolation.js'
+import { freshTestHome, removeTestData, validateTestRoot } from './test-isolation.js'
 import { redactLaunchTokens } from './web-harness.js'
 import type { WebHarness } from './web-harness.js'
 import { isRecord, writeText } from './json.js'
@@ -73,14 +73,13 @@ export async function runIsolatedTest(
       report.home = home; report.dsh = runner.source
       // Reserve atomically: two runs cannot claim the same explicit home.
       mkdirSync(join(home, '..'), { recursive: true }); mkdirSync(home)
-      preparePackageEnvironment(runDir)
       context = { settings, runner, runDir, home, logDir: join(runDir, 'logs'), options, signal: controller.signal, step }
-      return 'locked workspace host; fresh owned home and package configuration'
+      return 'locked workspace host; fresh owned home; shared system package configuration'
     })
     await body(context)
     await step('cleanup', async () => {
       if (options.keep) { report.cleanup = 'retained --keep'; return report.cleanup }
-      const paths = [context.home, ...['dsh-home-tarball', 'pnpm-store', 'bin', 'npmrc', 'global.npmrc', 'cache', 'config', 'data', 'pnpm-home', 'workspace'].map(name => join(runDir, name))]
+      const paths = [context.home, ...['dsh-home-tarball', 'bin', 'workspace'].map(name => join(runDir, name))]
       paths.forEach(path => validateTestRoot(settings, path))
       paths.forEach(path => removeTestData(settings.root, path))
       report.cleanup = 'removed owned mutable data; retained report/logs/artifacts'

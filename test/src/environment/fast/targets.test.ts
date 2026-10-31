@@ -74,7 +74,21 @@ it('TGT-05 link overwrite reparses without remove and status detects residual so
   writeFileSync(join(profile, 'package.json'), JSON.stringify({ dependencies: { '@local/alpha': 'file:old.tgz' }, dsh: { profile: { bundles: ['@local/alpha'] } } }))
   assert.equal(runStatus({ manifest: set.path }, t.context()), 1)
   const before = snapshot(source)
-  assert.equal(await runArtifactInstall(installOptions(set.path), t.context()), 0)
+  const stores = (env: NodeJS.ProcessEnv) => Object.fromEntries(Object.entries(env).filter(([key]) => /^(npm|pnpm)_config_store_dir$/i.test(key)))
+  for (const explicit of [true, false]) {
+    // Existing metadata cannot override the caller's system settings or create a store override.
+    writeFileSync(join(profile, 'node_modules/.modules.yaml'), explicit ? JSON.stringify({ storeDir: join(f.root, 'legacy-store/v11') }) : '[invalid yaml')
+    writeFileSync(t.storeTrace, '')
+    const context = t.context()
+    if (!explicit) for (const key of Object.keys(stores(context.env))) delete context.env[key]
+    let report = ''
+    assert.equal(await runArtifactInstall(installOptions(set.path), context, p => { report = p }), 0)
+    assert.equal(deliveryReport(report).packageConfiguration, 'system')
+    assert.equal('store' in deliveryReport(report), false)
+    const recorded = readFileSync(t.storeTrace, 'utf8').trim().split('\n').map(line => JSON.parse(line))
+    assert.ok(recorded.length >= 3, 'version, add and update must receive system settings')
+    for (const env of recorded) assert.deepEqual(env, stores(context.env))
+  }
   assert.deepEqual(snapshot(source), before); assert.equal(runStatus({ manifest: set.path }, t.context()), 0)
   const calls = readFileSync(t.trace, 'utf8'); assert.doesNotMatch(calls, /remove/); assert.match(calls, /update/)
 }))

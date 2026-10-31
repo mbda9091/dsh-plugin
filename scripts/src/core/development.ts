@@ -13,7 +13,7 @@ import { renderWebPatch } from './web-patch.js'
 export function developmentPaths(root: string) {
   const directory = resolve(root, '.local/dsh-dev')
   return { directory, home: join(directory, 'home'), profile: join(directory, 'home/profiles/web'),
-    store: join(directory, 'store'), logs: join(directory, 'logs'), bin: join(directory, 'bin'),
+    logs: join(directory, 'logs'), bin: join(directory, 'bin'),
     patch: join(directory, 'cordis.patch.yml'), owner: join(directory, 'owner.json'),
     runtime: join(directory, 'runtime.json'), lock: resolve(root, '.local/dsh-dev.lock') }
 }
@@ -101,11 +101,7 @@ export function acquireDevelopmentLock(context: CommandContext): () => void {
 
 export function developmentEnvironment(context: CommandContext): NodeJS.ProcessEnv {
   const p = developmentPaths(context.root)
-  const env = { ...commandEnv(context) }
-  // Explicit config files prevent personal npm/pnpm configuration redirecting writes.
-  for (const key of Object.keys(env)) if (/^(npm_config_|pnpm_config_)/i.test(key)) delete env[key]
-  Object.assign(env, { npm_config_userconfig: join(p.directory, 'npmrc'), npm_config_globalconfig: join(p.directory, 'global.npmrc'),
-    pnpm_config_store_dir: p.store, npm_config_store_dir: p.store, npm_config_cache: join(p.directory, 'cache') })
+  const env = commandEnv(context)
   env.PATH = `${p.bin}${delimiter}${env.PATH ?? ''}`
   return env
 }
@@ -125,11 +121,7 @@ export function initializeDevelopment(context: CommandContext): Owner {
   validateDevelopmentTree(context)
   if (owner.initialized) return owner
   if (existsSync(p.runtime)) throw new Error('development instance exists; stop it before initialization')
-  for (const dir of [p.home, p.store, p.logs, p.bin]) mkdirSync(dir, { recursive: true })
-  for (const name of ['npmrc', 'global.npmrc']) {
-    const file = join(p.directory, name)
-    if (!existsSync(file)) writeFileSync(file, '', { flag: 'wx' })
-  }
+  for (const dir of [p.home, p.logs, p.bin]) mkdirSync(dir, { recursive: true })
   if (!existsSync(p.patch)) writeFileSync(p.patch, renderWebPatch(readFileSync(join(context.root, 'profiles/web/cordis.dev.patch.yml'), 'utf8'), context.root), { flag: 'wx' })
   writePnpmShim(p.bin, pnpm)
   const result = runToFiles(runner.command, runner.build(['--profile', 'web', '--dump-config']), {

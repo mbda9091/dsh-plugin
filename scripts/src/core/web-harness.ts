@@ -7,7 +7,7 @@ import { repoRoot } from './repo.js'
 import { commandEnv, configuredPnpm } from './command-context.js'
 import type { CommandContext } from './command-context.js'
 import { writePnpmShim } from './pnpm.js'
-import { freshTestHome, packageEnvironment } from './test-isolation.js'
+import { freshTestHome } from './test-isolation.js'
 
 const WEB_PROFILE = 'web'
 
@@ -28,19 +28,16 @@ export interface WebHarness {
   pnpmDir?: string | undefined
 }
 export function childEnv(context: WebHarness, home: string): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = packageEnvironment({
+  const env: NodeJS.ProcessEnv = {
     ...commandEnv(context.settings),
     ...context.runner.env,
-  }, context.runDir)
+  }
   for (const key of Object.keys(env)) {
     if (/^DSH_/i.test(key) && !['DSH_E2E_BROWSER'].includes(key.toUpperCase())) delete env[key]
   }
   env.DSH_HOME = home
   env.DSH_PROFILE = WEB_PROFILE
   env.DSH_PROFILE_DIR = join(home, 'profiles', WEB_PROFILE)
-  // Keep both pnpm 11 and older runtime stores inside this disposable run.
-  env.pnpm_config_store_dir = join(context.runDir, 'pnpm-store')
-  env.npm_config_store_dir = join(context.runDir, 'pnpm-store')
   if (context.pnpmDir !== undefined) {
     env['PATH'] = env['PATH'] === undefined ? context.pnpmDir : `${context.pnpmDir}${delimiter}${env['PATH']}`
   }

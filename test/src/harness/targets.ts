@@ -28,8 +28,11 @@ export function prepareTarget(f: ReturnType<typeof fixture>) {
   const dev = prepareDevelopment(f), host = join(f.root, '.formal-host'), home = join(f.root, '.formal-home')
   mkdirSync(host)
   const cli = join(host, 'cli.cjs'), trace = join(f.root, '.target-trace'), mode = join(f.root, '.target-mode')
+  const storeTrace = trace + '-stores'
+  const recordStores = `fs.appendFileSync(${JSON.stringify(storeTrace)},JSON.stringify(Object.fromEntries(Object.entries(process.env).filter(([key])=>/^(npm|pnpm)_config_store_dir$/i.test(key))))+'\\n');`
   const parser = JSON.stringify(pathToFileURL(join(sourceRoot, 'scripts/.build/core/artifact-package.js')).href)
   writeFileSync(cli, `const fs=require('node:fs'),path=require('node:path'),args=process.argv.slice(2);
+    ${recordStores}
     const mode=fs.existsSync(${JSON.stringify(mode)})?fs.readFileSync(${JSON.stringify(mode)},'utf8'):'';
     if(args[0]==='--version'){console.log(mode==='version'?'0.9.0':'0.2.1-rc.2');process.exit(0)}
     if(args.includes('--dump-config')){const m=JSON.parse(fs.readFileSync(path.join(process.env.DSH_PROFILE_DIR,'package.json')));for(const name of m.dsh.profile.bundles)console.log('- id: '+name.slice(7)+'\\n  name: '+JSON.stringify(name));process.exit(0)}
@@ -46,6 +49,7 @@ export function prepareTarget(f: ReturnType<typeof fixture>) {
       if(mode==='load-fail')console.error('application: failed');
     }).catch(e=>{console.error(e);process.exitCode=1});`)
   writeFileSync(dev.pnpm, `const fs=require('node:fs'),path=require('node:path');
+    ${recordStores}
     fs.appendFileSync(${JSON.stringify(trace)},JSON.stringify(process.argv.slice(2))+'\\n');
     import(${parser}).then(({readPackage})=>{const name=process.argv[3],spec=JSON.parse(fs.readFileSync('package.json')).dependencies[name];
       const p=readPackage(fs.readFileSync(path.resolve(spec.slice(5)))),dir=path.join('node_modules',name);
@@ -54,7 +58,7 @@ export function prepareTarget(f: ReturnType<typeof fixture>) {
     }).catch(e=>{console.error(e);process.exitCode=1});`)
   const fields = { dshCli: cli, home, profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : 'mac' }
   const context = () => loadCommandContext(fields, f.root, dev.env, 'target')
-  return { ...dev, cli, host, home, trace, mode, fields, context }
+  return { ...dev, cli, host, home, trace, storeTrace, mode, fields, context }
 }
 export const installOptions = (manifest: string) => ({ mode: 'tarball' as const, manifest, all: false, skipBuild: false, dryRun: false })
 export const deliveryReport = (path: string) => JSON.parse(readFileSync(path, 'utf8')) as DeliveryReport

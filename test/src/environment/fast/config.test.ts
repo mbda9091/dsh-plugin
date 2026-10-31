@@ -14,6 +14,7 @@ import { main } from '../../../../scripts/.build/cli.js'
 import { environmentCase, snapshot, sourceRoot } from '../../harness/environment.js'
 
 it('CFG-01 strict v2 schema, defaults only on init, no implicit target', () => environmentCase('CFG-01', async f => {
+  for (const value of ['1', 'not-a-number']) assert.equal(await main(['test-env', '--timeout', value]), 1, 'unsupported timeout must fail before starting a suite')
   assert.equal(initializeConfig({ browser: 'default' }, f.root, {}).state, 'created')
   assert.deepEqual(loadRepoConfig(f.root, {}).config.targets, [])
   assert.deepEqual(checkConfig(f.root, { DSH_CLI: 'ignored' }).warnings, [])
@@ -53,7 +54,7 @@ it('CFG-02 command contexts and fake CLI ignore daily destination variables', ()
     assert.equal(recorded.node, process.execPath)
     assert.deepEqual(recorded.args, ['probe'])
     assert.equal(recorded.home, purpose === 'development' ? join(f.root, '.local/dsh-dev/home') : undefined)
-    assert.notEqual(recorded.store, f.personal)
+    assert.equal(recorded.store, f.personal)
   }
   const explicit = { dshCli: entry, home: 'chosen-home', profile: 'chosen', surface: 'web', platform: 'windows' }
   const target = loadCommandContext(explicit, f.root, env, 'target')

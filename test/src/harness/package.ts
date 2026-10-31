@@ -5,7 +5,6 @@ import { pathToFileURL } from 'node:url'
 import { envValue } from '../../../scripts/.build/core/config.js'
 import { checkPnpm } from '../../../scripts/.build/core/toolchain.js'
 import { repoRoot } from '../../../scripts/.build/core/repo.js'
-import { packageEnvironment, preparePackageEnvironment } from '../../../scripts/.build/core/test-isolation.js'
 import { runToFiles } from '../../../scripts/.build/core/exec.js'
 
 /** Metadata shape already validated by the package contract suite. */
@@ -39,10 +38,9 @@ export function packAndExtract(source: string, destination: string): string {
   const selected = envValue(process.env, 'DSH_PNPM')
   assert.ok(selected, 'run package contracts through the repository test command with configured pnpm')
   const pnpm = checkPnpm(selected, repoRoot)
-  preparePackageEnvironment(destination)
   const pack = runToFiles(process.execPath, [pnpm, 'pack', '--pack-destination', destination], {
     cwd: source,
-    env: packageEnvironment(process.env, destination),
+    env: { ...process.env },
     timeoutMs: 120_000,
     stdoutPath: join(destination, 'pack.out.log'),
     stderrPath: join(destination, 'pack.err.log'),

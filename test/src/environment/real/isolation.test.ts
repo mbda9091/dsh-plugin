@@ -7,7 +7,7 @@ import { environmentCase, snapshot, sourceRoot } from '../../harness/environment
 import { isolationWorker, prepareIsolation } from '../../harness/isolation.js'
 import { stopChild } from '../../../../scripts/.build/core/exec.js'
 
-it('ISO-01-real locked host and pnpm ignore personal configuration and stores', { timeout: 180_000 }, () => environmentCase('ISO-01-real', async f => {
+it('ISO-01-real locked host isolates DSH data and pnpm inherits shared system settings', { timeout: 180_000 }, () => environmentCase('ISO-01-real', async f => {
   const prepared = prepareIsolation(f, true), before = snapshot(prepared.development)
   const report = await (await isolationWorker(f.root, prepared, 'real', 'probe')).finish()
   assert.equal(report.ok, true)
@@ -25,7 +25,8 @@ it('ISO-02-real repeated and concurrent hosts have distinct data and ports', { t
     assert.notEqual(ready[0].url, ready[1].url); assert.notEqual(ready[0].home, ready[1].home)
     assert.ok(ready.every(r => r.home !== first.home))
     const envs = ['a', 'b'].map(id => JSON.parse(readFileSync(join(f.root, `${id}.env.json`), 'utf8')))
-    assert.notEqual(envs[0].store, envs[1].store)
+    assert.equal(envs[0].store, envs[1].store)
+    assert.equal(envs[0].store, join(prepared.shared, 'pnpm-store'))
     workers.forEach(w => w.release())
     assert.ok((await Promise.all(workers.map(w => w.finish()))).every(r => r.ok))
   } finally { workers.forEach(w => w.release()); await Promise.all(workers.map(w => stopChild(w.started.child))) }

@@ -25,7 +25,7 @@
 | 工具链 | Node 24；仓库命令不依赖 PowerShell 7，Windows/macOS 共用 Node CLI |
 | 本仓库 | 从脚本位置解析；文档中的 `<repo>` 表示本机仓库绝对路径 |
 
-**这些值属于不同用途**：从命令上下文统一解析和向下传递，不在内部函数里重新从环境猜测。日常 DSH/profile/Web/store 变量从开发/测试子进程清理；父环境不变。
+**这些值属于不同用途**：从命令上下文统一解析和向下传递，不在内部函数里重新从环境猜测。日常 DSH/profile/Web 变量从开发/测试子进程清理；父环境不变。包管理器沿用系统 registry、代理、证书及 npm/pnpm 配置、缓存、store、状态，不为日常开发/验收建立独立包管理环境；已有安装也不读取旧 store 关联来覆盖系统配置，不提供旧 store 兼容或迁移。DSH home/profile、会话与插件依赖关系仍分开；测试清理不得删除共享包管理数据。
 
 本机可能同时存在普通 Node 和 Electron 版 `dsh`。**Web 必须用普通 Node 版**。开发 Web 与 L4/L5 只取 workspace 精确声明的开发 DSH；依赖缺失时停止并提示冻结安装。正式安装的 `--dsh-cli` 只能与完整 home/profile/surface/platform 一起使用，或改用 `--target NAME`；`DSH_CLI` 不再覆盖仓库命令。Web、安装及 L4/L5 都用临时 PATH shim 保证 DSH 内部 pnpm 使用选定脚本与当前 Node。
 
@@ -423,7 +423,7 @@ window.__ModuleLoader__.load({
 7. 视觉验证受限时（没有浏览器控制），只报告"已注册、未做视觉验证"，不要声称"看起来正常"。
 8. 场景过滤：开发上下文固定 Web，`dev-install --dry-run` 应跳过仅桌面插件；`status --target <Web目标名>` 显示 `skip`。开发 Web 使用 workspace 普通 Node DSH（需 M2/M3 准备），不匹配的 guard 应让该行 `failed` 而不是静默无操作。surface 判定读 `profileContext.startedBundles`，不要用 `webServer`（`apply` 时未就绪）；详见 [docs/plugin-targets.md](docs/plugin-targets.md) §5。
 9. 测试：`node scripts/bootstrap.mjs test`（L1–L3，先构建再 `tsc -p test/tsconfig.json` + `node --test`）通过；改动安装/加载/Web 服务时再跑 `node scripts/bootstrap.mjs l4`（一次性 profile + 真实 `dsh web`，默认清理临时目录，`--keep` 保留日志）。
-10. Web/Client 改动再跑 `node scripts/bootstrap.mjs l5`：自动构建并启动一次性 Web profile，用 Playwright 验证独立基线、实际 slot/交互、主题/locale、真实 SSE 通知。默认使用系统 Chrome；CI 用 `DSH_E2E_BROWSER=chromium`。报告、截图和 trace 保存在 `.tmp/l5/`，不自动上传；L4 的 `--home` 仅接受 `.tmp` 内新目录。详情见 `docs/testing-plan.md` §19。
+10. 固定 tarball 验收对 Host-only 包必须执行已登记的能力契约；缺适配器、空实现或缺能力证据不能标 passed。当前 approval-allowlist 检查匹配/观察/次数/范围/审计，桌面仍待验。Web/Client 改动再跑 `node scripts/bootstrap.mjs l5`：自动构建并启动一次性 Web profile，用 Playwright 验证独立基线、实际 slot/交互、主题/locale、真实 SSE 通知。默认使用系统 Chrome；CI 用 `DSH_E2E_BROWSER=chromium`。报告、截图和 trace 保存在 `.tmp/l5/`，不自动上传；L4 的 `--home` 仅接受 `.tmp` 内新目录。详情见 `docs/testing-plan.md` §19。
 
 **排障顺序**：先看 `build`（类型 / 编译错误），再看 `pack`（`pnpm pack --dry-run` 对比 `exports` 与包内容），最后看 `install` 之后 profile 里的加载结果。三段互相隔离，定位到哪段就修哪段，不要靠提交构建产物来保留上一次能跑的状态。
 
@@ -469,11 +469,11 @@ node scripts/bootstrap.mjs status --target daily
 - **类型依赖**放在 `devDependencies`，版本与运行时对齐（`@deepseek-ai/dsh-*` 用 `0.2.1-rc.2`，cordis 用 `4.0.5`，TypeScript 固定 `7.0.2`）。它们不会进入运行时产物。
 - **场景门禁**：`build` 先跑 `check-targets` 校验 `dsh.targets`、locale 前缀和 README 场景，再跑 `catalog --check`；`CATALOG.md` 由 `catalog` 生成，不要手改。实现都在 `scripts/src/commands/`，统一通过 `node scripts/bootstrap.mjs <command>` 调用。
 - **构建**：`src/*.ts` → `lib/*.js` + `lib/*.d.ts`，产物**不入库**（`.gitignore` 忽略 `lib/`）。链接安装和打包都不会替你编译，所以 `dev-install` / `pack` 都会先构建，缺产物时直接报错。构建命令：
-  - `node scripts/bootstrap.mjs build` 重新构建
+  - `node scripts/bootstrap.mjs build` 重新构建；仅完整成功后写入源码及 lib 哈希构建记录，`pack --skip-build` 必须匹配该记录
   - `node scripts/bootstrap.mjs build --check` 只做类型检查
   - `node scripts/bootstrap.mjs ci` 运行完整本地检查（独立环境 all → 类型检查 → L1–L3 → L4 → L5），失败即停止；汇总在 `.tmp/ci/last-report.json`，引用本次独立报告并校验完整结果。需要 workspace 开发 DSH、已准备 pnpm 和冻结安装所需网络；不接受 `--dsh-cli` / `DSH_CLI` 重定向。该入口不提交、推送或上传产物。
-  - `node scripts/bootstrap.mjs test-env --suite fast` 独立验证 CFG/TOOL/DEV/ISO/ART/TGT，共 28 项，不要求本机配置、真实 DSH 或插件 build。`--suite real --pnpm-script <path>` 验证冻结安装、真实开发/测试生命周期、固定产物与独立正式目标交付，共 14 项（ART-04-real/06 需要显式测试浏览器）。`all` 合并为 42 项；`--only ID,ID` 定向选择已实现用例。报告在 `.tmp/environment-tests/`，不代替未执行的平台或桌面验收。
-  - L4/L5 共用一次性目录和包管理器配置；成功清理可变 home/store/cache/shim，保留报告与日志，失败或 `--keep` 保留现场。显式 `l4 --home` 也遵守该规则。可处理中断关闭自己的进程树及已知端口；缺证据、skip、清理/报告写入失败不得报通过。详见 [v2 协议](docs/configuration-v2.md)。
+  - `node scripts/bootstrap.mjs test-env --suite fast` 独立验证 CFG/TOOL/DEV/ISO/ART/TGT，共 28 项，不要求本机配置、真实 DSH 或插件 build。`--suite real --pnpm-script <path>` 验证冻结安装、真实开发/测试生命周期、固定产物与独立正式目标交付，共 15 项（新增 ART-07 验证 Host 能力与空实现拒绝；ART-04-real/06 需要显式测试浏览器）。`all` 合并为 43 项；`--only ID,ID` 定向选择已实现用例。报告在 `.tmp/environment-tests/`，不代替未执行的平台或桌面验收。
+  - L4/L5 共用一次性 DSH 生命周期，包管理配置及缓存/store/状态沿用系统；成功只清理本次 home/shim/workspace，保留报告与日志，失败或 `--keep` 保留现场。显式 `l4 --home` 也遵守该规则。可处理中断关闭自己的进程树及已知端口；缺证据、skip、清理/报告写入失败不得报通过。详见 [v2 协议](docs/configuration-v2.md)。
   - `node scripts/bootstrap.mjs test` 先构建，再编译并运行 L1–L3；`node scripts/bootstrap.mjs l4` 跑真实 `dsh web` 的 L4 harness（慢、需要本机 DSH）
   - 普通终端且 `node` 在 PATH 上时，也可以用根 `package.json` 的 `pnpm build` / `pnpm check` / `pnpm catalog` / `pnpm status` / `pnpm test`；**DSH 沙箱内不要用 `pnpm run`**（它会用管道 spawn 子进程，被沙箱拒绝后会卡住），直接用 `node scripts/bootstrap.mjs <cmd>`。
   - 脚本层自身也会先被编译到 `scripts/.build/`（不入库）；`scripts/bootstrap.mjs` 是唯一手写 JS

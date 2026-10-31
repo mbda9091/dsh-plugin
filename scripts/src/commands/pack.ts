@@ -3,13 +3,13 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { artifactLock, describeArtifact, newBatch, publishManifest, sourceState } from '../core/artifacts.js'
 import { expectedPnpm } from '../core/toolchain.js'
-import { packageEnvironment, preparePackageEnvironment } from '../core/test-isolation.js'
 import { checkPackedSource, readPackage } from '../core/artifact-package.js'
 import { commandEnv, configuredPnpm, loadCommandContext } from '../core/command-context.js'
 import type { CommandContext } from '../core/command-context.js'
 import { discoverPlugins } from '../core/plugins.js'
 import type { Plugin } from '../core/plugins.js'
 import { runBuild } from './build.js'
+import { assertCurrentBuild } from '../core/build-record.js'
 
 export function requireBuilt(plugins: readonly Plugin[]): void {
   const missing = plugins.filter(plugin => !existsSync(join(plugin.dir, 'lib/index.js')))
@@ -36,14 +36,13 @@ async function pack(options: { skipBuild: boolean }, context: CommandContext, on
   const plugins = discoverPlugins(context.root)
   if (!plugins.length) throw new Error('No plugin packages found.')
   requireBuilt(plugins)
+  assertCurrentBuild(context.root)
   const source = sourceState(context.root)
   const { batch, directory: dist } = newBatch(context.root)
-  const packageConfig = join(dist, '.pack')
-  preparePackageEnvironment(packageConfig)
   const packages = []
   for (const plugin of plugins) {
     console.log(`· pack ${plugin.packageName}`)
-    const code = runInherited(process.execPath, [pnpm, 'pack', '--pack-destination', dist], plugin.dir, packageEnvironment(commandEnv(context), packageConfig))
+    const code = runInherited(process.execPath, [pnpm, 'pack', '--pack-destination', dist], plugin.dir, commandEnv(context))
     if (code !== 0) return code
     const path = `${plugin.packageName.replace(/^@/, '').replaceAll('/', '-')}-${plugin.version}.tgz`
     const artifact = describeArtifact(join(dist, path), path)
@@ -52,6 +51,7 @@ async function pack(options: { skipBuild: boolean }, context: CommandContext, on
     packages.push(artifact)
   }
   if (JSON.stringify(sourceState(context.root)) !== JSON.stringify(source)) throw new Error('source changed during pack')
+  assertCurrentBuild(context.root)
   const manifest = publishManifest(context.root, { version: 1, batch, createdAt: new Date().toISOString(), source,
     tools: { node: process.version, pnpm: expectedPnpm(context.root) }, packages })
   console.log(`artifact manifest: ${manifest}`); onManifest?.(manifest)
