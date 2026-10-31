@@ -18,6 +18,7 @@ it('L3 Web launcher uses initialized config from another cwd, forwards args and 
     writeFileSync(f.entry, `#!/usr/bin/env node
       require('node:fs').writeFileSync(process.env.TEST_CAPTURE, JSON.stringify({
         args: process.argv.slice(2), cwd: process.cwd(), patch: require('node:fs').readFileSync(process.argv[4], 'utf8'),
+        pnpmShim: require('node:fs').readFileSync(require('node:path').join(process.env.PATH.split(require('node:path').delimiter)[0], process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'), 'utf8'),
       }));
       console.log('dsh web: http://127.0.0.1:12345/');
       setTimeout(() => process.exit(7), 300);
@@ -28,10 +29,12 @@ it('L3 Web launcher uses initialized config from another cwd, forwards args and 
       ...process.env, DSH_CLI: '', DSH_PNPM: '', CHROME_PATH: '', DSH_E2E_BROWSER: '', TEST_CAPTURE: capture,
     })
     assert.equal(code, 7)
-    const recorded = JSON.parse(readFileSync(capture, 'utf8')) as { args: string[]; cwd: string; patch: string }
+    const recorded = JSON.parse(readFileSync(capture, 'utf8')) as { args: string[]; cwd: string; patch: string; pnpmShim: string }
     assert.deepEqual(recorded.args, ['web', '--patch', patch, '--no-open', '--port', '0'])
     assert.equal(recorded.cwd, f.root)
     assert.equal(recorded.patch, readFileSync(patch, 'utf8'))
+    assert.ok(recorded.pnpmShim.includes(process.execPath))
+    assert.ok(recorded.pnpmShim.includes(f.options.pnpmScript.replaceAll("'", "'\\''")) || recorded.pnpmShim.includes(f.options.pnpmScript))
     assert.equal(readFileSync(f.paths.local, 'utf8'), before)
     assert.equal(process.listenerCount('SIGINT'), listeners)
     assert.equal(existsSync(join(f.root, '.tmp/web')), false)

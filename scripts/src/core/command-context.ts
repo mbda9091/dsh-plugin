@@ -1,10 +1,9 @@
 import { delimiter, dirname, join, resolve } from 'node:path'
-import { existsSync, readFileSync } from 'node:fs'
 import { loadRepoConfig, envValue } from './config.js'
 import type { ConfigOverrides, RepoConfig, InstallTarget } from './config.js'
-import { isRecord } from './json.js'
+import { checkNode, checkPnpm, workspaceDsh } from './toolchain.js'
 import { safeConfigPath } from './config-transaction.js'
-import { requireFile, requirePnpm, webDsh } from './config-tools.js'
+import { assertExternalDsh, requireFile, requirePnpm, webDsh } from './config-tools.js'
 import { resolveDsh } from './dsh-cli.js'
 import { repoRoot } from './repo.js'
 
@@ -23,6 +22,7 @@ export function loadCommandContext(
   overrides: ConfigOverrides = {}, root = repoRoot, env: NodeJS.ProcessEnv = process.env,
   purpose: CommandContext['purpose'] = 'tools',
 ): CommandContext {
+  checkNode()
   const targetKeys = ['dshCli', 'home', 'profile', 'surface', 'platform', 'target'] as const
   if (purpose !== 'target' && targetKeys.some(key => overrides[key] !== undefined)) throw new Error('target flags including --dsh-cli are not supported for this command; development/test use workspace DSH (M2)')
   const configEnv = { ...env }
@@ -71,20 +71,10 @@ export function configuredDsh(context: CommandContext, web: boolean) {
   if (context.purpose === 'target') {
     if (!context.target) throw new Error('explicit target required')
     const path = context.target.dshCli
+    assertExternalDsh(path, context.root, commandEnv(context))
     return web ? webDsh(path, commandEnv(context)) : resolveDsh({ env: { ...commandEnv(context), DSH_CLI: requireFile(path, 'target.dshCli') } })
   }
-  // Only a declared workspace package may supply the development entry. No PATH fallback.
-  const manifest = join(context.root, 'package.json')
-  const pkg = join(context.root, 'node_modules/@deepseek-ai/dsh/package.json')
-  if (!existsSync(manifest) || !existsSync(pkg)) throw new Error('workspace development DSH is not prepared; complete M2 (locked dependency); no fallback to legacy CLI')
-  const declared: unknown = JSON.parse(readFileSync(manifest, 'utf8'))
-  const installed: unknown = JSON.parse(readFileSync(pkg, 'utf8'))
-  if (!isRecord(declared) || !isRecord(declared.devDependencies) || !isRecord(installed) || installed.version !== declared.devDependencies['@deepseek-ai/dsh']) throw new Error('workspace DSH must match the exact declared development dependency (M2)')
-  const bin = typeof installed.bin === 'string' ? installed.bin : isRecord(installed.bin) ? installed.bin.dsh : undefined
-  if (typeof bin !== 'string') throw new Error('workspace DSH has no public dsh bin entry (M2)')
-  const entry = resolve(dirname(pkg), bin)
-  requireFile(entry, 'workspace DSH bin')
-  return { command: process.execPath, source: entry, env: {}, verbatim: false, build: (args: readonly string[]) => [entry, ...args] }
+  return workspaceDsh(context.root)
 }
 
 export function operationTarget(context: CommandContext): InstallTarget {
@@ -98,7 +88,7 @@ export function operationTarget(context: CommandContext): InstallTarget {
 export function configuredPnpm(context: CommandContext): string {
   const path = context.config.tools.pnpmScript
   if (path === null) throw new Error('tools.pnpmScript: required for this command; set it locally or pass --pnpm-script')
-  return requirePnpm(path)
+  return checkPnpm(requirePnpm(path), context.root)
 }
 
 export function checkTestBrowser(context: CommandContext): void {

@@ -18,7 +18,7 @@ export function snapshot(root: string): Record<string, string> {
   return result
 }
 
-export async function environmentCase(id: string, body: (f: ReturnType<typeof fixture>) => void | Promise<void>): Promise<void> {
+export async function environmentCase(id: string, body: (f: ReturnType<typeof fixture>) => void | Promise<void>, captureWorkspace = true): Promise<void> {
   const base = process.env.DSH_ENV_TEST_RUN
   assert.ok(base, 'use test-env runner')
   const f = fixture(base)
@@ -29,7 +29,7 @@ export async function environmentCase(id: string, body: (f: ReturnType<typeof fi
   try {
     await body(f)
     assert.deepEqual(snapshot(f.personal), f.personalBefore)
-    after = snapshot(f.root)
+    after = captureWorkspace ? snapshot(f.root) : { scope: 'real suite: dependency trees omitted; assertions and command evidence recorded separately' }
     if (process.env.DSH_ENV_TEST_KEEP !== '1') { rmSync(f.root, { recursive: true }); cleanup = 'removed owned fixture (links not followed)' }
     else cleanup = 'retained --keep'
     passed = true
@@ -59,8 +59,8 @@ export function fixture(base: string) {
   const fake = () => {
     const directory = join(root, 'node_modules/@deepseek-ai/dsh')
     mkdirSync(directory, { recursive: true })
-    writeFileSync(join(root, 'package.json'), JSON.stringify({ devDependencies: { '@deepseek-ai/dsh': '0.2.1-rc.2' } }))
-    writeFileSync(join(directory, 'package.json'), JSON.stringify({ version: '0.2.1-rc.2', bin: { dsh: './cli.cjs' } }))
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ packageManager: 'pnpm@11.28.5', devDependencies: { '@deepseek-ai/dsh': '0.2.1-rc.2' } }))
+    writeFileSync(join(directory, 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh', version: '0.2.1-rc.2', bin: { dsh: './cli.cjs' } }))
     const entry = join(directory, 'cli.cjs')
     writeFileSync(entry, `const fs=require('node:fs');fs.writeFileSync(process.argv[2],JSON.stringify({node:process.execPath,args:process.argv.slice(3),home:process.env.DSH_HOME,profile:process.env.DSH_PROFILE,cli:process.env.DSH_CLI,store:process.env.PNPM_CONFIG_STORE_DIR||process.env.pnpm_config_store_dir}));`)
     return entry

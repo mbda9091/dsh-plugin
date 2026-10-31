@@ -4,16 +4,15 @@ import { delimiter, dirname, join, resolve } from 'node:path'
 /**
  * Locates the DSH CLI and exposes a single spawn shape.
  *
- * The `dsh` found on PATH wins over the copy shipped with the desktop app: an
- * npm-installed `dsh` runs on the default Node runtime, which is the intended
- * engine for `dsh web` (the Electron engine reports `process.versions.electron`
- * and therefore looks like a desktop Host). `DSH_CLI` still overrides both.
+ * This low-level wrapper reader is used for explicitly selected formal targets
+ * and candidate discovery. Repository development/test commands use workspaceDsh
+ * instead. Their callers never inherit DSH_CLI as a destination override.
  *
  * Windows wrappers are not spawned directly (Node 24 refuses `.cmd`, `EINVAL`):
  * - the desktop `dsh.cmd` sets `ELECTRON_RUN_AS_NODE` and runs the bundled
  *   desktop executable against its CLI script — spawn that executable directly;
  * - npm/pnpm `dsh.cmd` shims run `node .../@deepseek-ai/dsh/lib/bin.js` — spawn the
- *   Node binary with that script.
+ *   current process.execPath with that script (also for Unix Node shebangs).
  * A `cmd.exe /d /s /c` fallback keeps other layouts working.
  */
 export interface DshRunner {
@@ -107,6 +106,9 @@ function createRunner(cliPath: string, env: NodeJS.ProcessEnv, platform: NodeJS.
       build: (args) => ['/d', '/s', '/c', `"${[cliPath, ...args].map(quoteCmdArg).join(' ')}"`],
     }
   }
+  if (/\.[cm]?js$/i.test(cliPath) || (platform !== 'win32' && /^#![^\r\n]*\bnode\b/.test(readFileSync(cliPath, 'utf8').slice(0, 200)))) {
+    return { command: process.execPath, source: cliPath, env: {}, verbatim: false, build: args => [cliPath, ...args] }
+  }
   return {
     command: cliPath,
     source: cliPath,
@@ -164,11 +166,8 @@ function fromNpmShim(cliPath: string): DshRunner | undefined {
   const script = resolve(expandCmdPath(match[1] ?? '', base))
   if (!existsSync(script)) return undefined
 
-  const adjacentNode = join(base, 'node.exe')
-  const command = existsSync(adjacentNode) ? adjacentNode : process.execPath
-
   return {
-    command,
+    command: process.execPath,
     source: cliPath,
     env: {},
     verbatim: false,

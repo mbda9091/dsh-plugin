@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, rmdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { delimiter, join } from 'node:path'
 import { envValue } from '../core/config.js'
 import type { ConfigOverrides, RepoConfig } from '../core/config.js'
 import { requireFile } from '../core/config-tools.js'
@@ -9,7 +9,8 @@ import { inspectWebPatch } from '../core/web-patch.js'
 import { startToFiles, stopChild, waitForServerUrl } from '../core/exec.js'
 import { redactLaunchTokens } from '../core/web-harness.js'
 import { repoRoot } from '../core/repo.js'
-import { loadCommandContext, configuredDsh, commandEnv } from '../core/command-context.js'
+import { loadCommandContext, configuredDsh, configuredPnpm, commandEnv } from '../core/command-context.js'
+import { writePnpmShim } from '../core/pnpm.js'
 import { existsSync } from 'node:fs'
 import { safeConfigPath } from '../core/config-transaction.js'
 
@@ -80,6 +81,7 @@ export async function runWeb(args: readonly string[], root: string = repoRoot, e
   const patch = join(root, '.local/dsh-dev/cordis.patch.yml')
   safeConfigPath(root, patch)
   if (!existsSync(patch)) throw new Error('managed development patch is not prepared; complete M3; personal Web patch is never imported')
+  const pnpm = configuredPnpm(context)
   const inspection = inspectWebPatch(patch, root)
   for (const warning of inspection.warnings) console.warn(`web: ${warning}`)
   if (config.web.openBrowser && config.web.browser === 'edge') {
@@ -87,12 +89,15 @@ export async function runWeb(args: readonly string[], root: string = repoRoot, e
     requireFile(config.web.browserPath, 'web.browserPath')
   }
   const directory = mkdtempSync(join(tmpdir(), 'dsh-web-launch-'))
+  writePnpmShim(directory, pnpm)
+  const hostEnv = { ...commandEnv(context), ...runner.env }
+  hostEnv.PATH = `${directory}${delimiter}${hostEnv.PATH ?? ''}`
   const stdoutPath = join(directory, 'stdout.log')
   const stderrPath = join(directory, 'stderr.log')
   let interrupted = false
   let stopped: Promise<void> | undefined
   const started = startToFiles(runner.command, runner.build(['web', '--patch', patch, '--no-open', ...parsed.forward]), {
-    cwd: root, env: { ...commandEnv(context), ...runner.env }, verbatim: runner.verbatim, stdoutPath, stderrPath,
+    cwd: root, env: hostEnv, verbatim: runner.verbatim, stdoutPath, stderrPath,
   })
   // webDsh unwraps recognized shims: the child is the Node Host itself, not a
   // cmd.exe wrapper. Use the same lifecycle helper as L4/L5.
@@ -118,6 +123,7 @@ export async function runWeb(args: readonly string[], root: string = repoRoot, e
     await stop()
     rmSync(stdoutPath, { force: true })
     rmSync(stderrPath, { force: true })
+    rmSync(join(directory, process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'), { force: true })
     rmdirSync(directory)
   }
 }

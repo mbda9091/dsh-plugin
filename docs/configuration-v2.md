@@ -1,6 +1,6 @@
 # 本机配置 v2：字段、命令与迁移
 
-M1 实现协议（2026-10-31）。对应[环境计划 M1](development-environment-plan.md#52-第一步把工具开发环境安装目的地分开配置)。M2 的锁定依赖、M3 的开发生命周期、M5/M6 的产物验收与目标管理尚未交付。
+M1/M2 实现协议（2026-10-31）。对应[环境计划](development-environment-plan.md)。M2 已加入锁定开发依赖与工具检查；M3 的开发生命周期、M5/M6 的产物验收与目标管理尚未交付。
 
 ## 字段归属
 
@@ -9,7 +9,7 @@ M1 实现协议（2026-10-31）。对应[环境计划 M1](development-environmen
 | 字段 | 类型 / 初始值 | 用途与必填条件 |
 |---|---|---|
 | `version` | `2` | 必填；v1 只能显式迁移，未知版本拒绝 |
-| `tools.pnpmScript` | 路径或 `null` | 必填字段；打包、安装和包含包契约的测试使用时必须指向 `pnpm.cjs` |
+| `tools.pnpmScript` | 路径或 `null` | 必填字段；使用时必须指向 pnpm 包的 `bin/pnpm.cjs`，包版本与根 `packageManager` 相同 |
 | `web.browser` / `browserPath` | `edge` / 路径或 `null` | 开发 Web 偏好；浏览器还支持 `default`，只在启动浏览器时验证可执行文件 |
 | `web.openBrowser` / `startupTimeoutMs` | `true` / `30000` | 开发 Web；超时为 1–2147483647 的整数毫秒 |
 | `test.browser` / `browserPath` | `chrome` / 路径或 `null` | 测试偏好；支持 Playwright 管理的 `chromium`，只有 L5/CI 需要浏览器 |
@@ -21,7 +21,23 @@ M1 实现协议（2026-10-31）。对应[环境计划 M1](development-environmen
 | `targets[].surface` / `platform` | `desktop` 或 `web` / `windows` 或 `mac` | 必填；目标选择是一组完整字段 |
 | `legacy.dshCli` | 路径或 `null` | 只保留 v1 待核对信息；任何命令都不将其当作宿主或目标 |
 
-所有对象拒绝未知字段。Node 来自当前进程；开发 DSH 只解析根 `devDependencies` 精确版本对应的 `node_modules/@deepseek-ai/dsh` 的公开 `bin`。缺失或版本不符时报 M2 准备错误，不查询 PATH、不回退到 `legacy.dshCli`。本阶段不安装开发 DSH。
+所有对象拒绝未知字段。入口要求普通 Node 24；编译器、pnpm、开发 DSH 都由当前 `process.execPath` 执行。开发 DSH 只解析根 `devDependencies` 精确版本对应的 `node_modules/@deepseek-ai/dsh` 的公开 `bin`（当前为 `lib/bin.js`）。缺失或版本不符提示 `pnpm install --frozen-lockfile`，不查询 PATH、不回退到 `legacy.dshCli`。正式目标拒绝 workspace DSH 及其链接别名；Electron 目标保留自己的引擎。
+
+## 工具准备（M2）
+
+先由调用方准备普通 Node 24 和 `packageManager` 指定的 pnpm `11.28.5`，再冻结安装。仓库不自动下载或切换 Node/pnpm；不扫描 Codex/DSH 私有 runtime。
+
+```text
+pnpm install --frozen-lockfile
+node scripts/bootstrap.mjs config init --pnpm-script <pnpm包绝对路径>/bin/pnpm.cjs
+node scripts/bootstrap.mjs config check
+```
+
+通过 `npm install --global pnpm@11.28.5` 准备的 pnpm，其包位于 `npm root -g` 输出目录下的 `pnpm`。init 未指定脚本时仅检查 PATH 上 npm 的 Windows prefix、Unix prefix/lib 和 pnpm 脚本链接布局；Corepack/独立二进制不作为脚本入口，无法发现时保持 null 并提示显式选择。版本不符不自动改装。
+
+`config check` 读取磁盘配置，附加 Node/pnpm/DSH 的版本、实际路径、来源与使用范围；缺少可选工具只显示 unavailable，不阻断结构检查或迁移。pnpm 版本来自所选包清单，DSH 版本来自根声明与安装清单的比对；真实 CLI 和内部 pnpm 执行由 real 套件单独验证。Web/安装/L4/L5 必须配置 pnpm，并通过临时 PATH shim 供 DSH 内部调用；build 不需要浏览器或 pnpm。只有消费某工具的命令才强制检查它。
+
+锁定依赖的安装脚本策略见 `pnpm-workspace.yaml`：允许 esbuild、node-pty、koffi 和 DSH spawn-helper 准备；明确拒绝已发布纯 JS 包的非必需脚本。开启 peer 自动解析并锁定，因为公开 DSH 需要这些宿主服务才能启动。插件交付仍不含 DSH、Node 或 workspace 依赖。
 
 `web` 只表示开发浏览器偏好，不包含个人 YAML。开发数据地址由上下文固定为 `.local/dsh-dev/home`、`store`、profile `web`；Web patch 地址为 `.local/dsh-dev/cordis.patch.yml`。M3 将交付数据初始化和生命周期；M1 不自动导入或生成个人 patch，受管 patch 缺失会明确失败。
 
@@ -32,7 +48,7 @@ M1 实现协议（2026-10-31）。对应[环境计划 M1](development-environmen
 | 命令 | 上下文与参数 | 环境变量 |
 |---|---|---|
 | `config init` | 只创建 JSON；支持 `--dry-run`、`--pnpm-script`、`--browser`、`--browser-path`、`--test-browser`、`--test-browser-path`、`--test-timeout` | 不把临时 DSH/pnpm/browser 覆盖保存回配置；允许使用系统位置发现浏览器 |
-| `config check` | 只校验磁盘 v2 和事务状态；不接受覆盖、不要求 DSH/pnpm 已安装 | 不使用运行时覆盖 |
+| `config check` | 校验磁盘 v2/事务状态，输出工具诊断；不接受覆盖、不要求 DSH/pnpm 已安装 | 不使用运行时覆盖 |
 | `config migrate [--dry-run]` | 只读取磁盘旧值；不依赖 DSH/pnpm，不启动工具探测 | 不使用运行时覆盖 |
 | `build`、`pack`、`test` | 工具上下文；`--pnpm-script` | `DSH_PNPM` |
 | `web` | 开发上下文；`--open/--no-open`、`--browser`、`--browser-path`、`--startup-timeout`、`--host`、`--port` | `DSH_PNPM`；无浏览器变量覆盖 |
@@ -40,6 +56,7 @@ M1 实现协议（2026-10-31）。对应[环境计划 M1](development-environmen
 | `l4`、`l5`、`ci` | 测试上下文；`--pnpm-script`、`--test-browser`、`--test-browser-path`、`--timeout`、`--keep` | `DSH_PNPM`、`DSH_E2E_BROWSER`、`CHROME_PATH` |
 | `stable-install`、`status` | 目标上下文；`--target NAME`，或完整的 `--dsh-cli PATH --home DIR --profile NAME --surface desktop\|web --platform windows\|mac`，两种方式互斥 | 仅 `DSH_PNPM`；不从环境变量拼目标 |
 | `test-env --suite fast` | 无本机配置依赖；可用 `--keep` 保留成功 fixture | 不从个人配置获得被测值 |
+| `test-env --suite real\|all` | 无本机配置依赖；显式 `--pnpm-script PATH`，可用 `--keep`；需网络、Git 和 tar | 不从个人配置获得被测值；子进程使用独立 home/store/userconfig |
 | `catalog`、`check-targets` | 无本机配置依赖 | 无目标选择 |
 
 `DSH_CLI`、`DSH_HOME`、`DSH_PROFILE`、`DSH_PROFILE_DIR`、`DSH_WEB_URL` 不再重定向上述命令。子进程清理这些变量以及 npm/pnpm store 覆盖和 Electron 标志，再由用途上下文填入选定地址。旧变量本身不会触发错误；不适用的显式目标参数会报错。`l4 --home` 仅代表新的仓库 `.tmp` 测试目录，不是正式目标 home。`--` 不能绕过 Web 参数校验。
@@ -70,6 +87,8 @@ node scripts/bootstrap.mjs config check
 
 ## 独立验证
 
-`test-env --suite fast` 只编译 `test/tsconfig.environment.json`，运行 CFG-01–06，报告及每组证据写入 `.tmp/environment-tests/run-*/`。不要求 init、插件 build、DSH 或浏览器。成功清理 fixture、失败保留、`--keep` 保留成功现场；子进程总是停止。缺用例证据、skip、清理失败都会失败。`real` 尚待 M2，因此 `real` / `all` 在 M1 明确返回失败，不伪造空套件成功。
+`test-env --suite fast` 只编译 `test/tsconfig.environment.json`，运行 CFG-01–06 和 TOOL-01/02/03/05。报告及每组证据写入 `.tmp/environment-tests/run-*/`。不要求 init、插件 build、DSH 执行或浏览器。成功清理 fixture、失败保留、`--keep` 保留成功现场；缺用例证据、skip、清理失败都会失败。
 
-两平台 CI fast 独立运行，不先 init。本阶段功能 CI 在临时 runner 中额外准备精确版本 workspace DSH，以适配新解析契约并继续 L1–L5 回归；这不证明 M2 的锁文件冻结安装。M2 将移除该过渡步骤并提交开发依赖。
+`test-env --suite real --pnpm-script <path>` 执行 TOOL-04，包含 TOOL-03/05 的真实断言：导出 Git 跟踪及未忽略的当前源码（不复制本机配置、产物或 node_modules），在独立用户目录/store 中冻结安装，探测公开 CLI、profile 初始化及内部 pnpm，构建并检查 notify-web tarball。选定 pnpm 包复制进临时工具目录，子进程 PATH 无全局 DSH/私有 runtime；不安装或切换用户工具。`TOOL-04-details.json` 记录版本、Node 调用轨迹、步骤与包内容。`all` 合并两套用例，不代表 M3–M6 已验收。
+
+两平台 CI 分别运行 fast 与 real，不预先初始化本机配置；功能 CI 直接使用锁定 workspace DSH，已移除全局 DSH 与临时 add 过渡步骤。报告不自动上传。平台通过与否以实际 CI 结果为准。

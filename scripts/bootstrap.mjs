@@ -11,6 +11,11 @@ const here = dirname(fileURLToPath(import.meta.url))
 const repo = dirname(here)
 const tsc = join(repo, 'node_modules', 'typescript', 'bin', 'tsc')
 
+if (process.versions.node.split('.')[0] !== '24' || process.versions.electron !== undefined) {
+  console.error(`ordinary Node 24 required; current Node ${process.versions.node}; select Node 24 explicitly`)
+  process.exit(1)
+}
+
 if (!existsSync(tsc)) {
   console.error('typescript is not installed. Run `pnpm install` first.')
   process.exit(1)

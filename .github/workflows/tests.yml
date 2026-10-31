@@ -24,8 +24,29 @@ jobs:
           node-version: '24'
       - run: npm install --global pnpm@11.28.5
       - run: pnpm install --frozen-lockfile
-      # No local config initialization, DSH, browser, or plugin build.
+      # No local config initialization, host execution, browser, or plugin build.
       - run: node scripts/bootstrap.mjs test-env --suite fast
+
+  environment-real:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - run: npm install --global pnpm@11.28.5
+      - run: pnpm install --frozen-lockfile
+      # Real suite exports clean source, freezes again in a fresh store/home,
+      # probes public DSH and its internal pnpm, then inspects a real plugin tgz.
+      - run: node scripts/bootstrap.mjs test-env --suite real --pnpm-script "$(npm root -g)/pnpm/bin/pnpm.cjs"
 
   test:
     strategy:
@@ -46,17 +67,12 @@ jobs:
           node-version: '24'
       - name: Install pinned toolchain
         run: |
-          npm install --global pnpm@11.28.5 @deepseek-ai/dsh@0.2.1-rc.2
+          npm install --global pnpm@11.28.5
           echo "DSH_PNPM=$(npm root -g)/pnpm/bin/pnpm.cjs" >> "$GITHUB_ENV"
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
       - name: Initialize runner-local configuration
         run: node scripts/bootstrap.mjs config init --pnpm-script "$DSH_PNPM" --browser default --test-browser chromium
-      # M1 transition only: supply the new workspace resolution contract in the
-      # disposable runner. M2 will commit this exact dependency in the lockfile;
-      # this preparation is not evidence of M2's frozen clean-install scenario.
-      - name: Prepare transitional workspace DSH for functional regression
-        run: pnpm add --workspace-root --save-dev --save-exact --lockfile=false @deepseek-ai/dsh@0.2.1-rc.2
       - name: Install matching Chromium
         run: node node_modules/playwright-core/cli.js install chromium
       - name: Type check and L1-L5 (shared local entry)

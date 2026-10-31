@@ -17,10 +17,10 @@
 
 ## 准备环境
 
-- DeepSeek Harness：当前开发与类型依赖版本为 **`0.2.1-rc.2`**。
+- DeepSeek Harness：当前开发与类型依赖版本为 **`0.2.1-rc.2`**，开发宿主由 workspace 冻结安装，无需全局 DSH；正式桌面应用单独管理。
 - Node.js **24**、pnpm **11.28.5**；下面的依赖安装命令要求 pnpm 在 PATH 中可用。
 
-统一入口为 `node scripts/bootstrap.mjs <command>`。Node 24 需要在 PATH 中，或使用 Node 可执行文件的绝对路径启动；仓库不再提供 PowerShell 启动脚本，也不通过 `DSH_NODE` 选择运行时。首次运行 `config init` 会发现 DSH、pnpm 和浏览器位置；日常命令使用已保存的配置。DSH 版本升级时，应同步核对类型包与运行时接口。
+统一入口为 `node scripts/bootstrap.mjs <command>`。普通 Node 24 需要在 PATH 中，或使用其绝对路径启动；不通过 `DSH_NODE` 选择运行时。编译器、pnpm 和开发 DSH 使用当前 Node。`config init` 只从 PATH 发现 pnpm 包脚本及系统浏览器，不扫描私有 runtime；无法发现时显式提供 `--pnpm-script <pnpm包>/bin/pnpm.cjs`。例如用 npm 全局安装指定 pnpm 后，包位于 `npm root -g` 输出目录下。准备说明和 v1 迁移见 [配置 v2](docs/configuration-v2.md)。
 
 ```sh
 git clone https://github.com/mbda9091/dsh-plugin.git
@@ -32,7 +32,9 @@ node scripts/bootstrap.mjs build
 
 构建会检查插件场景声明、插件目录和 TypeScript 类型，生成各插件的 `lib/`。`lib/`、`dist/` 和 `node_modules/` 均不入库。
 
-`pnpm-workspace.yaml` 中的 `allowBuilds` 仅允许 esbuild 执行安装脚本，让本机与 CI 的依赖安装无需交互审批。新增需要安装脚本的依赖时，应单独检查并更新该清单。
+`pnpm-workspace.yaml` 显式决定依赖安装脚本，允许 esbuild 和 DSH 所需的 node-pty、koffi、spawn-helper 准备，拒绝非必需脚本。peer 依赖随宿主解析并锁定，否则公开 DSH 缺少启动服务。新增需要安装脚本的依赖时，应单独检查并更新该清单。
+
+`config check` 输出工具版本、实际入口、来源及使用范围。独立环境测试使用 `test-env --suite fast`；真实冻结安装与宿主/pnpm/包内容探测使用 `test-env --suite real --pnpm-script <路径>`，不读取本机配置。M3 开发数据初始化和启停管理仍待实施。
 
 ## 安装到桌面应用
 

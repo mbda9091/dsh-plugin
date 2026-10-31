@@ -7,7 +7,7 @@ import { repoRoot } from '../core/repo.js'
 import { digest } from '../core/config-transaction.js'
 
 /** Deliberately dispatched before local configuration loading. */
-export async function runTestEnv(suite: string, keep: boolean): Promise<number> {
+export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: string): Promise<number> {
   if (!['fast', 'real', 'all'].includes(suite)) throw new Error('--suite must be fast, real or all')
   const base = join(repoRoot, '.tmp/environment-tests')
   mkdirSync(base, { recursive: true })
@@ -23,40 +23,41 @@ export async function runTestEnv(suite: string, keep: boolean): Promise<number> 
     }
   }
   for (const directory of ['scripts/src', 'test/src/environment']) fingerprint(join(repoRoot, directory))
-  for (const path of ['scripts/config/schema.json', 'scripts/config/schema.v1.json', 'test/src/harness/environment.ts', 'pnpm-lock.yaml']) sources[path] = digest(readFileSync(join(repoRoot, path)))
+  for (const path of ['scripts/bootstrap.mjs', 'package.json', 'pnpm-workspace.yaml', 'scripts/config/schema.json', 'scripts/config/schema.v1.json', 'test/src/harness/environment.ts', 'pnpm-lock.yaml']) sources[path] = digest(readFileSync(join(repoRoot, path)))
   const report = { version: 1, suite, platform: process.platform, node: process.version, nodePath: process.execPath,
     source: digest(JSON.stringify(sources)), sourceFiles: sources,
     typescript: JSON.parse(readFileSync(join(repoRoot, 'node_modules/typescript/package.json'), 'utf8')).version as string,
     started: new Date().toISOString(), ended: '', status: 'failed', results, cleanup: 'per-case evidence', reason: '' }
   const oldRun = process.env.DSH_ENV_TEST_RUN
   const oldKeep = process.env.DSH_ENV_TEST_KEEP
+  const oldPnpm = process.env.DSH_ENV_TEST_PNPM
+  const expected = [...(suite !== 'real' ? ['CFG-01', 'CFG-02', 'CFG-03', 'CFG-04', 'CFG-05', 'CFG-06', 'TOOL-01', 'TOOL-02', 'TOOL-03', 'TOOL-05'] : []), ...(suite !== 'fast' ? ['TOOL-04'] : [])]
   try {
     const compiled = spawnSync(process.execPath, [join(repoRoot, 'node_modules/typescript/bin/tsc'), '-p', join(repoRoot, 'test/tsconfig.environment.json')], { stdio: 'inherit' })
     if (compiled.error || compiled.status !== 0) throw new Error('environment test compilation failed; prepare workspace dependencies with pnpm install --frozen-lockfile')
-    if (suite === 'real') throw new Error('real environment suite is not implemented until M2; no real evidence')
+    if (pnpmScript) process.env.DSH_ENV_TEST_PNPM = pnpmScript
     process.env.DSH_ENV_TEST_RUN = directory
     process.env.DSH_ENV_TEST_KEEP = keep ? '1' : '0'
-    const folder = join(repoRoot, 'test/.build-env/environment/fast')
-    const files = readdirSync(folder).filter(name => name.endsWith('.test.js')).map(name => join(folder, name))
+    const folders = suite === 'all' ? ['fast', 'real'] : [suite]
+    const files = folders.flatMap(kind => { const folder = join(repoRoot, 'test/.build-env/environment', kind); return readdirSync(folder).filter(name => name.endsWith('.test.js')).map(name => join(folder, name)) })
     const stream = run({ files, isolation: 'none', concurrency: 1 })
     for await (const raw of stream) {
       const event = raw as TestEvent
       if (event.type !== 'test:pass' && event.type !== 'test:fail') continue
       const { data } = event
-      const id = /^CFG-\d+/.exec(data.name)?.[0]
+      const id = /^(?:CFG|TOOL)-\d+/.exec(data.name)?.[0]
       if (!id) continue
       const status = event.type === 'test:fail' ? 'fail' : data.skip ? 'skip' : 'pass'
       results.push({ id, name: data.name, status, durationMs: data.details.duration_ms ?? 0, evidence: `${id}.json` })
       console.log(`test-env: ${status} ${data.name}`)
       if (event.type === 'test:fail') console.error(event.data.details.error)
     }
-    for (const id of ['CFG-01', 'CFG-02', 'CFG-03', 'CFG-04', 'CFG-05', 'CFG-06']) {
+    for (const id of expected) {
       if (!results.some(result => result.id === id && result.status === 'pass')) throw new Error(`missing passing evidence: ${id}`)
       const evidence: unknown = JSON.parse(readFileSync(join(directory, `${id}.json`), 'utf8'))
       if (!evidence || typeof evidence !== 'object' || !('passed' in evidence) || evidence.passed !== true) throw new Error(`incomplete assertion/cleanup evidence: ${id}`)
     }
     if (results.some(result => result.status !== 'pass')) throw new Error('environment tests failed or skipped')
-    if (suite === 'all') throw new Error('fast complete; real suite pending M2; all cannot pass')
     report.status = 'passed'
     return 0
   } catch (error) {
@@ -66,6 +67,7 @@ export async function runTestEnv(suite: string, keep: boolean): Promise<number> 
   } finally {
     if (oldRun === undefined) delete process.env.DSH_ENV_TEST_RUN; else process.env.DSH_ENV_TEST_RUN = oldRun
     if (oldKeep === undefined) delete process.env.DSH_ENV_TEST_KEEP; else process.env.DSH_ENV_TEST_KEEP = oldKeep
+    if (oldPnpm === undefined) delete process.env.DSH_ENV_TEST_PNPM; else process.env.DSH_ENV_TEST_PNPM = oldPnpm
     report.ended = new Date().toISOString()
     writeFileSync(reportPath, JSON.stringify(report, null, 2))
     console.log(`test-env: report ${reportPath}`)

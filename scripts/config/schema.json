@@ -33,7 +33,7 @@
             "null"
           ],
           "pattern": "\\S",
-          "description": "Path to pnpm.cjs; optional for Web startup."
+          "description": "Path to the prepared pnpm package bin/pnpm.cjs; version must match root packageManager. No automatic private-runtime discovery or tool downloads."
         }
       }
     },

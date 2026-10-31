@@ -3,9 +3,16 @@ packages:
   - 'packages/*'
 
 nodeLinker: hoisted
-autoInstallPeers: false
+# The public DSH host imports its declared peer services at runtime. Resolve
+# that closure into the lockfile so clean installations can boot the CLI.
+autoInstallPeers: true
 
 # pnpm 11 requires an explicit decision for dependency lifecycle scripts.
 # esbuild's postinstall validates/prepares its platform-specific executable.
 allowBuilds:
   esbuild: true
+  '@deepseek-ai/dsh-subprocess-local': true # restore macOS spawn-helper executable bit
+  node-pty: true # select shipped platform prebuilds
+  koffi: true # select shipped FFI prebuilds
+  '@google/genai': false # published JS; preinstall is a no-op
+  protobufjs: false # published JS; optional postinstall is not needed

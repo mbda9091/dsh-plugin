@@ -24,7 +24,7 @@ const TARGET_OPTIONS = { target: { type: 'string' }, 'dsh-cli': { type: 'string'
 const USAGE = `Usage: node scripts/bootstrap.mjs <command> [options]
 
   config init [--dry-run] | check | migrate [--dry-run]   Manage v2 disk configuration
-  test-env --suite fast|real|all [--keep]  Independent environment tests (M1: fast)
+  test-env --suite fast|real|all [--keep] [--pnpm-script PATH]  CFG/TOOL tests; real needs prepared pnpm
   web [--help] [DSH web options]       Start managed development Web (M2/M3 prerequisites)
   build [--check]                     Build/type-check plugins
   pack [--skip-build]                 Build and package plugins into dist/
@@ -58,8 +58,8 @@ export async function main(argv: string[]): Promise<number> {
   try {
     switch (command) {
       case 'test-env': {
-        const { values } = parseArgs({ args: rest, options: { suite: { type: 'string', default: 'fast' }, keep: { type: 'boolean', default: false } } })
-        return runTestEnv(values.suite, values.keep)
+        const { values } = parseArgs({ args: rest, options: { ...TOOL_OPTIONS, suite: { type: 'string', default: 'fast' }, keep: { type: 'boolean', default: false } } })
+        return runTestEnv(values.suite, values.keep, values['pnpm-script'])
       }
       case 'config': {
         const { values } = parseArgs({ args: rest.slice(1), options: {

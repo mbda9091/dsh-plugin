@@ -1,7 +1,8 @@
 import { existsSync, writeFileSync } from 'node:fs'
 import { configPaths, loadRepoConfig, readConfigFile, resolveConfig } from '../core/config.js'
 import type { ConfigOverrides, ResolvedConfig } from '../core/config.js'
-import { discoverBrowser, requireFile, requirePnpm } from '../core/config-tools.js'
+import { discoverBrowser, discoverPnpm, requireFile, requirePnpm } from '../core/config-tools.js'
+import { checkNode, checkPnpm, expectedPnpm, pnpmVersion, workspaceDsh } from '../core/toolchain.js'
 import { assertConfigReady, safeConfigPath } from '../core/config-transaction.js'
 import { migrateConfig } from '../core/config-migration.js'
 import { repoRoot } from '../core/repo.js'
@@ -25,8 +26,12 @@ export function initializeConfig(
   const resolved = resolveConfig(readConfigFile(paths.example, paths.schema), root, paths.schema, {}, options, 'example.json')
   const { config, sources } = resolved
   const warnings: string[] = []
-  if (config.tools.pnpmScript !== null) requirePnpm(config.tools.pnpmScript)
-  else warnings.push('pnpm.cjs not configured; use --pnpm-script PATH for commands that need it (tool discovery follows in M2)')
+  if (config.tools.pnpmScript === null) {
+    config.tools.pnpmScript = discoverPnpm(null, env)
+    if (config.tools.pnpmScript !== null) sources['tools.pnpmScript'] = 'PATH package discovery'
+  }
+  if (config.tools.pnpmScript !== null) checkPnpm(requirePnpm(config.tools.pnpmScript), root)
+  else warnings.push('pnpm.cjs not configured; prepare the root packageManager version and use --pnpm-script PATH (no private runtime discovery)')
 
   if (config.web.browserPath !== null) requireFile(config.web.browserPath, 'web.browserPath')
   else if (config.web.browser === 'edge') {
@@ -57,6 +62,24 @@ export function checkConfig(root: string = repoRoot, env: NodeJS.ProcessEnv = pr
   return { resolved, warnings: [] as string[] }
 }
 
+/** Independent diagnostics: absent optional tools are reported, never block migration/build. */
+export function toolDiagnostics(root: string, pnpm: string | null): string[] {
+  const lines: string[] = []
+  const probe = (name: string, requires: string, read: () => string) => {
+    try { lines.push(`${name}: ${read()}; required by ${requires}`) }
+    catch (error) { lines.push(`${name}: unavailable (${error instanceof Error ? error.message : 'probe failed'}); required by ${requires}`) }
+  }
+  probe('Node', 'all commands', () => { checkNode(); return `${process.version} @ ${process.execPath} [current process]` })
+  probe('pnpm', 'web/pack/install/L2/L4/L5/real environment tests', () => {
+    if (pnpm === null) throw new Error(`select bin/pnpm.cjs for pnpm@${expectedPnpm(root)}`)
+    const entry = checkPnpm(requirePnpm(pnpm), root)
+    return `${pnpmVersion(entry)} @ ${entry} [disk tools.pnpmScript; current Node]`
+  })
+  probe('DSH', 'development/L4/L5/real environment tests', () => { const dsh = workspaceDsh(root); return `${dsh.version} @ ${dsh.source} [workspace devDependency; current Node]` })
+  lines.push('browser: required only by L5 (selected by test.browser/browserPath); not required for build/config migration')
+  return lines
+}
+
 export function runConfig(action: string, options: ConfigOverrides & { dryRun?: boolean }): number {
   if (action === '--help' || action === '-h') {
     console.log('Usage: node scripts/bootstrap.mjs config init [--dry-run] | check | migrate [--dry-run]; init options: [--pnpm-script <path>] [--browser edge|default] [--browser-path <path>] [--test-browser chrome|chromium] [--test-browser-path <path>] [--test-timeout <ms>]')
@@ -83,6 +106,7 @@ export function runConfig(action: string, options: ConfigOverrides & { dryRun?: 
     const { dryRun: _dryRun, ...overrides } = options
     const result = checkConfig(repoRoot, process.env, overrides)
     printSources(result.resolved)
+    for (const line of toolDiagnostics(repoRoot, result.resolved.config.tools.pnpmScript)) console.log(`tools: ${line}`)
     for (const warning of result.warnings) console.warn(`config: ${warning}`)
     console.log('config: v2 disk structure checked; tools and targets are checked by commands that use them')
     return result.warnings.length === 0 ? 0 : 1

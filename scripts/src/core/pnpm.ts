@@ -1,22 +1,24 @@
-import { chmodSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { chmodSync, existsSync, mkdirSync, realpathSync, writeFileSync } from 'node:fs'
+import { delimiter, dirname, join } from 'node:path'
 import { envValue } from './config.js'
 
 /** Discovery is for config init only. Runtime commands use configuredPnpm. */
 export function discoverPnpmScript(env: NodeJS.ProcessEnv): string | null {
-  const homes = [envValue(env, 'DSH_HOME'), join(homedir(), '.dsh')].filter(
-    (home, index, all): home is string => Boolean(home) && all.indexOf(home) === index,
-  )
   const candidates: string[] = []
-  for (const home of homes) {
-    const runtimes = join(home, 'dsh-runtimes')
-    if (!existsSync(runtimes)) continue
-    for (const entry of readdirSync(runtimes, { withFileTypes: true })) {
-      if (entry.isDirectory()) candidates.push(join(runtimes, entry.name, 'dependencies/pnpm/bin/pnpm.cjs'))
+  for (const directory of (envValue(env, 'PATH') ?? '').split(delimiter).filter(Boolean)) {
+    // npm's Windows prefix and Unix prefix/bin layouts. Resolve symlinks,
+    // never execute shell wrappers, Corepack or standalone pnpm binaries.
+    candidates.push(join(directory, 'node_modules/pnpm/bin/pnpm.cjs'), join(directory, '../lib/node_modules/pnpm/bin/pnpm.cjs'))
+    for (const name of ['pnpm', 'pnpm.cjs']) {
+      const entry = join(directory, name)
+      try {
+        const actual = realpathSync(entry)
+        if (actual.endsWith('/pnpm.cjs') || actual.endsWith('\\pnpm.cjs')) candidates.push(actual)
+        candidates.push(join(dirname(actual), '../pnpm/bin/pnpm.cjs'))
+      } catch { /* Missing PATH entries are not errors. */ }
     }
   }
-  return candidates.sort().find(path => existsSync(path)) ?? null
+  return candidates.find(path => existsSync(path)) ?? null
 }
 
 /** DSH's plugin manager also invokes pnpm; make it use the selected script. */

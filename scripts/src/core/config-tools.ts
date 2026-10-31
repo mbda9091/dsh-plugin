@@ -1,9 +1,10 @@
-import { existsSync, readFileSync, statSync } from 'node:fs'
-import { delimiter, join } from 'node:path'
+import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { delimiter, isAbsolute, join, relative, resolve } from 'node:path'
 import { resolveDsh } from './dsh-cli.js'
 import type { DshRunner } from './dsh-cli.js'
 import { envValue } from './config.js'
 import { discoverPnpmScript } from './pnpm.js'
+import { repoRoot } from './repo.js'
 
 export function requireFile(path: string, field: string): string {
   try { if (statSync(path).isFile()) return path } catch { /* Report the field, not file contents. */ }
@@ -23,8 +24,22 @@ export function webDsh(path: string, env: NodeJS.ProcessEnv = process.env): DshR
   throw new Error('tools.dshCli: unrecognized CLI engine; select a plain-Node DSH CLI with --dsh-cli')
 }
 
-export function discoverDsh(explicit: string | null, env: NodeJS.ProcessEnv): { path: string; source: string } {
-  if (explicit !== null) { webDsh(explicit, env); return { path: explicit, source: 'configured' } }
+export function assertExternalDsh(path: string, root: string, env: NodeJS.ProcessEnv): void {
+  const runner = resolveDsh({ env: { ...env, DSH_CLI: path } })
+  const local = join(root, 'node_modules')
+  const roots = [resolve(local)]
+  for (const directory of [local, join(local, '@deepseek-ai/dsh')]) {
+    try { roots.push(realpathSync(directory)) } catch { /* Unprepared workspace. */ }
+  }
+  const paths = [resolve(path), ...runner.build([]).filter(value => isAbsolute(value))]
+  for (const candidate of [...paths]) { try { paths.push(realpathSync(candidate)) } catch { /* Electron asar. */ } }
+  if (paths.some(candidate => roots.some(base => { const rel = relative(base, candidate); return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel)) }))) {
+    throw new Error('target.dshCli: workspace development DSH cannot be a formal target (including linked aliases)')
+  }
+}
+
+export function discoverDsh(explicit: string | null, env: NodeJS.ProcessEnv, root = repoRoot): { path: string; source: string } {
+  if (explicit !== null) { assertExternalDsh(explicit, root, env); webDsh(explicit, env); return { path: explicit, source: 'configured' } }
   const candidates: Array<{ path: string; source: string }> = []
   for (const directory of (envValue(env, 'PATH') ?? '').split(delimiter).filter(Boolean)) {
     for (const name of process.platform === 'win32' ? ['dsh.cmd', 'dsh.exe', 'dsh.bat'] : ['dsh']) {
@@ -37,7 +52,7 @@ export function discoverDsh(explicit: string | null, env: NodeJS.ProcessEnv): { 
   const rejected: string[] = []
   for (const candidate of candidates) {
     if (!existsSync(candidate.path)) continue
-    try { webDsh(candidate.path, env); return candidate } catch (error) {
+    try { assertExternalDsh(candidate.path, root, env); webDsh(candidate.path, env); return candidate } catch (error) {
       rejected.push(`${candidate.path}: ${error instanceof Error ? error.message : 'unrecognized CLI'}`)
     }
   }

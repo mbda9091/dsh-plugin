@@ -4,7 +4,7 @@
 
 > 概念与机制（bundle / patch / profile 的定义、安装与配置流程）见 [docs/dsh-concepts.md](docs/dsh-concepts.md)。本文件只讲规则，那份文档解释"为什么"。
 
-> M1 配置协议已升级为 v2，字段、命令适用表和恢复步骤见 [docs/configuration-v2.md](docs/configuration-v2.md)。仓库命令不再从日常 DSH 环境变量推断宿主或安装目的地；外部 dsh CLI 自身的参数规则不变。M2/M3 尚未准备时，开发命令明确报错，不回退日常宿主。
+> M1 配置协议已升级为 v2，M2 已锁定 workspace 开发 DSH；字段、命令适用表和恢复步骤见 [docs/configuration-v2.md](docs/configuration-v2.md)。仓库命令不再从日常 DSH 环境变量推断宿主或安装目的地；外部 dsh CLI 自身的参数规则不变。缺少 workspace 依赖或 M3 受管开发数据时明确报错，不回退日常宿主。
 
 ## 1. 仓库定位
 
@@ -27,9 +27,9 @@
 
 **这些值属于不同用途**：从命令上下文统一解析和向下传递，不在内部函数里重新从环境猜测。日常 DSH/profile/Web/store 变量从开发/测试子进程清理；父环境不变。
 
-本机可能同时存在普通 Node 和 Electron 版 `dsh`。**Web 必须用普通 Node 版**。开发 Web 与 L4/L5 只取 workspace 精确声明的开发 DSH；M2 尚未准备时停止。正式安装的 `--dsh-cli` 只能与完整 home/profile/surface/platform 一起使用，或改用 `--target NAME`；`DSH_CLI` 不再覆盖仓库命令。
+本机可能同时存在普通 Node 和 Electron 版 `dsh`。**Web 必须用普通 Node 版**。开发 Web 与 L4/L5 只取 workspace 精确声明的开发 DSH；依赖缺失时停止并提示冻结安装。正式安装的 `--dsh-cli` 只能与完整 home/profile/surface/platform 一起使用，或改用 `--target NAME`；`DSH_CLI` 不再覆盖仓库命令。Web、安装及 L4/L5 都用临时 PATH shim 保证 DSH 内部 pnpm 使用选定脚本与当前 Node。
 
-先准备 Node 24 和 workspace 依赖。以下命令假定 Node 在 PATH 中；否则使用已安装 Node 的绝对路径调用 bootstrap，不能依赖已移除的 `.ps1` 或 `DSH_NODE` 自动定位：
+先准备普通 Node 24、`packageManager` 指定的 pnpm 11.28.5，再运行 `pnpm install --frozen-lockfile`。编译器、pnpm 和开发 DSH 的 Node 入口统一使用 `process.execPath`；pnpm 脚本必须属于对应版本包的 `bin/pnpm.cjs`，不自动下载或扫描私有 runtime。init 可从 PATH 的 npm 包布局发现，其他布局显式指定 `--pnpm-script`。以下命令假定 Node 在 PATH 中；否则使用已安装 Node 的绝对路径调用 bootstrap，不能依赖已移除的 `.ps1` 或 `DSH_NODE` 自动定位：
 
 ```powershell
 # 首次使用先初始化，其他工具读取本机配置
@@ -40,8 +40,8 @@ node scripts/bootstrap.mjs config migrate
 node scripts/bootstrap.mjs build
 node scripts/bootstrap.mjs build --check
 
-# 临时跑脚本（Node 24）
-$node = "$env:USERPROFILE\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\node\bin\node.exe"
+# 不在 PATH 时显式选择已安装的普通 Node 24
+$node = '<Node24安装目录>\node.exe'
 & $node --version
 
 # dsh CLI（管理插件；desktop 的合成配置不能用 --dump-config 读取，
@@ -463,7 +463,7 @@ node scripts/bootstrap.mjs status --target daily
   - `node scripts/bootstrap.mjs build` 重新构建
   - `node scripts/bootstrap.mjs build --check` 只做类型检查
   - `node scripts/bootstrap.mjs ci` 运行完整本地检查（类型检查 → L1–L3 → L4 → L5），失败即停止；汇总在 `.tmp/ci/last-report.json`。需要 workspace 开发 DSH（M2）；不接受 `--dsh-cli` / `DSH_CLI` 重定向。该入口不提交、推送或上传产物。
-  - `node scripts/bootstrap.mjs test-env --suite fast` 独立验证配置/迁移，不要求本机配置健康、DSH 或插件 build；报告在 `.tmp/environment-tests/`。M1 只实现 fast，real/all 明确报未准备。
+  - `node scripts/bootstrap.mjs test-env --suite fast` 独立验证 CFG-01–06 与 TOOL-01/02/03/05，不要求本机配置健康、DSH 执行或插件 build；报告在 `.tmp/environment-tests/`。`--suite real --pnpm-script <path>` 在干净源码副本中冻结安装、探测 DSH/内部 pnpm 并构建检查代表插件包，覆盖 TOOL-04 及 TOOL-03/05 的真实断言；`all` 合并两套，M3–M6 不在该通过范围。
   - `node scripts/bootstrap.mjs test` 先构建，再编译并运行 L1–L3；`node scripts/bootstrap.mjs l4` 跑真实 `dsh web` 的 L4 harness（慢、需要本机 DSH）
   - 普通终端且 `node` 在 PATH 上时，也可以用根 `package.json` 的 `pnpm build` / `pnpm check` / `pnpm catalog` / `pnpm status` / `pnpm test`；**DSH 沙箱内不要用 `pnpm run`**（它会用管道 spawn 子进程，被沙箱拒绝后会卡住），直接用 `node scripts/bootstrap.mjs <cmd>`。
   - 脚本层自身也会先被编译到 `scripts/.build/`（不入库）；`scripts/bootstrap.mjs` 是唯一手写 JS

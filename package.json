@@ -21,6 +21,7 @@
     "test:e2e:web": "node scripts/bootstrap.mjs l5"
   },
   "devDependencies": {
+    "@deepseek-ai/dsh": "0.2.1-rc.2",
     "@local/notify-core": "workspace:*",
     "@local/notify-host": "workspace:*",
     "@types/node": "^24.0.0",
