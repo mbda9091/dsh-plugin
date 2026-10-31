@@ -36,7 +36,13 @@ it('CFG-01 strict v2 schema, defaults only on init, no implicit target', () => e
 
 it('CFG-02 command contexts and fake CLI ignore daily destination variables', () => environmentCase('CFG-02', async f => {
   f.write(); const entry = f.fake(); const before = snapshot(f.personal)
-  const env = { ...process.env, dsh_cli: 'personal-cli', DSH_HOME: f.personal, dsh_profile: 'daily', DSH_PROFILE_DIR: f.personal, dsh_web_url: 'secret', PNPM_CONFIG_STORE_DIR: f.personal, dsh_pnpm: 'env-pnpm', chrome_path: 'env-browser', dsh_e2e_browser: 'chromium' }
+  const overrides = { dsh_cli: 'personal-cli', DSH_HOME: f.personal, dsh_profile: 'daily', DSH_PROFILE_DIR: f.personal, dsh_web_url: 'secret', PNPM_CONFIG_STORE_DIR: f.personal, dsh_pnpm: 'env-pnpm', chrome_path: 'env-browser', dsh_e2e_browser: 'chromium' }
+  const env = { ...process.env }
+  // The CI job exports uppercase tool settings. Remove all casing variants
+  // before installing this fixture's deliberate lowercase overrides.
+  const controlled = new Set(Object.keys(overrides).map(key => key.toUpperCase()))
+  for (const key of Object.keys(env)) if (controlled.has(key.toUpperCase())) delete env[key]
+  Object.assign(env, overrides)
   const saved = { ...env }; const original = readFileSync(f.paths.local)
   for (const purpose of ['tools', 'development', 'test'] as const) {
     const context = loadCommandContext({ pnpmScript: 'flag-pnpm' }, f.root, env, purpose)
