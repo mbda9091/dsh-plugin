@@ -47,7 +47,7 @@ export function webArguments(args: readonly string[]): { overrides: ConfigOverri
   return { overrides, forward, help }
 }
 
-async function openBrowser(config: RepoConfig['web'], url: string, env: NodeJS.ProcessEnv): Promise<void> {
+export async function openBrowser(config: RepoConfig['web'], url: string, env: NodeJS.ProcessEnv): Promise<void> {
   let command: string
   let args: string[]
   if (config.browser === 'edge') {
@@ -73,8 +73,9 @@ export async function runWeb(args: readonly string[], root: string = repoRoot, e
   const action = ['init', 'start', 'status', 'stop', 'reset'].includes(args[0] ?? '') ? args[0]! : 'start'
   const rest = args[0] === action ? args.slice(1) : args
   if (rest.includes('--help') || rest.includes('-h')) {
-    console.log('Usage: node scripts/bootstrap.mjs web [init|start|status|stop|reset]')
+    console.log('Usage: node scripts/bootstrap.mjs dev-web [init|start|status|stop|reset]')
     console.log('start (default): [--open|--no-open] [--browser edge|default] [--browser-path PATH] [--startup-timeout MS] [--port PORT] [--host 127.0.0.1|::1|localhost]')
+    console.log('Development Web uses .local/dsh-dev/home and an OS-assigned port by default; daily Web uses web (3080).')
     console.log('reset: preview by default; --yes stops the owned instance and deletes only managed data. init/start never import personal configuration.')
     return 0
   }
@@ -84,7 +85,7 @@ export async function runWeb(args: readonly string[], root: string = repoRoot, e
     const p = developmentPaths(root)
     validateDevelopmentPaths(context)
     if (action === 'status') {
-      if (!existsSync(p.directory)) { console.log('development: uninitialized; run web init'); return 0 }
+      if (!existsSync(p.directory)) { console.log('development: uninitialized; run dev-web init'); return 0 }
       validateDevelopmentTree(context)
       console.log(`development: ${await developmentStatus(context)}`)
       return existsSync(join(p.profile, 'package.json')) ? runStatus({}, context) : 0
@@ -95,10 +96,10 @@ export async function runWeb(args: readonly string[], root: string = repoRoot, e
       if (action === 'init') { initializeDevelopment(context); console.log(`development initialized: ${p.directory}`); return 0 }
       validateDevelopmentTree(context)
       console.log(`reset scope: ${p.directory} (home, logs, patch and management records; legacy local caches if present, never shared stores); verified plugin links are unlinked, source is retained`)
-      if (!rest.includes('--yes')) { console.log('preview only; execute with web reset --yes'); return 0 }
+      if (!rest.includes('--yes')) { console.log('preview only; execute with dev-web reset --yes'); return 0 }
       await stopDevelopment(context)
       removeDevelopment(context)
-      console.log('development reset; run web init to recreate')
+      console.log('development reset; run dev-web init to recreate')
       return 0
     } finally { release() }
   }
@@ -118,7 +119,7 @@ export async function runWeb(args: readonly string[], root: string = repoRoot, e
   const signal = (): void => { interrupted = true; void stop().catch(() => {}) }
   try {
     if (existsSync(p.runtime)) throw new Error(`development instance already recorded: ${await developmentStatus(context)}`)
-    const port = parsed.forward.includes('--port') ? Number(parsed.forward[parsed.forward.indexOf('--port') + 1]) : 3000
+    const port = parsed.forward.includes('--port') ? Number(parsed.forward[parsed.forward.indexOf('--port') + 1]) : 0
     const host = parsed.forward.includes('--host') ? parsed.forward[parsed.forward.indexOf('--host') + 1]! : '127.0.0.1'
     await checkDevelopmentPort(port, host)
     initializeDevelopment(context)

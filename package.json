@@ -9,6 +9,7 @@
     "check": "node scripts/bootstrap.mjs build --check",
     "config": "node scripts/bootstrap.mjs config",
     "web": "node scripts/bootstrap.mjs web",
+    "dev-web": "node scripts/bootstrap.mjs dev-web",
     "pack": "node scripts/bootstrap.mjs pack",
     "verify-artifacts": "node scripts/bootstrap.mjs verify-artifacts",
     "dev-install": "node scripts/bootstrap.mjs dev-install",

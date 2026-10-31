@@ -9,6 +9,7 @@ import { digest, safeConfigPath } from '../core/config-transaction.js'
 import { assertEnvironmentResults, environmentIds } from '../core/environment-results.js'
 import { redactLaunchTokens } from '../core/web-harness.js'
 import { failureAnnotation } from '../core/github-annotations.js'
+import { sourceState } from '../core/artifacts.js'
 
 function reportFailure(detail: string): void {
   const message = redactLaunchTokens(detail)
@@ -35,9 +36,11 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
       else sources[relative(repoRoot, path)] = digest(readFileSync(path))
     }
   }
-  for (const directory of ['scripts/src', 'test/src']) fingerprint(join(repoRoot, directory))
+  for (const directory of ['scripts/src', 'test/src', 'packages/daily-launcher/src']) fingerprint(join(repoRoot, directory))
   for (const path of ['scripts/bootstrap.mjs', 'package.json', 'pnpm-workspace.yaml', 'scripts/config/schema.json', 'scripts/config/schema.v1.json', 'test/src/harness/environment.ts', 'test/src/harness/development.ts', 'test/src/harness/isolation.ts', 'profiles/web/cordis.dev.patch.yml', 'pnpm-lock.yaml']) sources[path] = digest(readFileSync(join(repoRoot, path)))
+  const revision = sourceState(repoRoot)
   const report = { version: 1, suite, selected: expected, platform: process.platform, node: process.version, nodePath: process.execPath,
+    commit: revision.commit, dirty: revision.dirty,
     source: digest(JSON.stringify(sources)), sourceFiles: sources,
     typescript: JSON.parse(readFileSync(join(repoRoot, 'node_modules/typescript/package.json'), 'utf8')).version as string,
     started: new Date().toISOString(), ended: '', status: 'failed', results, cleanup: 'per-case evidence', reason: '' }
@@ -64,7 +67,7 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
       const event = raw as TestEvent
       if (event.type !== 'test:pass' && event.type !== 'test:fail') continue
       const { data } = event
-      const id = /^(?:CFG|TOOL|DEV|ISO|ART|TGT)-\d+(?:-real)?/.exec(data.name)?.[0]
+      const id = /^(?:CFG|TOOL|DEV|ISO|ART|TGT|DLY)-\d+(?:-real)?/.exec(data.name)?.[0]
       if (!id) continue
       const status = event.type === 'test:fail' ? 'fail' : data.skip ? 'skip' : 'pass'
       results.push({ id, name: data.name, status, durationMs: data.details.duration_ms ?? 0, evidence: `${id}.json` })

@@ -51,7 +51,7 @@ it('L3 Web startup timeout redacts diagnostics and terminates the server', async
       console.error('failure at http://127.0.0.1/?token=private-test-token');
       setInterval(() => {}, 1000);
     `)
-    await assert.rejects(runWeb(['--no-open', '--startup-timeout', '1000'], f.root, {
+    await assert.rejects(runWeb(['--no-open', '--port', '0', '--startup-timeout', '1000'], f.root, {
       ...process.env, DSH_CLI: '', DSH_PNPM: '', CHROME_PATH: '', DSH_E2E_BROWSER: '', TEST_CAPTURE: capture,
     }), error => error instanceof Error && /did not print a URL/.test(error.message)
       && !error.message.includes('private-test-token'))

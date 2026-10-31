@@ -2,6 +2,12 @@
 
 M1–M6 实现协议（2026-10-31）。对应[环境计划](development-environment-plan.md)。M5 绑定固定产物与验收记录，M6 提供明确目标管理、安装预览和逐包交付报告；实际平台验收范围见计划中的实施记录。
 
+日常独立运行 S1–S3 增加 `daily-launcher prepare|deploy --target NAME --destination <绝对外部目录>` 和 `stable-install --archive-root <绝对外部归档目录>`。独立入口与外部配置 v1 的使用及恢复见 [启动器说明](../packages/daily-launcher/README.md)，实施与验收见 [日常隔离方案](daily-environment-isolation-plan.md)。本机入口切换属于 S4。
+
+`prepare` 只在仓库 `dist/daily-launcher` 写候选；`deploy --dry-run` 只读；`deploy` 保留旧 release，原子选择发行件及不可变配置快照，并在仓库 `.local/dsh-daily/<target>/deployment.json` 保存便利入口定位。部署后的 `web` 委托独立入口，但 bootstrap 仍依赖仓库；外部 `bin/dshweb.ps1` / shell 函数才是仓库离线入口。未部署的目标保留原仓库 Web 管理流程。
+
+`--archive-root` 保留原有源码/构建/目标/验收门禁，安装前在外部按批次复制原 manifest、所选 tarball 和原成功记录；不同字节拒绝覆盖。安装从外部副本执行 add/update，并检查 manifest spec、lockfile specifier/version/tarball/integrity、实际目录、包内文件哈希及 bundle/row。安装前 spec/真实路径和逐包结果同时写入仓库报告及归档父目录 `receipts/run-*/report.json`；文件安装、加载和能力仍分别记录，归档不产生新的能力证据。归档/receipt 写入失败返回失败，不宣称交付完成；不回滚已安装包。`dev-install` 拒绝该参数，测试/开发清理不回收这些外部来源。
+
 ## 字段归属
 
 配置位置为 `scripts/config/local.json`，相对路径始终以仓库根解析。运行时不补缺字段、不覆盖旧文件；初始化默认值来自 [example](../scripts/config/example.json)，校验依据为 [schema](../scripts/config/schema.json)。
@@ -14,7 +20,7 @@ M1–M6 实现协议（2026-10-31）。对应[环境计划](development-environm
 | `web.openBrowser` / `startupTimeoutMs` | `true` / `30000` | 开发 Web；超时为 1–2147483647 的整数毫秒 |
 | `test.browser` / `browserPath` | `chrome` / 路径或 `null` | 测试偏好；支持 Playwright 管理的 `chromium`，只有 L5/CI 需要浏览器 |
 | `test.timeoutMs` | `120000` | 测试操作超时，取值范围同上 |
-| `targets` | 完整目标对象数组，默认 `[]` | 必填；空数组是合法开发配置，无默认选中目标 |
+| `targets` | 完整目标对象数组，默认 `[]` | 必填；空数组是合法开发配置；日常 `web` 默认选择名为 `daily` 的目标，安装仍须显式选择 |
 | `targets[].name` | 唯一标签 | ASCII 字母或数字开头，后续允许字母、数字、`_`、`-` |
 | `targets[].dshCli` / `home` | 非空路径 | 目标 CLI 和数据根；不从环境变量补齐 |
 | `targets[].profile` | profile 名 | 同 name 字符规则，不允许目录穿越 |
@@ -40,28 +46,36 @@ node scripts/bootstrap.mjs config check
 
 锁定依赖的安装脚本策略见 `pnpm-workspace.yaml`：允许 esbuild、node-pty、koffi 和 DSH spawn-helper 准备；明确拒绝已发布纯 JS 包的非必需脚本。开启 peer 自动解析并锁定，因为公开 DSH 需要这些宿主服务才能启动。插件交付仍不含 DSH、Node 或 workspace 依赖。
 
-`web` 配置字段只表示开发浏览器偏好，不包含个人 YAML。开发数据固定为 `.local/dsh-dev/home`、profile `web`；patch 为 `.local/dsh-dev/cordis.patch.yml`。`web init`、首次 `web` 或 `dev-install` 通过锁定 DSH 的公开 `--profile web --dump-config` 初始化，并从独立的 `profiles/web/cordis.dev.patch.yml` 生成开发 patch。重复初始化不覆盖已有设置，不导入个人 patch、模型凭据或审批规则。
+`web` 配置字段表示日常与开发的浏览器/启动超时偏好，不包含个人 YAML。开发数据固定为 `.local/dsh-dev/home`、profile `web`；patch 为 `.local/dsh-dev/cordis.patch.yml`。`dev-web init`、首次 `dev-web` 或 `dev-install` 通过锁定 DSH 的公开 `--profile web --dump-config` 初始化，并从独立的 `profiles/web/cordis.dev.patch.yml` 生成开发 patch。重复初始化不覆盖已有设置，不导入个人 patch、模型凭据或审批规则。
+
+## 日常 Web 默认入口
+
+> 当前边界：以下是已实现的仓库入口协议，`dshweb` 目前仍调用仓库 bootstrap 并现场编译脚本，不能保证仓库不可用时日常仍能启动。本机日常插件去源码 link 也尚未完成。独立启动器、外部固定包来源和迁移计划见[日常环境独立运行方案](daily-environment-isolation-plan.md)；其中拟新增接口尚不可用。
+
+`node scripts/bootstrap.mjs web`（本机 `dshweb`）默认选择已配置的 `daily` Web 目标，监听 `127.0.0.1:3080`。通过 `target bind daily --dsh-cli <外部普通Node版CLI> --home <原日常home> --profile web --surface web --platform windows` 明确绑定；macOS 使用 `--platform mac`。可用 `web --target NAME` 选择其他完整 Web 目标。启动重验目标身份，拒绝 Electron、workspace DSH、未初始化 profile、开发/测试路径重叠以及继承变量重定向；缺少 daily 绑定直接失败，不创建另一套空历史。
+
+日常启动不构建/安装插件，不应用仓库开发 patch，不迁移/复制历史或凭据；宿主正常使用已有 profile/home 层配置。`web status/stop` 通过自己的受认证控制接口管理本入口持有的子进程，停止保留数据；`web init/reset` 明确拒绝。管理记录/日志/pnpm shim 仅写 `.local/dsh-daily/<目标名>/`，数据仍在目标 home。不同 Node 引擎路径会触发绑定身份检查，使用正常终端的 Node 执行 bind 和 web；不自动重绑。开发、测试仍使用 workspace DSH。
 
 ## 持久开发环境（M3）
 
 ```text
-node scripts/bootstrap.mjs web init
+node scripts/bootstrap.mjs dev-web init
 node scripts/bootstrap.mjs dev-install
-node scripts/bootstrap.mjs web --no-open --port 3000
+node scripts/bootstrap.mjs dev-web --no-open
 # 另一个终端
-node scripts/bootstrap.mjs web status
-node scripts/bootstrap.mjs web stop
-node scripts/bootstrap.mjs web reset
-node scripts/bootstrap.mjs web reset --yes
+node scripts/bootstrap.mjs dev-web status
+node scripts/bootstrap.mjs dev-web stop
+node scripts/bootstrap.mjs dev-web reset
+node scripts/bootstrap.mjs dev-web reset --yes
 ```
 
-`web`/`web start` 前台运行，默认 `127.0.0.1:3000`；只允许 loopback，`--port 0` 可选空闲端口。启动须通过 URL 与 HTTP 就绪检查；端口被占或 DSH 改选端口则失败，不停止占用者。运行期间保留 supervisor，另一个终端通过本地、带随机令牌的控制端口请求状态/停止。PID 仅供诊断，不凭 PID 发信号；supervisor 只停止自己持有的子进程。正常停止保留数据，退出清除运行记录。
+`dev-web`/`dev-web start` 前台运行，默认 `127.0.0.1` 加随机空闲端口（`--port 0`）；只允许 loopback，显式 `--port` 可覆盖。L4/L5 测试继续使用独立 `.tmp/<suite>/run-*` 数据及 `--port 0`，不复用日常或开发环境的 home。启动须通过 URL 与 HTTP 就绪检查；指定端口被占或 DSH 改选端口则失败，不停止占用者。运行期间保留 supervisor，另一个终端通过本地、带随机令牌的控制端口请求状态/停止。PID 仅供诊断，不凭 PID 发信号；supervisor 只停止自己持有的子进程。正常停止保留数据，退出清除运行记录。
 
 目录含 `owner.json`（真实仓库根、用途、环境 ID、已知插件链接）、`runtime.json`（运行 ID、supervisor/child PID、控制端口/令牌）、`home/`、`logs/`、`bin/` 和开发 patch，全部被 `.local/` 忽略。原始日志可能含启动令牌，保持本地。创建、复用和重置验证祖先路径与 symlink/junction；开发、`.tmp`、所有配置目标 home 不得相等或互为父子。对尚不存在的目标也检查最近已有祖先的真实位置。
 
 `dev-install` 默认先构建，再初始化和 add/update，验证 profile 的 `link:` spec 与实际链接均指向预期插件；不删除依赖。操作锁 `.local/dsh-dev.lock` 防止初始化、安装、启动与重置相互竞争。开发子进程沿用系统 npm/pnpm 配置、registry、代理、证书、缓存、store 和状态；不修改父环境或全局配置。所有环境统一使用系统包管理设置，不创建专属包管理目录，也不读取 `.modules.yaml` 来选择或覆盖 store；不提供旧 store 兼容、迁移或自动重装。
 
-`web reset` 默认仅列范围，`--yes` 执行：检查目录归属及整棵树 → 请求自己的实例停止 → 再核对路径和归属 → 按 lstat 逐项清理。已登记插件链接只解除链接本身，不递归到源码；未知外部链接、缺失/错误归属或无法验证的进程身份都阻止清理。不要用 `pnpm remove`。
+`dev-web reset` 默认仅列范围，`--yes` 执行：检查目录归属及整棵树 → 请求自己的实例停止 → 再核对路径和归属 → 按 lstat 逐项清理。已登记插件链接只解除链接本身，不递归到源码；未知外部链接、缺失/错误归属或无法验证的进程身份都阻止清理。不要用 `pnpm remove`。
 
 异常退出后可能保留锁或运行记录。先查看本地日志与记录，人工证明 supervisor **和 child** 均已退出，再移除对应锁/`runtime.json` 后重试；不能仅凭 PID 不存在或端口空闲认定可回收。仓库搬迁导致 owner 的真实根不一致时不自动认领，先在原位置停止/重置；无法回原位置时先保存数据并人工核对归属。外部编辑器不受操作锁约束，管理操作期间不要替换目录或修改管理记录。
 
@@ -75,8 +89,9 @@ node scripts/bootstrap.mjs web reset --yes
 | `config check` | 校验磁盘 v2/事务状态，输出工具诊断；不接受覆盖、不要求 DSH/pnpm 已安装 | 不使用运行时覆盖 |
 | `config migrate [--dry-run]` | 只读取磁盘旧值；不依赖 DSH/pnpm，不启动工具探测 | 不使用运行时覆盖 |
 | `build`、`pack`、`test` | 工具上下文；`--pnpm-script` | `DSH_PNPM` |
-| `web [start]` | 开发上下文；`--open/--no-open`、`--browser`、`--browser-path`、`--startup-timeout`、loopback `--host`、`--port` | `DSH_PNPM`；无浏览器变量覆盖 |
-| `web init/status/stop/reset` | 开发上下文；仅 reset 接受 `--yes`；status 同时显示开发插件安装状态 | `DSH_PNPM` 仅 init 需要 |
+| `web [start]/status/stop` | 日常目标上下文；默认 `daily`，可传 `--target NAME`；start 支持浏览器、超时、loopback `--host`、`--port`，默认 3080；无 init/reset | `DSH_PNPM`；不继承 DSH 目的地变量 |
+| `dev-web [start]` | 开发上下文；`--open/--no-open`、`--browser`、`--browser-path`、`--startup-timeout`、loopback `--host`、`--port`，默认随机端口 | `DSH_PNPM`；无浏览器变量覆盖 |
+| `dev-web init/status/stop/reset` | 开发上下文；仅 reset 接受 `--yes`；status 同时显示开发插件安装状态 | `DSH_PNPM` 仅 init 需要 |
 | `dev-install` | 开发上下文；只安装开发 home；`--pnpm-script`、`--dry-run`、`--skip-build`、`--all` | `DSH_PNPM` |
 | `l4`、`l5`、`ci`、`verify-artifacts` | 测试上下文；L4/L5 可传 `--manifest`，verify-artifacts 必传且支持 `--check`；`--pnpm-script`、`--test-browser`、`--test-browser-path`、`--timeout`、`--keep` | `DSH_PNPM`、`DSH_E2E_BROWSER`、`CHROME_PATH` |
 | `stable-install`、`status` | 目标上下文；`--target NAME`，或完整的 `--dsh-cli PATH --home DIR --profile NAME --surface desktop\|web --platform windows\|mac`，两种方式互斥 | 仅 `DSH_PNPM`；不从环境变量拼目标 |
@@ -114,11 +129,11 @@ node scripts/bootstrap.mjs config check
 
 `test-env` 不支持 `--timeout`，显式传入时报错；各环境用例使用自身超时。`l4/l5/ci/verify-artifacts` 的 `--timeout` 保持原语义。
 
-`test-env --suite fast` 只编译 `test/tsconfig.environment.json`，运行 CFG、TOOL、DEV、ISO、ART 和 TGT-01/02/03/05/06，共 28 项。DEV/ISO 使用假宿主、真实受控子进程和本地 HTTP。报告及每组证据写入 `.tmp/environment-tests/run-*/`；不要求个人配置、插件 build、真实 DSH 或浏览器。成功清理 fixture、失败保留、`--keep` 保留成功现场；缺证据、skip、清理失败都会失败。`--only ISO-01,ISO-02` 可选择当前 suite 的已实现用例，报告明确记录 selected，不代表完整阶段验收。
+`test-env --suite fast` 只编译 `test/tsconfig.environment.json`，运行 CFG、TOOL、DEV、ISO、ART 和 TGT-01/02/03/05/06；Windows 另含 DLY-01/02/03/04/06，共 33 项，其他平台 28 项。DEV/ISO/DLY 使用假宿主、真实受控子进程和本地 HTTP。报告及每组证据写入 `.tmp/environment-tests/run-*/`；不要求个人配置、插件 build、真实 DSH 或浏览器。成功清理 fixture、失败保留、`--keep` 保留成功现场；缺证据、skip、清理失败都会失败。`--only ISO-01,ISO-02` 可选择当前 suite 的已实现用例，报告明确记录 selected，不代表完整阶段验收。
 
 `test-env --suite real --pnpm-script <path>` 执行 TOOL-04，包含 TOOL-03/05 的真实断言：导出 Git 跟踪及未忽略的当前源码（不复制本机配置、产物或 node_modules），在独立用户目录/store 中冻结安装，探测公开 CLI、profile 初始化及内部 pnpm，构建并检查 notify-web tarball。选定 pnpm 包复制进临时工具目录，子进程 PATH 无全局 DSH/私有 runtime；不安装或切换用户工具。`TOOL-04-details.json` 记录版本、Node 调用轨迹、步骤与包内容。
 
-real 另执行 DEV-03、ISO-01-real/02-real/03/05、ART-01/02-real/04-real/05-real/06/07，以及 TGT-04/05-real/06-real，共 15 项；all 合计 43 项。DEV 使用临时开发环境；TGT 另准备真实普通 Node DSH，CLI 实际入口与 home 分开，包管理 store 允许共享，真实验收 fixture tarball 后交付。ART-04-real/06 需要显式测试浏览器（`--test-browser chromium` 或 `--test-browser-path <Chrome>`），验证固定 notify-web tarball 的真实 L4/L5。仅记录实际执行的平台，不证明桌面能力。
+real 另执行 DEV-03、ISO-01-real/02-real/03/05、ART-01/02-real/04-real/05-real/06/07，以及 TGT-04/05-real/06-real；Windows 另含 DLY-05，共 16 项，all 合计 49 项，其他平台为 15/43 项。DEV 使用临时开发环境；TGT/DLY 另准备真实普通 Node DSH，CLI 实际入口与 home 分开，包管理 store 允许共享，真实验收 fixture tarball 后交付。ART-04-real/06 需要显式测试浏览器（`--test-browser chromium` 或 `--test-browser-path <Chrome>`），验证固定 notify-web tarball 的真实 L4/L5。仅记录实际执行的平台，不证明桌面能力。
 
 两平台 CI 分别运行 fast 与 real，不预先初始化本机配置；完整 `ci` 先运行环境 all，再运行类型检查和 L1–L5。CI 报告只引用本次环境/L4/L5 的独立报告路径，并检查完整用例集合、逐项结果和清理证据；退出 0 但缺报告、缺项、重复、skip 或写报告失败均不通过。环境入口不回调整条 ci。报告不自动上传，平台通过与否以实际执行结果为准。
 

@@ -46,6 +46,9 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     assert.equal(existsSync(f.paths.local), false)
     assert.equal(existsSync(f.paths.patch), false)
     run(init)
+    assert.match(run(['web', '--no-open'], 1).stderr, /unknown named target/)
+    assert.equal(existsSync(join(f.root, '.local/dsh-dev')), false)
+    assert.match(run(['dev-web', '--help']).stdout, /OS-assigned port/)
     const before = [f.paths.local].map(path => readFileSync(path, 'utf8'))
     run(init)
     for (const name of ['app-restart', 'approval-allowlist', 'desktop-notify', 'notify-web']) mkdirSync(join(f.root, name, 'lib'), { recursive: true })
@@ -68,7 +71,7 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     `)
     run([...install, '--skip-build'], 7)
     assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')).args, ['plugin', '--profile', 'web', 'add', join(f.root, 'alpha')])
-    run(['web', '--no-open', '--port', '0', '--host', '127.0.0.1'], 7)
+    run(['dev-web', '--no-open', '--port', '0', '--host', '127.0.0.1'], 7)
     assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')), {
       args: ['web', '--patch', patch, '--no-open', '--host', '127.0.0.1', '--port', '0'], cwd: f.root,
     })

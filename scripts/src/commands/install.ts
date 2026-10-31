@@ -18,6 +18,7 @@ export interface InstallOptions extends TargetOptions {
   readonly all: boolean
   readonly manifest?: string | undefined
   readonly only?: string | undefined
+  readonly archiveRoot?: string | undefined
 }
 
 /** Plan before side effects: a missing later archive must not leave a partially
@@ -26,6 +27,7 @@ export interface InstallOptions extends TargetOptions {
 export async function runInstall(options: InstallOptions, context: CommandContext = loadCommandContext()): Promise<number> {
   validateDevelopmentPaths(context)
   if (options.mode === 'tarball') return runArtifactInstall(options, context)
+  if (options.archiveRoot) throw new Error('--archive-root is only for tarball installation')
   if (options.manifest) throw new Error('--manifest is only for tarball installation')
   if (options.only) throw new Error('--only is only for tarball installation')
   if (options.dryRun) return install(options, context)

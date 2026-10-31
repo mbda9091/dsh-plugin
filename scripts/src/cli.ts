@@ -12,6 +12,8 @@ import { runCi } from './commands/ci.js'
 import { runConfig } from './commands/config.js'
 import { runTestEnv } from './commands/test-env.js'
 import { runWeb } from './commands/web.js'
+import { runDailyWeb } from './commands/daily-web.js'
+import { runDailyLauncher } from './commands/daily-launcher.js'
 import { runPack } from './commands/pack.js'
 import { runInstall } from './commands/install.js'
 import { runTarget } from './commands/target.js'
@@ -28,13 +30,15 @@ const USAGE = `Usage: node scripts/bootstrap.mjs <command> [options]
 
   config init [--dry-run] | check | migrate [--dry-run]   Manage v2 disk configuration
   test-env --suite fast|real|all [--only ID,ID] [--keep] [--pnpm-script PATH]  CFG/TOOL/DEV/ISO/ART/TGT tests (per-case deadlines; no --timeout)
-  web [init|start|status|stop|reset]   Managed development Web; reset previews, --yes executes
+  web [start|status|stop|check] [--target NAME] Daily Web; delegates after deployment (repository convenience entry)
+  daily-launcher prepare|deploy --target NAME --destination PATH [--dry-run] Independent Windows launcher
+  dev-web [init|start|status|stop|reset] Managed development Web (random port); reset previews
   build [--check]                     Build/type-check plugins
   pack [--skip-build]                 Build immutable batch; --skip-build requires matching source/output record
   verify-artifacts --manifest PATH [--check] [--keep]   Verify fixed tarballs; durable Web evidence
   dev-install [--skip-build]          Initialize development profile, build/install/verify links
   target discover|list|show NAME|bind NAME|unbind NAME   Manage explicit formal targets
-  stable-install --manifest PATH [--only @local/name,...] Install verified compatible tarballs
+  stable-install --manifest PATH [--only @local/name,...] [--archive-root PATH] Install verified compatible tarballs
     [--profile <name>] [--surface desktop|web] [--platform windows|mac] [--dry-run]
   status --target <name>             Read an explicitly selected target
   test [--only l1,l2,l3] [--skip-build] Run L1-L3
@@ -56,7 +60,7 @@ export async function main(argv: string[]): Promise<number> {
   const command = argv[0]
   const rest = argv.slice(1)
   if (command === undefined) { console.error(USAGE); return 1 }
-  if (['help', '--help', '-h'].includes(command) || (command !== 'web' && rest.includes('--help'))) {
+  if (['help', '--help', '-h'].includes(command) || (!['web', 'dev-web'].includes(command) && rest.includes('--help'))) {
     console.log(USAGE)
     return 0
   }
@@ -90,7 +94,9 @@ export async function main(argv: string[]): Promise<number> {
           testTimeoutMs: parseTimeout(values['test-timeout']),
         })
       }
-      case 'web': return await runWeb(rest)
+      case 'web': return await runDailyWeb(rest)
+      case 'daily-launcher': return await runDailyLauncher(rest)
+      case 'dev-web': return await runWeb(rest)
       case 'build': {
         const { values } = parseArgs({ args: rest, options: { ...TOOL_OPTIONS, check: { type: 'boolean', default: false } } })
         return await runBuild({ check: values.check }, settings(values))
@@ -109,7 +115,7 @@ export async function main(argv: string[]): Promise<number> {
         const { values } = parseArgs({ args: rest, options: {
           ...TOOL_OPTIONS, ...TARGET_OPTIONS, 'dry-run': { type: 'boolean', default: false },
           'skip-build': { type: 'boolean', default: false }, all: { type: 'boolean', default: false },
-          manifest: { type: 'string' }, only: { type: 'string' },
+          manifest: { type: 'string' }, only: { type: 'string' }, 'archive-root': { type: 'string' },
         } })
         return await runInstall({
           mode: command === 'dev-install' ? 'link' : 'tarball', profile: values.profile,
@@ -117,6 +123,7 @@ export async function main(argv: string[]): Promise<number> {
           skipBuild: values['skip-build'], dryRun: values['dry-run'],
           manifest: values.manifest,
           only: values.only,
+          archiveRoot: values['archive-root'],
         }, settings(values, command === 'dev-install' ? 'development' : 'target'))
       }
       case 'status': {

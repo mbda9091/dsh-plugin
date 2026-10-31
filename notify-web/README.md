@@ -100,7 +100,7 @@ Web GUI 左侧 **Plugins（插件）** 页 → 安装 → 填本目录的绝对�
 
 安装后刷新页面，插件会立即尝试申请通知权限；允许浏览器通知即可。若未显示授权提示，可点击页面触发一次补充请求。
 
-在本仓库的日常 Web 环境中，安装记录由插件管理器维护。先用 `node scripts/bootstrap.mjs config init` 生成本机配置，通知参数统一放在被 Git 忽略的 `profiles/web/cordis.local.patch.yml`，再使用 `node scripts/bootstrap.mjs web`（或 `dshweb`）启动。修改该配置后需要重启 Web 服务，再刷新浏览器；不要将同一套日常参数另写进用户目录的 profile patch。详见 [Web 配置与启动说明](../profiles/web/README.md)。
+日常 Web 使用 `node scripts/bootstrap.mjs web`（或 `dshweb`）启动配置中绑定的 `daily` 目标，默认端口 3080；通知参数由该目标已有的 profile/home 配置层管理，旧 `profiles/web/cordis.local.patch.yml` 不会自动加载。开发调试使用 `dev-install` 与 `dev-web`，数据在 `.local/dsh-dev/home`，参数放在 `.local/dsh-dev/cordis.patch.yml`；不复制日常凭据或会话。Host 配置修改后需重启对应环境，再刷新浏览器。详见 [Web 配置与启动说明](../profiles/web/README.md)。
 
 ## 限制
 

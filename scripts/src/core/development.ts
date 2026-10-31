@@ -89,7 +89,7 @@ interface Owner {
 export function readDevelopmentOwner(context: CommandContext): Owner {
   validateDevelopmentPaths(context)
   const p = developmentPaths(context.root)
-  if (!existsSync(p.owner)) throw new Error('development ownership is missing; run web init for a new environment; never adopt existing data')
+  if (!existsSync(p.owner)) throw new Error('development ownership is missing; run dev-web init for a new environment; never adopt existing data')
   const value: unknown = JSON.parse(readFileSync(p.owner, 'utf8'))
   if (!isRecord(value) || value.version !== 1 || value.purpose !== 'dsh-development' || value.root !== realpathSync(context.root)
     || typeof value.id !== 'string' || !/^[a-f0-9-]{36}$/.test(value.id) || typeof value.initialized !== 'boolean'
@@ -135,7 +135,7 @@ export function initializeDevelopment(context: CommandContext): Owner {
     cwd: context.root, env: developmentEnvironment(context), timeoutMs: context.config.web.startupTimeoutMs,
     stdoutPath: join(p.logs, 'init.out.log'), stderrPath: join(p.logs, 'init.err.log'),
   })
-  if (result.status !== 0 || !result.stdout.includes('@deepseek-ai/dsh-web-app')) throw new Error(`development profile initialization failed; inspect ${p.logs}; retry web init`)
+  if (result.status !== 0 || !result.stdout.includes('@deepseek-ai/dsh-web-app')) throw new Error(`development profile initialization failed; inspect ${p.logs}; retry dev-web init`)
   owner.initialized = true
   validateDevelopmentPaths(context)
   writeFileSync(p.owner, JSON.stringify(owner, null, 2))

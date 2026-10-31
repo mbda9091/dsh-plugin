@@ -88,7 +88,7 @@ function readBuildSpec(dir: string): BuildSpec | undefined {
  *
  * @returns absolute path to the esbuild executable.
  */
-function resolveEsbuild(): string {
+export function resolveEsbuild(): string {
   const require = createRequire(import.meta.url)
   const platformPackage = `@esbuild/${process.platform}-${process.arch}`
   const packageDir = dirname(require.resolve(`${platformPackage}/package.json`))

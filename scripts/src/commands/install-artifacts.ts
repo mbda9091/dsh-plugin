@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
-import { delimiter, dirname, join, resolve } from 'node:path'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
+import { basename, delimiter, dirname, isAbsolute, join, resolve } from 'node:path'
+import { createHash } from 'node:crypto'
 import { artifactLock, assertArtifactsUnchanged, assertConsumed, copyArtifact, loadArtifacts } from '../core/artifacts.js'
 import { checkInstalledPackage } from '../core/artifact-package.js'
 import { readVerification } from '../core/artifact-verification.js'
@@ -14,6 +15,20 @@ import { redactLaunchTokens } from '../core/web-harness.js'
 import type { InstallOptions } from './install.js'
 import { parseDocument } from 'yaml'
 import { isRecord } from '../core/json.js'
+import { archiveArtifacts, archiveLocation, saveDailyReceipt } from '../core/daily-archive.js'
+import { plainPath, separateDaily } from '../core/daily-contract.js'
+
+export function checkDeliveryLock(directory: string, name: string, archive: string): void {
+  const doc = parseDocument(readFileSync(join(directory, 'pnpm-lock.yaml'), 'utf8'))
+  if (doc.errors.length) throw new Error('invalid delivered lockfile')
+  const lock = doc.toJS()
+  const dependency = lock?.importers?.['.']?.dependencies?.[name]
+  const location = (spec: unknown) => typeof spec === 'string' && spec.startsWith('file:') && resolve(directory, spec.slice(5)) === archive
+  if (!location(dependency?.specifier) || !location(dependency?.version)) throw new Error(`stale lockfile resolution: ${name}`)
+  const record = lock.packages?.[`${name}@${dependency.version}`]
+  const integrity = 'sha512-' + createHash('sha512').update(readFileSync(archive)).digest('base64')
+  if (!record?.resolution || !location(record.resolution.tarball) || record.resolution.integrity !== integrity || !lock.snapshots?.[`${name}@${dependency.version}`]) throw new Error(`lockfile does not resolve delivered archive: ${name}`)
+}
 
 export interface DeliveryPackage {
   name: string; sha256: string; selected: boolean; reason: string
@@ -22,6 +37,7 @@ export interface DeliveryPackage {
   bundle: 'unconfirmed' | 'registered'; loaded: 'unconfirmed' | 'restart-required' | 'failed'
   row: 'unconfirmed' | 'configured' | 'failed'
   capability: 'unverified'; warnings: string[]; error?: string
+  before?: { spec: string | null; actual: string | null }
 }
 export interface DeliveryReport {
   version: 1; batch: string; manifestSha256: string; startedAt: string; finishedAt?: string
@@ -65,6 +81,9 @@ export async function runArtifactInstall(options: InstallOptions, context: Comma
   }
   const initial = inspectTarget(context), release = artifactLock(context.root)
   try {
+    if (options.archiveRoot && !isAbsolute(options.archiveRoot)) throw new Error('--archive-root must be absolute')
+    const archiveRoot = options.archiveRoot ? resolve(options.archiveRoot) : undefined
+    if (archiveRoot) archiveLocation(context.root, initial.target.home, archiveRoot)
     const set = loadArtifacts(context.root, options.manifest), target = resolveTarget(initial.target)
     const names = options.only?.split(',')
     if (names && (!names.length || new Set(names).size !== names.length || names.some(name => !set.packages.has(name)))) throw new Error('--only must contain unique package names from the manifest')
@@ -88,24 +107,38 @@ export async function runArtifactInstall(options: InstallOptions, context: Comma
     const packages: DeliveryPackage[] = set.manifest.packages.map(p => ({ name: p.name, sha256: p.sha256, selected: selected.includes(p),
       reason: selected.includes(p) ? 'selected' : isTargetCompatible(p, target) ? 'not selected by --only' : 'incompatible surface/platform',
       status: selected.includes(p) ? 'not-attempted' : 'skipped', stage: 'preflight', bundle: 'unconfirmed', row: 'unconfirmed', loaded: 'unconfirmed', capability: 'unverified', warnings: [] }))
+    const beforeManifest = existsSync(join(directory, 'package.json')) ? JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8')) : {}
+    for (const p of packages.filter(p => p.selected)) {
+      let actual: string | null = null
+      try { actual = realpathSync(join(directory, 'node_modules', p.name)) } catch { /* absent before install */ }
+      p.before = { spec: typeof beforeManifest.dependencies?.[p.name] === 'string' ? redactLaunchTokens(beforeManifest.dependencies[p.name]) : null, actual }
+    }
     console.log(JSON.stringify({ target: initial.target, identity: initial.identity, host, manifest: set.path, manifestSha256: set.hash,
       coverage: evidence.coverage.filter(c => selected.some(p => p.name === c.name)),
       packages: packages.map(p => ({ ...p, path: join(dirname(set.path), set.manifest.packages.find(a => a.name === p.name)!.path), operations: p.selected ? ['dsh plugin add', 'pnpm update', 'verify spec/path/content/bundle'] : [] })),
-      inputsAndLogs: scratch, packageConfiguration: 'system', dryRun: options.dryRun }, null, 2))
+      inputsAndLogs: scratch, archiveRoot, persistentReceipts: archiveRoot ? join(dirname(archiveRoot), 'receipts') : undefined, packageConfiguration: 'system', dryRun: options.dryRun }, null, 2))
     if (options.dryRun) return 0
     const report: DeliveryReport = { version: 1, batch: set.manifest.batch, manifestSha256: set.hash, startedAt: new Date().toISOString(), status: 'installing', target: initial.target, identity: initial.identity, host, packageConfiguration: 'system', packages }
     const reportPath = join(scratch, 'report.json'), candidate = join(scratch, 'report.next.json')
-    const save = () => { safeConfigPath(context.root, reportPath); writeFileSync(candidate, JSON.stringify(report, null, 2) + '\n'); renameSync(candidate, reportPath) }
+    const save = () => {
+      safeConfigPath(context.root, reportPath); writeFileSync(candidate, JSON.stringify(report, null, 2) + '\n'); renameSync(candidate, reportPath)
+      if (archiveRoot) { archiveLocation(context.root, initial.target.home, archiveRoot); saveDailyReceipt(archiveRoot, basename(scratch), report) }
+    }
     const recheck = () => {
       if ((existsSync(configPath) ? digest(readFileSync(configPath)) : null) !== configHash) throw new Error('configuration changed during delivery; preview again')
       const next = inspectTarget(context)
       if (JSON.stringify(next.identity) !== JSON.stringify(initial.identity)) throw new Error('target real paths changed during delivery')
       assertArtifactsUnchanged(set); readVerification(set, target, host, selected.map(p => p.name))
+      if (archiveRoot) {
+        archiveLocation(context.root, initial.target.home, archiveRoot)
+        for (const p of packages) if (p.selected && p.archive) { plainPath(p.archive); if (digest(readFileSync(p.archive)) !== p.sha256) throw new Error('external archive changed during delivery') }
+      }
     }
     save(); onReport?.(reportPath)
     let active: DeliveryPackage | undefined
     try {
-      for (const p of selected) packages.find(r => r.name === p.name)!.archive = copyArtifact(set, p, join(scratch, 'inputs', p.path))
+      const archived = archiveRoot ? archiveArtifacts(set, selected, evidence, archiveRoot, initial.target.home) : undefined
+      for (const p of selected) packages.find(r => r.name === p.name)!.archive = archived?.get(p.name) ?? copyArtifact(set, p, join(scratch, 'inputs', p.path))
       save()
       for (const [index, p] of selected.entries()) {
         active = packages.find(r => r.name === p.name)!
@@ -125,10 +158,12 @@ export async function runArtifactInstall(options: InstallOptions, context: Comma
         await execute('update', process.execPath, [pnpm, 'update', p.name], directory)
         recheck(); active.stage = 'verify-files'; save()
         active.actual = checkInstalledPackage(set.packages.get(p.name)!, directory, context.root)
+        if (archiveRoot) separateDaily(active.actual, [context.root])
         const manifest = JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8'))
         const spec: string = manifest.dependencies[p.name]
         active.spec = spec
         if (!spec.startsWith('file:') || resolve(directory, spec.slice(5)) !== active.archive) throw new Error(`dependency spec does not reference delivered snapshot: ${p.name}`)
+        if (archiveRoot) checkDeliveryLock(directory, p.name, active.archive!)
         active.bundle = 'registered'; active.status = 'installed'; active.stage = 'complete'; save()
         if (target.surface === 'web') {
           const composed = await execute('rows', runner.command, runner.build(['--profile', initial.target.profile, '--dump-config']), scratch)
