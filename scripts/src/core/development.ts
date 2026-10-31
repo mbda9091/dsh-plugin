@@ -48,7 +48,14 @@ function comparisonPath(path: string): string {
     const name = relative(parent, ancestor)
     const alternate = name.replace(/[a-zA-Z]/, char => char === char.toLowerCase() ? char.toUpperCase() : char.toLowerCase())
     if (alternate !== name) {
-      try { return realpathSync(join(parent, alternate)) === realpathSync(ancestor) ? actual.toLowerCase() : actual }
+      try {
+        // realpath may preserve the caller's casing on macOS. Compare directory
+        // entry identity instead; lstat also avoids confusing two distinct links
+        // that happen to point at the same target on a case-sensitive volume.
+        const original = lstatSync(ancestor, { bigint: true })
+        const varied = lstatSync(join(parent, alternate), { bigint: true })
+        return original.dev === varied.dev && original.ino === varied.ino ? actual.toLowerCase() : actual
+      }
       catch { return actual }
     }
     ancestor = parent

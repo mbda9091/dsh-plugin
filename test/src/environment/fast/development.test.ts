@@ -43,7 +43,7 @@ it('DEV-02 physical paths, aliases and replaced ancestors fail closed', () => en
   for (const other of [p.directory, join(p.directory, 'home'), join(f.root, '.local')]) assert.throws(() => assertSeparatePaths(p.directory, other), /overlap/)
   assert.throws(() => assertSeparatePaths(p.directory, join(p.directory, '../dsh-dev/home')), /overlap/)
   assertSeparatePaths(p.directory, p.directory + '-other')
-  if (process.platform === 'win32') assert.throws(() => assertSeparatePaths(p.directory, p.directory.toUpperCase()), /overlap/)
+  if (existsSync(f.root.toUpperCase())) assert.throws(() => assertSeparatePaths(p.directory, p.directory.toUpperCase()), /overlap/)
   const alias = join(f.root, 'alias')
   symlinkSync(f.personal, alias, process.platform === 'win32' ? 'junction' : 'dir')
   assert.throws(() => assertSeparatePaths(join(alias, 'not-created'), f.personal), /overlap/)
