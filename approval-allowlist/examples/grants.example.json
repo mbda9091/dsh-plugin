@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "id": "project-export-write",
+      "scope": "project",
+      "projectRoot": "/Users/REPLACE_ME/project-a",
+      "tool": "write",
+      "path": "/Users/REPLACE_ME/exports/result.json",
+      "arguments": {
+        "file_path": "/Users/REPLACE_ME/exports/result.json",
+        "sandbox_permissions": "workspace-write"
+      },
+      "maxUses": 1,
+      "expiresAt": "2000-01-01T00:00:00Z",
+      "note": "Expired example. Replace every path and deliberately choose expiry/mode before enabling."
+    },
+    {
+      "id": "permanent-exact-export",
+      "scope": "permanent",
+      "tool": "bash",
+      "arguments": {
+        "command": "node scripts/export.mjs --output /Users/REPLACE_ME/exports/out.json",
+        "workdir": "/Users/REPLACE_ME/project-a",
+        "sandbox_permissions": "workspace-write"
+      },
+      "maxUses": 1,
+      "expiresAt": "2000-01-01T00:00:00Z",
+      "note": "Expired example; exact command approval, NOT directory-limited shell access."
+    }
+  ]
+}

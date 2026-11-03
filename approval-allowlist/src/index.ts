@@ -1,163 +1,100 @@
-/**
- * Approval allowlist for exact tool calls.
- *
- * The plugin never matches on `reason` text: it resolves `req.callId` to the
- * durable `tool/call` event and compares the raw arguments with configured
- * rules. Default mode is `observe`, which only writes a JSONL audit record and
- * lets the normal approval flow continue.
- *
- * @module @local/approval-allowlist
- */
+/** Exact approval decisions only; never changes the sandbox policy. */
 import { appendFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
-import type {} from '@deepseek-ai/dsh-agent'
+import type {} from '@deepseek-ai/dsh-tools'
+import type {} from '@deepseek-ai/dsh-app-boot'
 import type {} from '@deepseek-ai/dsh-user-approval'
 import type { ApprovalOutcome } from '@deepseek-ai/dsh-user-approval'
+import { defaultGrantsFile, GrantStore } from './grants.js'
+import { isRootAgent, managementNames, registerManagementTools } from './management.js'
 import { normalizeRule, ruleMismatch } from './rules.js'
 import type { Rule, ToolCallEvent } from './rules.js'
 import { assertTarget } from './targets.js'
-
-// Re-exported for the unit tests: the matching rules are pure, and the target
-// decision is exercised with explicit environments. Runtime behaviour is
-// unchanged: `apply` still uses them internally.
 export { matchesSubset, normalizeRule, ruleMismatch } from './rules.js'
 export type { Rule, ToolCallEvent } from './rules.js'
+export { defaultGrantsFile, normalizeGrant, projectMatches, readGrantsFile, writeGrantsFile, GrantStore } from './grants.js'
+export type { Grant, GrantScope, GrantsFile } from './grants.js'
 export { detectEnvironment, evaluateTarget } from './targets.js'
-
-/** Loader row identity; independent from the package name. */
 export const name = 'approval-allowlist'
-
-/** `observe` only logs; `allow` can return allowed-once for exact matches. */
+export const inject = ['tools', 'agents']
 export type Mode = 'observe' | 'allow'
-
-/** Plugin configuration. */
 export interface Config {
-  /** Default `observe`. */
   mode?: Mode
-  /** Exact rules; empty means observe-only/no grants. */
+  /** Legacy inline subset rules; per-load counters retained for compatibility. */
   rules?: Rule[]
-  /** Only allow requests from root agents. Default true. */
+  /** Relative to current profile; must stay inside it. */
+  grantsFile?: string
   rootOnly?: boolean
-  /** Write a JSONL audit record for every approval request. Default true. */
   log?: boolean
-  /** Audit log path. Default `%TEMP%/dsh-approval-allowlist.log`. */
   logFile?: string
+  /** Explicit opt-in for temporary observe capture; contains sensitive input. Default false. */
+  logArguments?: boolean
 }
-
-interface Options {
-  mode: Mode
-  rules: Rule[]
-  rootOnly: boolean
-  log: boolean
-  logFile: string
-}
-
-/** Resolve the durable tool call that a request belongs to. */
 function findToolCall(agent: Agent, callId: string | undefined): ToolCallEvent | undefined {
-  if (callId === undefined) return undefined
+  if (!callId) return undefined
   const events = agent.session.ownEvents()
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index]
+  for (let i = events.length - 1; i >= 0; i--) {
+    const event = events[i]
     if (event?.type === 'tool/call' && String(event.data.callId) === callId) return event
   }
   return undefined
 }
-
-/** Whether the request agent is a live root agent (best effort). */
-function isRootAgent(ctx: Context, agent: Agent): boolean {
-  const agents = ctx.get('agents')
-  if (agents === undefined) return true
-  try {
-    return agents.roots().includes(agent)
-  } catch {
-    return false
-  }
-}
-
-/** Append one audit record without letting logging failure affect approval. */
-function writeLog(options: Options, record: Record<string, unknown>): void {
-  if (!options.log) return
-  try {
-    appendFileSync(options.logFile, `${JSON.stringify(record)}\n`, 'utf8')
-  } catch (error) {
-    console.warn('[approval-allowlist] cannot write audit log:', error)
-  }
-}
-
-/** Register the approval waterfall listener. */
 export function apply(ctx: Context, config: Config = {}): void {
   assertTarget(ctx, name)
-
-  const rules = Array.isArray(config.rules)
-    ? config.rules.map(normalizeRule).filter((rule): rule is Rule => rule !== undefined)
-    : []
-  const options: Options = {
-    mode: config.mode === 'allow' ? 'allow' : 'observe',
-    rules,
-    rootOnly: config.rootOnly ?? true,
-    log: config.log ?? true,
-    logFile: typeof config.logFile === 'string' && config.logFile !== ''
-      ? config.logFile
-      : join(tmpdir(), 'dsh-approval-allowlist.log'),
-  }
+  const mode = config.mode === 'allow' ? 'allow' : 'observe'
+  const rules = (config.rules ?? []).map(normalizeRule).filter((rule): rule is Rule => rule !== undefined)
   const uses = new Map<number, number>()
-
+  // The profile service is host-owned; absent facts disable persistence, never fall back to env/cwd.
+  const profile = ctx.get('profileContext')
+  const file = defaultGrantsFile(profile?.dir, config.grantsFile)
+  const store = file ? new GrantStore(file, profile?.dir) : undefined
+  if (store) registerManagementTools(ctx, store)
   ctx.on('approval/request', async (req, next): Promise<ApprovalOutcome> => {
     const now = Date.now()
     const toolCall = findToolCall(req.agent, req.callId)
+    const projectRoot = req.agent.session.header?.cwd
     let decision: 'observe' | 'allow' | 'next' = 'next'
     let detail = 'no-tool-call'
-    let matchedRule: number | undefined
-
-    if (toolCall === undefined) {
-      detail = 'no-tool-call'
-    } else if (options.rootOnly && !isRootAgent(ctx, req.agent)) {
-      detail = 'not-root'
-    } else {
-      for (let index = 0; index < options.rules.length; index += 1) {
-        const rule = options.rules[index]
-        if (rule === undefined) continue
-        const mismatch = ruleMismatch(rule, toolCall, now)
-        if (mismatch !== undefined) {
-          detail = mismatch
-          continue
+    let matchedRule: string | number | undefined
+    if (req.signal?.aborted) detail = 'cancelled'
+    else if (managementNames.has(req.toolName)) detail = 'management-never-auto-approved'
+    else if (toolCall && toolCall.data.name !== req.toolName) detail = 'tool-name-mismatch'
+    else if (toolCall && (config.rootOnly ?? true) && !isRootAgent(ctx, req.agent)) detail = 'not-root'
+    else if (toolCall) {
+      detail = 'no-match'
+      let validFile = true
+      try {
+        const grant = store?.match(toolCall.data.name, JSON.parse(toolCall.data.arguments), projectRoot, mode === 'allow')
+        if (grant) matchedRule = grant.id
+      } catch { validFile = false; detail = 'invalid-grants-or-arguments' }
+      if (matchedRule === undefined && validFile) {
+        for (let index = 0; index < rules.length; index++) {
+          const rule = rules[index]!
+          if (managementNames.has(rule.tool) || ruleMismatch(rule, toolCall, now)) continue
+          const used = uses.get(index) ?? 0
+          if (rule.maxUses && used >= rule.maxUses) continue
+          matchedRule = index
+          if (mode === 'allow' && rule.maxUses) uses.set(index, used + 1)
+          break
         }
-        const maxUses = rule.maxUses ?? Number.POSITIVE_INFINITY
-        const used = uses.get(index) ?? 0
-        if (Number.isFinite(maxUses) && used >= maxUses) {
-          detail = 'max-uses'
-          continue
-        }
-        matchedRule = index
-        if (options.mode === 'allow') {
-          if (Number.isFinite(maxUses)) uses.set(index, used + 1)
-          decision = 'allow'
-          detail = 'allowed'
-        } else {
-          decision = 'observe'
-          detail = 'observe-match'
-        }
-        break
       }
-      if (matchedRule === undefined) detail = 'no-match'
+      if (matchedRule !== undefined) { decision = mode === 'allow' ? 'allow' : 'observe'; detail = mode === 'allow' ? 'allowed' : 'observe-match' }
     }
-
-    writeLog(options, {
-      time: new Date(now).toISOString(),
-      mode: options.mode,
-      decision,
-      detail,
-      matchedRule,
-      tool: toolCall?.data.name ?? req.toolName,
-      callId: req.callId,
-      reason: req.reason,
-      arguments: toolCall?.data.arguments,
-    })
-
-    if (decision === 'allow') return 'allowed-once'
-    return next()
+    if (config.log ?? true) {
+      try {
+        appendFileSync(config.logFile || join(tmpdir(), 'dsh-approval-allowlist.log'), JSON.stringify({
+          time: new Date(now).toISOString(), mode, decision, detail, matchedRule,
+          tool: toolCall?.data.name ?? req.toolName, callId: req.callId,
+          argumentKeys: (() => { try { return Object.keys(JSON.parse(toolCall?.data.arguments ?? '{}')) } catch { return [] } })(),
+          argumentsHash: toolCall ? createHash('sha256').update(toolCall.data.arguments).digest('hex') : undefined,
+          ...(config.logArguments ? { arguments: toolCall?.data.arguments, reason: req.reason, projectRoot } : {}),
+        }) + '\n', { encoding: 'utf8', mode: 0o600 })
+      } catch { console.warn('[approval-allowlist] cannot write audit log') }
+    }
+    return decision === 'allow' ? 'allowed-once' : next()
   }, { global: true })
 }

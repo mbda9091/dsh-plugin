@@ -11,7 +11,8 @@ import { runVerifyArtifacts } from '../../../../scripts/.build/commands/verify-a
 import { loadCommandContext } from '../../../../scripts/.build/core/command-context.js'
 import { loadArtifacts } from '../../../../scripts/.build/core/artifacts.js'
 import { readVerification, validateVerification, verificationPath, validateArtifactReport } from '../../../../scripts/.build/core/artifact-verification.js'
-import { resolveTarget } from '../../../../scripts/.build/core/targets.js'
+import { isTargetCompatible, resolveTarget } from '../../../../scripts/.build/core/targets.js'
+import { discoverPlugins } from '../../../../scripts/.build/core/plugins.js'
 import type { TestReport } from '../../../../scripts/.build/core/test-run.js'
 import { artifactPrerequisites, installArtifacts, checkArtifactInstallations } from '../../../../scripts/.build/core/artifact-harness.js'
 import { runIsolatedTest } from '../../../../scripts/.build/core/test-run.js'
@@ -98,11 +99,20 @@ it('ART-06 actual notify-web package contracts L4 L5 and durable evidence share 
   assert.ok(existsSync(path)); readVerification(set, target, '0.2.1-rc.2', ['@local/notify-web'])
 }, false))
 
-it('ART-07 fixed approval-allowlist exercises real behavior and rejects a no-op replacement or missing adapter', { timeout: 180_000 }, () => environmentCase('ART-07', async f => {
+const approvalPlugin = discoverPlugins(sourceRoot).find(plugin => plugin.dirName === 'approval-allowlist')
+assert.ok(approvalPlugin, 'approval-allowlist manifest is required')
+const supportsApproval = (process.platform === 'win32' || process.platform === 'darwin')
+  && isTargetCompatible(approvalPlugin, resolveTarget({ surface: 'web' }))
+
+// Skip before environmentCase: an unsupported target must not emit passed artifact evidence.
+it('ART-07 fixed approval-allowlist exercises real behavior and rejects a no-op replacement or missing adapter', {
+  timeout: 180_000,
+  skip: !supportsApproval && 'approval-allowlist manifest does not support this Web platform; capability acceptance not executed',
+}, () => environmentCase('ART-07', async f => {
   const { settings } = await prepare(f)
   // Only the fixture package is removed; the repository source is never edited.
   rmSync(join(f.root, 'notify-web'), { recursive: true })
-  for (const path of ['package.json', 'lib', 'locale', 'icon.svg', 'cordis.patch.yml', 'README.md']) cpSync(join(sourceRoot, 'approval-allowlist', path), join(f.root, 'approval-allowlist', path), { recursive: true })
+  for (const path of ['package.json', 'lib', 'locale', 'examples', 'icon.svg', 'cordis.patch.yml', 'README.md']) cpSync(join(sourceRoot, 'approval-allowlist', path), join(f.root, 'approval-allowlist', path), { recursive: true })
   completeBuild(f.root, beginBuild(f.root))
   let manifest = ''
   assert.equal(await runPack({ skipBuild: true }, settings, p => { manifest = p }), 0)

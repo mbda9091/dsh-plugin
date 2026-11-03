@@ -6,10 +6,15 @@ import type { Context } from '@deepseek-ai/cordis'
 import { apply, name } from '@local/approval-allowlist'
 import type { Config } from '@local/approval-allowlist'
 import { createFakeContext } from '../harness/fake-context.js'
-import { makeTempDir, removeDir } from '../harness/tmp.js'
+import { makeTempDir, removeDir, repoRoot } from '../harness/tmp.js'
 import { checkApprovalCapability } from '../../../scripts/.build/core/host-capability.js'
+import { discoverPlugins } from '../../../scripts/.build/core/plugins.js'
+import { isTargetCompatible, resolveTarget } from '../../../scripts/.build/core/targets.js'
 
-const supported = process.platform === 'win32' || process.platform === 'darwin'
+const plugin = discoverPlugins(repoRoot).find(plugin => plugin.dirName === 'approval-allowlist')
+assert.ok(plugin, 'approval-allowlist manifest is required')
+const supported = (process.platform === 'win32' || process.platform === 'darwin')
+  && isTargetCompatible(plugin, resolveTarget({ surface: 'web' }))
 
 interface CallSpec {
   readonly callId: string
@@ -88,7 +93,7 @@ function setup(
     agents,
   })
   const logFile = options.logFile ?? join(tempRoot, `${options.logName ?? 'audit'}.jsonl`)
-  apply(ctx as unknown as Context, { ...config, logFile })
+  apply(ctx as unknown as Context, { logArguments: true, ...config, logFile })
 
   const listener = ctx.listeners.find((entry) => entry.event === 'approval/request')
   assert.ok(listener !== undefined, 'apply must register an approval/request waterfall listener')
@@ -114,7 +119,7 @@ function readLog(path: string): Record<string, unknown>[] {
     .map((line) => JSON.parse(line) as Record<string, unknown>)
 }
 
-describe('L3 approval-allowlist: registration', { skip: !supported && 'windows/mac targets only' }, () => {
+describe('L3 approval-allowlist: registration', { skip: !supported && 'approval-allowlist manifest does not support this Web platform' }, () => {
   it('satisfies the same behavioral contract used for fixed tarball acceptance', async () => {
     await checkApprovalCapability({ apply }, tempRoot)
     await assert.rejects(checkApprovalCapability({ apply() {} }, tempRoot), /register approval/)
@@ -133,7 +138,7 @@ describe('L3 approval-allowlist: registration', { skip: !supported && 'windows/m
   })
 })
 
-describe('L3 approval-allowlist: observe and allow', { skip: !supported && 'windows/mac targets only' }, () => {
+describe('L3 approval-allowlist: observe and allow', { skip: !supported && 'approval-allowlist manifest does not support this Web platform' }, () => {
   it('observes an exact match and lets the normal flow continue', async () => {
     const args = { command: 'node test/e2e/web-l5.mjs', workdir: 'C:\\example\\workspace' }
     const harness = setup(
@@ -246,7 +251,7 @@ describe('L3 approval-allowlist: observe and allow', { skip: !supported && 'wind
   })
 })
 
-describe('L3 approval-allowlist: agent scope and rule validation', { skip: !supported && 'windows/mac targets only' }, () => {
+describe('L3 approval-allowlist: agent scope and rule validation', { skip: !supported && 'approval-allowlist manifest does not support this Web platform' }, () => {
   it('only allows root agents by default', async () => {
     const harness = setup(
       { mode: 'allow', rules: [{ tool: 'pwsh', arguments: { command: 'sub' } }] },
@@ -282,7 +287,7 @@ describe('L3 approval-allowlist: agent scope and rule validation', { skip: !supp
   })
 })
 
-describe('L3 approval-allowlist: audit logging', { skip: !supported && 'windows/mac targets only' }, () => {
+describe('L3 approval-allowlist: audit logging', { skip: !supported && 'approval-allowlist manifest does not support this Web platform' }, () => {
   it('does not write when log=false', async () => {
     const harness = setup(
       { mode: 'allow', log: false, rules: [{ tool: 'pwsh', arguments: { command: 'x' } }] },

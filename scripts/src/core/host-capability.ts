@@ -48,7 +48,9 @@ export async function checkApprovalCapability(plugin: unknown, directory: string
     const records = readFileSync(logFile, 'utf8').trim().split('\n').map(line => JSON.parse(line))
     assert.equal(records.length, 7)
     assert.equal(records[5].decision, mode === 'allow' ? 'allow' : 'observe')
-    assert.equal(records[5].arguments, '{"command":"expected"}')
+    assert.equal(records[5].arguments, undefined, 'raw arguments are opt-in')
+    assert.deepEqual(records[5].argumentKeys, ['command'])
+    assert.match(records[5].argumentsHash, /^[a-f0-9]{64}$/)
   }
 }
 

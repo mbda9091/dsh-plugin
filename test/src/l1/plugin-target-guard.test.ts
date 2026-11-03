@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { readFileSync } from 'node:fs'
 import { evaluateTarget as evaluateAppRestart } from '@local/app-restart'
 import { evaluateTarget as evaluateAllowlist } from '@local/approval-allowlist'
 import { evaluateTarget as evaluateNotify } from '@local/desktop-notify'
@@ -7,7 +8,7 @@ import { evaluateTarget as evaluateWebNotify } from '@local/notify-web'
 
 const DESKTOP_WINDOWS = { surfaces: ['desktop'], platforms: ['windows'] }
 const WEB_UNIVERSAL = { surfaces: ['web'], platforms: ['mac', 'windows'] }
-const UNIVERSAL = { surfaces: ['desktop', 'web'], platforms: ['mac', 'windows'] }
+const APPROVAL_TARGETS = JSON.parse(readFileSync(new URL('../../../approval-allowlist/package.json', import.meta.url), 'utf8')).dsh.targets as { surfaces: string[]; platforms: string[] }
 
 describe('L1 plugin target guards', () => {
   it('accepts a desktop plugin on desktop/windows', () => {
@@ -46,20 +47,17 @@ describe('L1 plugin target guards', () => {
     assert.match(problem, /declared surfaces=web/)
   })
 
-  it('accepts the dual-target plugin on both surfaces and platforms', () => {
+  it('approval M4 declares and accepts only Web/macOS', () => {
+    assert.deepEqual(APPROVAL_TARGETS, { surfaces: ['web'], platforms: ['mac'] })
+    assert.equal(evaluateAllowlist(APPROVAL_TARGETS, { surface: 'web', platform: 'mac' }), undefined)
+  })
+
+  it('approval rejects every deferred M5 platform before activation', () => {
     for (const environment of [
       { surface: 'desktop', platform: 'windows' },
       { surface: 'desktop', platform: 'mac' },
       { surface: 'web', platform: 'windows' },
-      { surface: 'web', platform: 'mac' },
-    ]) {
-      assert.equal(evaluateAllowlist(UNIVERSAL, environment), undefined)
-    }
-  })
-
-  it('rejects an unsupported platform for the dual-target plugin', () => {
-    const problem = evaluateAllowlist(UNIVERSAL, { surface: 'web', platform: 'linux' })
-    assert.ok(problem !== undefined)
-    assert.match(problem, /platforms=mac\+windows; current surface=web platform=linux$/)
+      { surface: 'web', platform: 'linux' },
+    ]) assert.match(evaluateAllowlist(APPROVAL_TARGETS, environment) ?? '', /target mismatch/)
   })
 })
