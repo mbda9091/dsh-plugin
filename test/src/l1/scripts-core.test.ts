@@ -10,6 +10,7 @@ import {
   formatPluginTarget,
   isTargetCompatible,
   platformLabel,
+  platformFromNode,
   resolveTarget,
   surfaceLabel,
 } from '../../../scripts/.build/core/targets.js'
@@ -41,6 +42,14 @@ describe('L1 scripts/core: Windows DSH CLI shims', () => {
 })
 
 describe('L1 scripts/core: target resolution', () => {
+  it('maps all supported Node platforms and rejects unknown platforms', () => {
+    assert.equal(platformFromNode('linux'), 'linux')
+    assert.equal(platformFromNode('darwin'), 'mac')
+    assert.equal(platformFromNode('win32'), 'windows')
+    assert.throws(() => platformFromNode('freebsd'), /Unsupported/)
+    assert.deepEqual(resolveTarget({ surface: 'web', platform: 'linux' }), { surface: 'web', platform: 'linux' })
+  })
+
   it('keeps explicit surface and platform', () => {
     assert.deepEqual(resolveTarget({ surface: 'web', platform: 'mac', profile: 'desktop' }), {
       surface: 'web',
@@ -65,15 +74,11 @@ describe('L1 scripts/core: target resolution', () => {
 
   it('rejects malformed explicit values', () => {
     assert.throws(() => resolveTarget({ surface: 'terminal', platform: 'windows' }), /Unsupported surface 'terminal'/)
-    assert.throws(() => resolveTarget({ surface: 'web', platform: 'linux' }), /Unsupported platform 'linux'/)
+    assert.throws(() => resolveTarget({ surface: 'web', platform: 'freebsd' }), /Unsupported platform 'freebsd'/)
   })
 
   it('maps the current OS when the platform is omitted', () => {
-    if (process.platform === 'linux') {
-      assert.throws(() => resolveTarget({ surface: 'web' }), /Linux is reserved/)
-      return
-    }
-    const expected = process.platform === 'win32' ? 'windows' : 'mac'
+    const expected = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'mac' : 'linux'
     assert.equal(resolveTarget({ surface: 'web' }).platform, expected)
   })
 })
@@ -103,12 +108,15 @@ describe('L1 scripts/core: target predicates and labels', () => {
   })
 
   it('labels platforms in both languages', () => {
-    assert.equal(platformLabel(['mac', 'windows'], 'zh'), '通用平台')
+    assert.equal(platformLabel(['mac', 'windows', 'linux'], 'zh'), '通用平台')
     assert.equal(platformLabel(['windows'], 'zh'), 'Windows')
     assert.equal(platformLabel(['mac'], 'zh'), 'macOS')
     assert.equal(platformLabel([], 'zh'), '未声明')
-    assert.equal(platformLabel(['mac', 'windows'], 'en'), 'All platforms')
+    assert.equal(platformLabel(['mac', 'windows', 'linux'], 'en'), 'All platforms')
     assert.equal(platformLabel([], 'en'), 'Undeclared')
+    assert.equal(platformLabel(['linux'], 'en'), 'Linux')
+    assert.equal(platformLabel(['mac', 'windows'], 'en'), 'Windows / macOS')
+    assert.equal(platformLabel(['linux', 'windows'], 'zh'), 'Windows / Linux')
   })
 
   it('compares by code unit, not host locale', () => {

@@ -6,7 +6,7 @@ import { repoRoot } from '../core/repo.js'
 import { platformLabel, surfaceLabel } from '../core/targets.js'
 
 const ALLOWED_SURFACES = ['desktop', 'web']
-const ALLOWED_PLATFORMS = ['windows', 'mac']
+const ALLOWED_PLATFORMS = ['windows', 'mac', 'linux']
 const ALLOWED_TARGET_FIELDS = ['surfaces', 'platforms']
 
 interface TargetListResult {

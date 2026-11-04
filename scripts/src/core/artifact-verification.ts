@@ -4,7 +4,7 @@ import type { ArtifactSet } from './artifacts.js'
 import { assertArtifactsUnchanged } from './artifacts.js'
 import { isRecord } from './json.js'
 import type { TestReport } from './test-run.js'
-import type { Target } from './targets.js'
+import { platformFromNode, type Target } from './targets.js'
 import { approvalCapabilityChecks } from './host-capability.js'
 
 export const artifactSteps = {
@@ -31,7 +31,7 @@ export function validateArtifactReport(report: unknown, kind: 'l4' | 'l5', set: 
   const installed = report.steps.find(s => isRecord(s) && s.name === 'install-artifacts')
   if (!isRecord(installed) || typeof installed.detail !== 'string') throw new Error('missing installation hash evidence')
   const evidence: unknown = JSON.parse(installed.detail)
-  const selected = set.manifest.packages.filter(p => p.surfaces.includes('web') && p.platforms.includes(report.platform === 'win32' ? 'windows' : 'mac'))
+  const selected = set.manifest.packages.filter(p => p.surfaces.includes('web') && p.platforms.includes(platformFromNode(report.platform as string)))
   if (!Array.isArray(evidence) || evidence.length !== selected.length || selected.some(p => evidence.filter(e => isRecord(e) && e.name === p.name && e.sha256 === p.sha256 && typeof e.actual === 'string').length !== 1)) throw new Error('incomplete installation hash evidence')
   if (kind === 'l4') {
     const step = report.steps.find(s => isRecord(s) && s.name === 'host-capabilities')
@@ -64,7 +64,7 @@ export function validateVerification(set: ArtifactSet, value: unknown, target: T
   }
   if (environment.length !== kinds.length || kinds.some(kind => environment.filter((e: unknown) => isRecord(e) && e.kind === kind && typeof e.cleanup === 'string' && /^(removed|retained --keep)/.test(e.cleanup) && JSON.stringify(e.steps) === JSON.stringify(['context', 'profile-init', 'install-artifacts', 'cleanup'])).length !== 1)) throw new Error('incomplete artifact environment evidence')
   for (const report of [value.functions.l4, value.functions.l5]) if (isRecord(report)
-    && (report.platform !== (target.platform === 'windows' ? 'win32' : 'darwin') || report.node !== value.tools.node || typeof report.finishedAt !== 'string' || report.finishedAt > value.finishedAt)) throw new Error('functional evidence platform/tool/time mismatch')
+    && (platformFromNode(String(report.platform)) !== target.platform || report.node !== value.tools.node || typeof report.finishedAt !== 'string' || report.finishedAt > value.finishedAt)) throw new Error('functional evidence platform/tool/time mismatch')
   const coverage = value.coverage
   const scopes = set.manifest.packages.flatMap(p => p.surfaces.flatMap(surface => p.platforms.map(platform => ({ name: p.name, sha256: p.sha256, surface, platform }))))
   if (coverage.length !== scopes.length || scopes.some(scope => coverage.filter(c => isRecord(c) && c.name === scope.name && c.sha256 === scope.sha256 && c.surface === scope.surface && c.platform === scope.platform && c.host === host

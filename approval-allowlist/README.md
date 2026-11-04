@@ -5,8 +5,8 @@
 ## 适用场景
 
 - 形态：桌面应用（Electron 壳）或 Web；`dsh` 的 Host 进程。
-- 平台：Windows / macOS。
-- 声明：`dsh.targets` 为 `["desktop","web"]` / `["mac","windows"]`。
+- 平台：Windows / macOS / Linux。
+- 声明：`dsh.targets` 为 `["desktop","web"]` / `["linux","mac","windows"]`。
 
 ## 安全模型
 

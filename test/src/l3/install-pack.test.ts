@@ -17,7 +17,7 @@ function fixture(failure = '') {
   for (const [name, surfaces] of [['alpha', ['web']], ['beta', ['web']], ['desktop-only', ['desktop']]] as const) {
     mkdirSync(join(f.root, name, 'lib'), { recursive: true })
     writeFileSync(join(f.root, name, 'lib/index.js'), '')
-    writeFileSync(join(f.root, name, 'package.json'), JSON.stringify({ name: `@local/${name}`, version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' }, targets: { surfaces, platforms: ['windows', 'mac'] } } }))
+    writeFileSync(join(f.root, name, 'package.json'), JSON.stringify({ name: `@local/${name}`, version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' }, targets: { surfaces, platforms: ['windows', 'mac', 'linux'] } } }))
   }
   const trace = join(f.root, 'trace.jsonl')
   const recorder = `const fs = require('node:fs'); const args = process.argv.slice(2);

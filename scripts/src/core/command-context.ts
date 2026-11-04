@@ -1,3 +1,4 @@
+import { platformFromNode } from './targets.js'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { loadRepoConfig, envValue } from './config.js'
 import type { ConfigOverrides, RepoConfig, InstallTarget } from './config.js'
@@ -37,7 +38,7 @@ export function loadCommandContext(
     } else {
       if (!overrides.dshCli || !overrides.home || !overrides.profile || !overrides.surface || !overrides.platform) throw new Error('explicit target required: --target NAME or all of --dsh-cli --home --profile --surface --platform; DSH environment variables cannot fill missing fields')
       if ([overrides.dshCli, overrides.home].some(path => !/\S/.test(path) || /[\0\r\n]/.test(path))) throw new Error('invalid explicit target path')
-      if (!['desktop', 'web'].includes(overrides.surface) || !['windows', 'mac'].includes(overrides.platform) || !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(overrides.profile)) throw new Error('invalid explicit target profile/surface/platform')
+      if (!['desktop', 'web'].includes(overrides.surface) || !['windows', 'mac', 'linux'].includes(overrides.platform) || !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(overrides.profile)) throw new Error('invalid explicit target profile/surface/platform')
       target = { name: 'explicit', dshCli: resolve(root, overrides.dshCli), home: resolve(root, overrides.home), profile: overrides.profile, surface: overrides.surface as InstallTarget['surface'], platform: overrides.platform as InstallTarget['platform'] }
     }
   }
@@ -81,7 +82,7 @@ export function operationTarget(context: CommandContext): InstallTarget {
   if (context.purpose !== 'development') throw new Error('installation/status requires a development or explicit target context')
   const home = join(context.root, '.local/dsh-dev/home')
   safeConfigPath(context.root, home)
-  return { name: 'development', dshCli: '', home, profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : 'mac' }
+  return { name: 'development', dshCli: '', home, profile: 'web', surface: 'web', platform: platformFromNode() }
 }
 
 export function configuredPnpm(context: CommandContext): string {

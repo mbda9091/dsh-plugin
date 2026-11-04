@@ -16,7 +16,7 @@ function dailyFixture() {
   writeFileSync(join(profile, 'package.json'), '{"private":true}')
   writeFileSync(join(home, 'history-sentinel'), 'existing daily data')
   const disk = JSON.parse(readFileSync(f.paths.local, 'utf8'))
-  disk.targets = [{ name: 'daily', dshCli: f.cli, home, profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : 'mac' }]
+  disk.targets = [{ name: 'daily', dshCli: f.cli, home, profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'mac' : 'linux' }]
   writeFileSync(f.paths.local, JSON.stringify(disk))
   return { ...f, home, profile }
 }

@@ -38,7 +38,7 @@
     "bundle": { "patch": "./cordis.patch.yml" },
     "targets": {
       "surfaces": ["desktop", "web"],
-      "platforms": ["mac", "windows"]
+      "platforms": ["linux", "mac", "windows"]
     }
   }
 }

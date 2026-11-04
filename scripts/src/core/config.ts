@@ -10,7 +10,7 @@ export interface InstallTarget {
   home: string
   profile: string
   surface: 'desktop' | 'web'
-  platform: 'windows' | 'mac'
+  platform: 'windows' | 'mac' | 'linux'
   binding?: import('./formal-target.js').TargetIdentity
 }
 

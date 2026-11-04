@@ -6,8 +6,8 @@ import { evaluateTarget as evaluateNotify } from '@local/desktop-notify'
 import { evaluateTarget as evaluateWebNotify } from '@local/notify-web'
 
 const DESKTOP_WINDOWS = { surfaces: ['desktop'], platforms: ['windows'] }
-const WEB_UNIVERSAL = { surfaces: ['web'], platforms: ['mac', 'windows'] }
-const UNIVERSAL = { surfaces: ['desktop', 'web'], platforms: ['mac', 'windows'] }
+const WEB_UNIVERSAL = { surfaces: ['web'], platforms: ['linux', 'mac', 'windows'] }
+const UNIVERSAL = { surfaces: ['desktop', 'web'], platforms: ['linux', 'mac', 'windows'] }
 
 describe('L1 plugin target guards', () => {
   it('accepts a desktop plugin on desktop/windows', () => {
@@ -30,12 +30,20 @@ describe('L1 plugin target guards', () => {
   it('rejects the headless surface for every packaged plugin', () => {
     for (const evaluate of [evaluateAppRestart, evaluateNotify, evaluateAllowlist, evaluateWebNotify]) {
       const problem = evaluate(
-        { surfaces: ['desktop', 'web'], platforms: ['windows', 'mac'] },
+        { surfaces: ['desktop', 'web'], platforms: ['windows', 'mac', 'linux'] },
         { surface: 'headless', platform: 'windows' },
       )
       assert.ok(problem !== undefined)
       assert.match(problem, /target mismatch/)
     }
+  })
+
+  it('accepts Linux Web and rejects Windows-only plugins there', () => {
+    const environment = { surface: 'web', platform: 'linux' }
+    assert.equal(evaluateAllowlist(UNIVERSAL, environment), undefined)
+    assert.equal(evaluateWebNotify(WEB_UNIVERSAL, environment), undefined)
+    assert.match(evaluateNotify(DESKTOP_WINDOWS, environment)!, /target mismatch/)
+    assert.match(evaluateAppRestart(DESKTOP_WINDOWS, environment)!, /target mismatch/)
   })
 
   it('accepts the web plugin on both web platforms and rejects desktop', () => {
@@ -58,8 +66,8 @@ describe('L1 plugin target guards', () => {
   })
 
   it('rejects an unsupported platform for the dual-target plugin', () => {
-    const problem = evaluateAllowlist(UNIVERSAL, { surface: 'web', platform: 'linux' })
+    const problem = evaluateAllowlist(UNIVERSAL, { surface: 'web', platform: 'freebsd' })
     assert.ok(problem !== undefined)
-    assert.match(problem, /platforms=mac\+windows; current surface=web platform=linux$/)
+    assert.match(problem, /platforms=linux\+mac\+windows; current surface=web platform=freebsd$/)
   })
 })

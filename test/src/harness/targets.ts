@@ -21,7 +21,7 @@ export function targetPackages(root: string, names = ['alpha', 'beta', 'gamma'])
   return loadArtifacts(root, path)
 }
 export function fakeAcceptance(set: ReturnType<typeof targetPackages>) {
-  const path = verificationPath(set, process.platform === 'win32' ? 'windows' : 'mac')
+  const path = verificationPath(set, process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'mac' : 'linux')
   mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, JSON.stringify(verificationFixture(set)))
 }
 export function prepareTarget(f: ReturnType<typeof fixture>) {
@@ -56,7 +56,7 @@ export function prepareTarget(f: ReturnType<typeof fixture>) {
       if(fs.existsSync(dir)&&fs.lstatSync(dir).isSymbolicLink())fs.unlinkSync(dir);
       for(const [file,bytes]of p.files){const dest=path.join(dir,file);fs.mkdirSync(path.dirname(dest),{recursive:true});fs.writeFileSync(dest,bytes)}
     }).catch(e=>{console.error(e);process.exitCode=1});`)
-  const fields = { dshCli: cli, home, profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : 'mac' }
+  const fields = { dshCli: cli, home, profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'mac' : 'linux' }
   const context = () => loadCommandContext(fields, f.root, dev.env, 'target')
   return { ...dev, cli, host, home, trace, storeTrace, mode, fields, context }
 }

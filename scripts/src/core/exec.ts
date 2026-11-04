@@ -299,7 +299,9 @@ export async function waitForHttpClosed(url: string, timeoutMs: number, pollMs =
       // A hung server still owns its port; a request timeout is not proof of exit.
       const cause = error instanceof Error ? error.cause as NodeJS.ErrnoException | undefined : undefined
       if (cause?.code === 'ECONNREFUSED') return
-      throw error
+      // Linux may reset a pooled keep-alive socket during shutdown. Retry until
+      // a new connection is refused; a reset alone does not prove the port closed.
+      if (cause?.code !== 'ECONNRESET' && cause?.code !== 'UND_ERR_SOCKET') throw error
     }
     if (Date.now() >= deadline) throw new Error(`${url} still accepts connections after ${timeoutMs}ms`)
     await sleep(pollMs)

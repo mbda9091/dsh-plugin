@@ -39,7 +39,7 @@ const USAGE = `Usage: node scripts/bootstrap.mjs <command> [options]
   dev-install [--skip-build]          Initialize development profile, build/install/verify links
   target discover|list|show NAME|bind NAME|unbind NAME   Manage explicit formal targets
   stable-install --manifest PATH [--only @local/name,...] [--archive-root PATH] Install verified compatible tarballs
-    [--profile <name>] [--surface desktop|web] [--platform windows|mac] [--dry-run]
+    [--profile <name>] [--surface desktop|web] [--platform windows|mac|linux] [--dry-run]
   status --target <name>             Read an explicitly selected target
   test [--only l1,l2,l3] [--skip-build] Run L1-L3
   l4 [--keep] [--home <new .tmp dir>] [--skip-tarball | --manifest PATH]
@@ -49,7 +49,7 @@ const USAGE = `Usage: node scripts/bootstrap.mjs <command> [options]
   catalog [--check] [--output <path>]  Generate/check CATALOG.md (no local config needed)
 
 Tools: --pnpm-script <pnpm.cjs>
-Target only: --target NAME or --dsh-cli PATH --home DIR --profile NAME --surface desktop|web --platform windows|mac
+Target only: --target NAME or --dsh-cli PATH --home DIR --profile NAME --surface desktop|web --platform windows|mac|linux
 Development/test never accept --dsh-cli or inherit daily DSH destination variables.
 Tests/CI: --test-browser chrome|chromium, --test-browser-path <path>, --timeout <ms>
 Config init accepts --browser edge|default, --browser-path <path>, --test-timeout <ms>.

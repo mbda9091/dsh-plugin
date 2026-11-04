@@ -60,7 +60,7 @@ it('L3 Web startup timeout redacts diagnostics and terminates the server', async
   } finally { removeDir(f.root) }
 })
 
-it('L3 Web default browser passes the URL to the OS handler without a PowerShell subprocess', { skip: process.platform !== 'win32' && process.platform !== 'darwin' }, async (t) => {
+it('L3 Web default browser passes the URL to the OS handler without a PowerShell subprocess', { skip: !['win32', 'darwin', 'linux'].includes(process.platform) }, async (t) => {
   const f = configFixture()
   const spawn = childProcess.spawn
   const opened: Array<{ command: string; args: readonly string[] }> = []
@@ -70,7 +70,7 @@ it('L3 Web default browser passes the URL to the OS handler without a PowerShell
     developmentPatch(f)
     writeFileSync(f.entry, `#!/usr/bin/env node\n${fakeWebServer(0, '?a=1&b=two%20words')}`)
     t.mock.method(childProcess, 'spawn', (command: string, args: readonly string[], options: childProcess.SpawnOptions) => {
-      if (command === 'open' || command.endsWith('rundll32.exe')) {
+      if (command === 'open' || command === 'xdg-open' || command.endsWith('rundll32.exe')) {
         opened.push({ command, args })
         return spawn(process.execPath, ['-e', ''], options)
       }

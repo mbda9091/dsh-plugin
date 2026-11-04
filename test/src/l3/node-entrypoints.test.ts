@@ -56,7 +56,7 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     mkdirSync(join(f.root, 'alpha/lib'), { recursive: true })
     writeFileSync(join(f.root, 'alpha/lib/index.js'), '')
     writeFileSync(join(f.root, 'alpha/package.json'), JSON.stringify({
-      name: '@local/alpha', version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' }, targets: { surfaces: ['web'], platforms: ['windows', 'mac'] } },
+      name: '@local/alpha', version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' }, targets: { surfaces: ['web'], platforms: ['windows', 'mac', 'linux'] } },
     }))
     const install = ['dev-install']
     assert.match(run([...install, '--dry-run']).stdout, /dsh plugin --profile web add/)
@@ -77,7 +77,7 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     })
     mkdirSync(join(env.DSH_HOME!, 'profiles/web'), { recursive: true })
     writeFileSync(join(env.DSH_HOME!, 'profiles/web/package.json'), '{"dependencies":{}}')
-    const platform = process.platform === 'win32' ? 'windows' : 'mac'
+    const platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'mac' : 'linux'
     assert.match(run(['status', '--dsh-cli', f.cli, '--home', env.DSH_HOME!, '--profile', 'web', '--surface', 'web', '--platform', platform]).stdout, /@local\/alpha/)
     assert.match(run(['build', '--unknown'], 1).stderr, /Unknown option/)
     assert.equal(existsSync(f.paths.patch), false)

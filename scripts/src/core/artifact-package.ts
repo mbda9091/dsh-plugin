@@ -51,7 +51,7 @@ export function readPackage(bytes: Buffer): PackageContent {
     return value as string[]
   }
   const surfaces = targets(manifest.dsh.targets.surfaces, ['desktop', 'web'])
-  const platforms = targets(manifest.dsh.targets.platforms, ['windows', 'mac'])
+  const platforms = targets(manifest.dsh.targets.platforms, ['windows', 'mac', 'linux'])
   for (const path of files.keys()) {
     if (path.split('/').some(p => p.startsWith('.') || ['node_modules', 'src', 'scripts', 'profiles', 'dist'].includes(p))
       || /(?:^|\/)(?:local\.json|.*credentials.*|.*\.npmrc|pnpm-lock\.yaml|cordis\.(?:local|dev)\.patch\.yml)$/i.test(path)) throw new Error(`forbidden packaged file: ${path}`)

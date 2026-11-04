@@ -9,7 +9,7 @@ import { createFakeContext } from '../harness/fake-context.js'
 import { makeTempDir, removeDir } from '../harness/tmp.js'
 import { checkApprovalCapability } from '../../../scripts/.build/core/host-capability.js'
 
-const supported = process.platform === 'win32' || process.platform === 'darwin'
+const supported = ['win32', 'darwin', 'linux'].includes(process.platform)
 
 interface CallSpec {
   readonly callId: string
@@ -114,7 +114,7 @@ function readLog(path: string): Record<string, unknown>[] {
     .map((line) => JSON.parse(line) as Record<string, unknown>)
 }
 
-describe('L3 approval-allowlist: registration', { skip: !supported && 'windows/mac targets only' }, () => {
+describe('L3 approval-allowlist: registration', { skip: !supported && 'windows/mac/linux targets only' }, () => {
   it('satisfies the same behavioral contract used for fixed tarball acceptance', async () => {
     await checkApprovalCapability({ apply }, tempRoot)
     await assert.rejects(checkApprovalCapability({ apply() {} }, tempRoot), /register approval/)
@@ -133,7 +133,7 @@ describe('L3 approval-allowlist: registration', { skip: !supported && 'windows/m
   })
 })
 
-describe('L3 approval-allowlist: observe and allow', { skip: !supported && 'windows/mac targets only' }, () => {
+describe('L3 approval-allowlist: observe and allow', { skip: !supported && 'windows/mac/linux targets only' }, () => {
   it('observes an exact match and lets the normal flow continue', async () => {
     const args = { command: 'node test/e2e/web-l5.mjs', workdir: 'C:\\example\\workspace' }
     const harness = setup(
@@ -246,7 +246,7 @@ describe('L3 approval-allowlist: observe and allow', { skip: !supported && 'wind
   })
 })
 
-describe('L3 approval-allowlist: agent scope and rule validation', { skip: !supported && 'windows/mac targets only' }, () => {
+describe('L3 approval-allowlist: agent scope and rule validation', { skip: !supported && 'windows/mac/linux targets only' }, () => {
   it('only allows root agents by default', async () => {
     const harness = setup(
       { mode: 'allow', rules: [{ tool: 'pwsh', arguments: { command: 'sub' } }] },
@@ -282,7 +282,7 @@ describe('L3 approval-allowlist: agent scope and rule validation', { skip: !supp
   })
 })
 
-describe('L3 approval-allowlist: audit logging', { skip: !supported && 'windows/mac targets only' }, () => {
+describe('L3 approval-allowlist: audit logging', { skip: !supported && 'windows/mac/linux targets only' }, () => {
   it('does not write when log=false', async () => {
     const harness = setup(
       { mode: 'allow', log: false, rules: [{ tool: 'pwsh', arguments: { command: 'x' } }] },

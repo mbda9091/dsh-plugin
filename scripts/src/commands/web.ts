@@ -58,7 +58,7 @@ export async function openBrowser(config: RepoConfig['web'], url: string, env: N
     // Invoke the Windows URL handler directly, with the URL as a single argument.
     args = ['url.dll,FileProtocolHandler', url]
   } else {
-    command = 'open'
+    command = process.platform === 'linux' ? 'xdg-open' : 'open'
     args = [url]
   }
   await new Promise<void>((resolve, reject) => {

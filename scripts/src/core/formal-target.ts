@@ -1,3 +1,4 @@
+import { platformFromNode } from './targets.js'
 import { existsSync, realpathSync } from 'node:fs'
 import { delimiter, isAbsolute, join, resolve } from 'node:path'
 import type { CommandContext } from './command-context.js'
@@ -17,7 +18,7 @@ export function inspectTarget(context: CommandContext) {
   if (context.purpose !== 'target') throw new Error('explicit formal target required')
   const target = operationTarget(context)
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(target.profile) || !['desktop', 'web'].includes(target.surface)) throw new Error('invalid target profile/surface')
-  const platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'mac' : null
+  const platform = platformFromNode()
   if (target.platform !== platform) throw new Error('target platform must match the current machine')
   if (target.profile === 'desktop' && target.surface !== 'desktop') throw new Error('desktop profile requires desktop surface')
   if (target.profile === 'web' && target.surface !== 'web') throw new Error('web profile requires web surface')
