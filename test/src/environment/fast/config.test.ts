@@ -115,8 +115,16 @@ it('CFG-04 failure injection preserves bytes, rollback failure blocks consumers'
     writeFileSync(script, 'param([string]$Target,[string]$Ready)\n$stream = [System.IO.File]::Open($Target, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)\ntry { [System.IO.File]::WriteAllText($Ready, "ready"); Start-Sleep -Seconds 60 } finally { $stream.Dispose() }\n')
     const holder = startToFiles('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, f.paths.local, ready], { stdoutPath: join(f.root, 'lock.out'), stderrPath: join(f.root, 'lock.err') })
     try {
-      for (let i = 0; !existsSync(ready) && i < 100; i++) await new Promise(resolve => setTimeout(resolve, 50))
-      assert.ok(existsSync(ready))
+      // A cold PowerShell launch on a busy Windows runner can exceed five
+      // seconds. Still require a real lock; fail early if the holder exits.
+      const deadline = Date.now() + 30_000
+      while (!existsSync(ready) && Date.now() < deadline) {
+        const error = holder.spawnError()
+        if (error) throw error
+        if (holder.child.exitCode !== null || holder.child.signalCode !== null) break
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+      assert.ok(existsSync(ready), `PowerShell file-lock holder did not become ready: ${readFileSync(join(f.root, 'lock.err'), 'utf8')}`)
       assert.throws(() => commitConfig(f.root, plan), /EPERM|EACCES|EBUSY/)
       assert.deepEqual(readFileSync(f.paths.local), before)
       assert.equal(existsSync(maintenancePaths(f.root).pending), false)
