@@ -14,6 +14,7 @@
 
 | 触发时机 | 通知标题 | 正文 |
 |---|---|---|
+| 工具提问（`ask_user_question`） | 需要回答 | 第一条问题摘要 |
 | 工具申请权限（`approval/asked`） | 需要确认权限 | 工具名 + 申请理由 |
 | 一轮正常结束（`turn/end`，`completed` / `max-tokens`） | 对话已完成 | 本轮回复已结束 |
 | 一轮因错误结束（`turn/end`，`error`） | 对话出错 | 错误信息 |
@@ -42,6 +43,7 @@
 ```yaml
 - id: desktop-notify
   config:
+    notifyOnQuestion: true    # 提问卡片出现时通知
     notifyOnApproval: true    # 权限申请时通知
     approvalDelayMs: 300      # 等待自动审批决定的毫秒数；自动放行会取消通知
     notifyOnTurnEnd: true     # 回合正常结束时通知

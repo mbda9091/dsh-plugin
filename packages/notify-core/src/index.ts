@@ -2,6 +2,8 @@
 
 /** Client and Host locale dictionaries use the same keys. */
 export type LocaleKey =
+  | 'question.title'
+  | 'question.body'
   | 'approval.title'
   | 'approval.body'
   | 'approval.body.reason'
@@ -16,6 +18,8 @@ export type Translate = (key: LocaleKey, params?: Record<string, string>) => str
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh: Record<LocaleKey, string> = {
+  'question.title': '需要回答',
+  'question.body': '助手正在等待你的回答。',
   'approval.title': '需要确认权限',
   'approval.body': '{toolName} 正在请求授权',
   'approval.body.reason': '{toolName} 正在请求授权：{reason}',
@@ -28,6 +32,8 @@ export const zh: Record<LocaleKey, string> = {
 
 /** English dictionary, checked against the Chinese key set. */
 export const en: Record<LocaleKey, string> = {
+  'question.title': 'Answer required',
+  'question.body': 'The assistant is waiting for your answer.',
   'approval.title': 'Approval required',
   'approval.body': '{toolName} is requesting permission',
   'approval.body.reason': '{toolName} is requesting permission: {reason}',
@@ -129,4 +135,9 @@ export function turnEndContent(reason: TurnEndReason, t: Translate): Notificatio
     default:
       return undefined
   }
+}
+
+/** Render a question card notification in the active locale. */
+export function questionContent(question: string, t: Translate): NotificationContent {
+  return { title: t('question.title'), body: clip(question, 180) || t('question.body') }
 }

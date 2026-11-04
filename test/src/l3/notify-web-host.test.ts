@@ -174,6 +174,32 @@ describe('L3 notify-web host: SSE route', () => {
     assert.deepEqual(expired.pending.map((update) => update.id), ['root:approval:pending'])
   })
 
+  it('syncs unanswered questions and never replays an answered card', async (t) => {
+    const host = createHost()
+    t.after(() => host.dispose())
+    apply(host.ctx)
+    const route = host.route()
+    host.emit('session/event', { id: 'root' }, {
+      type: 'tool/call', seq: 1, time: 1_000,
+      data: { turn: 0, step: 0, callId: 'q1', name: 'ask_user_question', arguments: JSON.stringify({ questions: [{ question: 'Choose?' }] }) },
+    })
+    const first = new SseReader(await route.fetch(new Request('http://localhost/api/notify-web/events')))
+    const [initial] = await first.next()
+    const sync = initial?.data as { epoch: string; pending: Array<{ id: string; kind: string }> }
+    assert.deepEqual(sync.pending.map(({ id, kind }) => ({ id, kind })), [{ id: 'root:question:q1', kind: 'question' }])
+    await first.cancel()
+    host.emit('session/event', { id: 'root' }, {
+      type: 'user/message', seq: 2, time: 1_001,
+      data: { id: 'reply', role: 'user', source: { kind: 'user-question-reply', callId: 'q1', outcome: 'answered' }, content: [] },
+    })
+    const resumed = new SseReader(await route.fetch(new Request(`http://localhost/api/notify-web/events?epoch=${sync.epoch}&seq=0`)))
+    const [frame] = await resumed.next()
+    const result = frame?.data as { pending: unknown[]; replay: Array<{ type: string }> }
+    assert.deepEqual(result.pending, [])
+    assert.deepEqual(result.replay.map(update => update.type), ['withdraw'])
+    await resumed.cancel()
+  })
+
   it('registers the authenticated GET route and starts with an empty sync', async () => {
     const host = createHost()
     apply(host.ctx, { approvalDelayMs: 0 })

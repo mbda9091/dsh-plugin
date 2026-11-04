@@ -2,7 +2,7 @@
  * Shared Host notification trigger logic.
  *
  * Both delivery adapters use this module: it owns the global `session/event`
- * listener, root-Agent filtering, approval delay/cancellation, and the
+ * listener, root-Agent filtering, question lifecycle, approval delay/cancellation, and the
  * `turn/end` decision. It emits serializable notification intents and knows
  * nothing about Windows, HTTP, SSE, browser permissions, or the current UI
  * selection.
@@ -18,9 +18,13 @@ import type { Session, SessionEvent, TurnEndReason } from '@deepseek-ai/dsh-sess
 // `approval/asked` / `approval/decided`.
 import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-user-approval'
+import type {} from '@deepseek-ai/dsh-user-questions/types'
+import type {} from '@deepseek-ai/dsh-tools'
 
 /** Trigger configuration shared by both adapters. */
 export interface TriggerOptions {
+  /** Notify when a root session asks the human to answer a question card. */
+  readonly notifyOnQuestion: boolean
   /** Notify when a root-session tool asks for approval. */
   readonly notifyOnApproval: boolean
   /** Delay before an approval notification; a decision inside it cancels. */
@@ -32,7 +36,7 @@ export interface TriggerOptions {
 }
 
 /** The notification family carried by one update. */
-export type NotificationKind = 'approval' | 'turn-end'
+export type NotificationKind = 'approval' | 'question' | 'turn-end'
 
 /** A serializable approval notification intent. */
 export interface ApprovalShowUpdate {
@@ -49,6 +53,19 @@ export interface ApprovalShowUpdate {
   readonly reason?: string
 }
 
+/** A question card derived from a committed tool invocation. */
+export interface QuestionShowUpdate {
+  readonly type: 'show'
+  readonly kind: 'question'
+  readonly id: string
+  readonly sessionId: string
+  readonly seq: number
+  readonly at: number
+  readonly question: string
+}
+
+export type PendingShowUpdate = ApprovalShowUpdate | QuestionShowUpdate
+
 /** A serializable turn-end notification intent. */
 export interface TurnEndShowUpdate {
   readonly type: 'show'
@@ -61,10 +78,10 @@ export interface TurnEndShowUpdate {
   readonly errorMessage?: string
 }
 
-/** Withdraw one previously emitted approval notification. */
+/** Withdraw one previously emitted approval or question notification. */
 export interface WithdrawUpdate {
   readonly type: 'withdraw'
-  readonly kind: 'approval'
+  readonly kind: 'approval' | 'question'
   readonly id: string
   readonly sessionId: string
   readonly seq: number
@@ -72,17 +89,17 @@ export interface WithdrawUpdate {
 }
 
 /** Every update an adapter may receive. */
-export type NotificationUpdate = ApprovalShowUpdate | TurnEndShowUpdate | WithdrawUpdate
+export type NotificationUpdate = PendingShowUpdate | TurnEndShowUpdate | WithdrawUpdate
 
 /** The notification source created by {@link createNotificationSource}. */
 export interface NotificationSource {
   /**
    * Subscribe to future updates. The source does not replay; adapters use
-   * {@link NotificationSource.snapshotPendingApprovals} for current state.
+   * {@link NotificationSource.snapshotPending} for current state.
    */
   subscribe(listener: (update: NotificationUpdate) => void): () => void
-  /** Currently visible, still-pending approval intents. */
-  snapshotPendingApprovals(): ApprovalShowUpdate[]
+  /** Currently visible approvals and unanswered question cards. */
+  snapshotPending(): PendingShowUpdate[]
   /** Remove listeners, timers, and all derived state. Safe to call twice. */
   dispose(): void
 }
@@ -139,8 +156,8 @@ export function createNotificationSource(ctx: Context, options: TriggerOptions):
   const listeners = new Set<(update: NotificationUpdate) => void>()
   /** Approval timers waiting for {@link TriggerOptions.approvalDelayMs}. */
   const pending = new Map<string, PendingApproval>()
-  /** Approval intents already emitted and not yet decided. */
-  const shown = new Map<string, ApprovalShowUpdate>()
+  /** Pending approval and question intents already emitted. */
+  const shown = new Map<string, PendingShowUpdate>()
   let disposed = false
 
   const emit = (update: NotificationUpdate): void => {
@@ -160,11 +177,11 @@ export function createNotificationSource(ctx: Context, options: TriggerOptions):
     pending.delete(id)
   }
 
-  const withdraw = (update: ApprovalShowUpdate, seq: number, at: number): void => {
+  const withdraw = (update: PendingShowUpdate, seq: number, at: number): void => {
     if (!shown.delete(update.id)) return
     emit({
       type: 'withdraw',
-      kind: 'approval',
+      kind: update.kind,
       id: update.id,
       sessionId: update.sessionId,
       seq,
@@ -172,7 +189,60 @@ export function createNotificationSource(ctx: Context, options: TriggerOptions):
     })
   }
 
+  const showQuestion = (session: Session, event: SessionEvent, callId: string, args: string): void => {
+    if (!options.notifyOnQuestion || !isRootSession(ctx, session)) return
+    const id = `${session.id}:question:${callId}`
+    if (shown.has(id)) return
+    let question: string
+    try {
+      const value: unknown = JSON.parse(args)
+      if (typeof value !== 'object' || value === null || !('questions' in value) || !Array.isArray(value.questions)) return
+      const first: unknown = value.questions[0]
+      if (typeof first !== 'object' || first === null || !('question' in first) || typeof first.question !== 'string') return
+      question = boundMessage(first.question)
+      if (!question) return
+    } catch { return }
+    const state: QuestionShowUpdate = { type: 'show', kind: 'question', id, sessionId: session.id, seq: event.seq, at: event.time, question }
+    shown.set(id, state)
+    emit(state)
+  }
+
+  const isPendingQuestionResult = (content: Extract<SessionEvent, { type: 'tool/result' }>['data']['message']['content']): boolean => {
+    const text = content.find(block => block.type === 'text')
+    if (!text || text.type !== 'text') return false
+    try {
+      const value: unknown = JSON.parse(text.text)
+      return typeof value === 'object' && value !== null && 'pending' in value && value.pending === true
+    } catch { return false }
+  }
+
   const onSessionEvent = (session: Session, event: SessionEvent): void => {
+    if (event.type === 'tool/call' && event.data.name === 'ask_user_question') {
+      showQuestion(session, event, String(event.data.callId), event.data.arguments)
+      return
+    }
+    if (event.type === 'tool/ptc-dispatch' && event.data.name === 'ask_user_question') {
+      if (!event.data.isError && isPendingQuestionResult(event.data.content)) {
+        showQuestion(session, event, String(event.data.subCallId), JSON.stringify(event.data.arguments))
+      }
+      return
+    }
+    if (event.type === 'tool/result') {
+      const visible = shown.get(`${session.id}:question:${String(event.data.message.toolCallId)}`)
+      // A timed-out card remains answerable; only an answer, failure or agent
+      // disposal removes it. Resume repair also preserves unknown outcomes.
+      if (visible && event.data.error?.code !== 'TOOL_OUTCOME_UNKNOWN'
+        && (event.data.error !== undefined || event.data.message.isError === true || !isPendingQuestionResult(event.data.message.content))) {
+        withdraw(visible, event.seq, event.time)
+      }
+      return
+    }
+    if (event.type === 'user/message' && event.data.source.kind === 'user-question-reply') {
+      const visible = shown.get(`${session.id}:question:${String(event.data.source.callId)}`)
+      if (visible) withdraw(visible, event.seq, event.time)
+      return
+    }
+
     if (event.type === 'approval/decided') {
       // Handle decisions before the root check: an Agent may already be gone,
       // and its pending timer/visible approval still needs cleanup.
@@ -243,7 +313,7 @@ export function createNotificationSource(ctx: Context, options: TriggerOptions):
       shown.delete(id)
       emit({
         type: 'withdraw',
-        kind: 'approval',
+        kind: record.kind,
         id,
         sessionId,
         seq: record.seq,
@@ -263,7 +333,7 @@ export function createNotificationSource(ctx: Context, options: TriggerOptions):
         listeners.delete(listener)
       }
     },
-    snapshotPendingApprovals() {
+    snapshotPending() {
       return [...shown.values()]
     },
     dispose() {

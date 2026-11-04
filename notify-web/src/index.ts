@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import {
   createNotificationSource,
-  type ApprovalShowUpdate,
+  type PendingShowUpdate,
   type NotificationUpdate,
   type TriggerOptions,
 } from '@local/notify-host'
@@ -29,6 +29,8 @@ export const inject = ['agents', 'connection']
 
 /** Web notification trigger and SSE channel configuration. */
 export interface Config {
+  /** Notify when the agent asks the human a question. @default true */
+  notifyOnQuestion?: boolean
   /** Notify when a root-session tool asks for approval. @default true */
   notifyOnApproval?: boolean
   /** Delay before an approval notification; a decision inside it cancels. @default 300 */
@@ -52,6 +54,7 @@ export type Options = Required<Config>
 
 /** Defaults, merged under the row's `config`. */
 export const DEFAULTS: Options = {
+  notifyOnQuestion: true,
   notifyOnApproval: true,
   approvalDelayMs: 300,
   notifyOnTurnEnd: true,
@@ -93,7 +96,7 @@ interface SyncPayload {
   readonly epoch: string
   readonly seq: number
   readonly reset: boolean
-  readonly pending: ApprovalShowUpdate[]
+  readonly pending: PendingShowUpdate[]
   readonly replay: NotificationUpdate[]
 }
 
@@ -149,6 +152,7 @@ export function apply(ctx: Context, config: Config = {}): void {
 
   const options: Options = { ...DEFAULTS, ...config }
   const triggers: TriggerOptions = {
+    notifyOnQuestion: options.notifyOnQuestion,
     notifyOnApproval: options.notifyOnApproval,
     approvalDelayMs: options.approvalDelayMs,
     notifyOnTurnEnd: options.notifyOnTurnEnd,
@@ -224,7 +228,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     const replay = cached
       .map((entry) => entry.update)
       .filter((update) => {
-        if (update.type === 'show' && update.kind === 'approval') {
+        if (update.type === 'show' && update.kind !== 'turn-end') {
           return pendingIds.has(update.id) && !withdrawn.has(update.id)
         }
         return true
@@ -243,7 +247,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     if (cursor === null) return new Response('invalid cursor', { status: 400 })
     // Expiry must also run during idle periods, when no broadcast prunes it.
     pruneCache()
-    const pending = source.snapshotPendingApprovals()
+    const pending = source.snapshotPending()
     const pendingIds = new Set(pending.map((update) => update.id))
     const { reset, replay } = replayFor(cursor, pendingIds)
     const sync: SyncPayload = {

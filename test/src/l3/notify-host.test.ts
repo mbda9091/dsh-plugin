@@ -5,6 +5,7 @@ import { createNotificationSource } from '@local/notify-host'
 import type { NotificationUpdate, TriggerOptions } from '@local/notify-host'
 
 const OPTIONS: TriggerOptions = {
+  notifyOnQuestion: true,
   notifyOnApproval: true,
   approvalDelayMs: 10,
   notifyOnTurnEnd: true,
@@ -100,7 +101,7 @@ describe('L3 notify-host: approval source', () => {
       toolName: 'pwsh',
       reason: 'need access',
     }])
-    assert.equal(source.snapshotPendingApprovals().length, 1)
+    assert.equal(source.snapshotPending().length, 1)
     source.dispose()
   })
 
@@ -113,7 +114,7 @@ describe('L3 notify-host: approval source', () => {
     fake.emit('session/event', ROOT, approvalDecided('a1'))
     await delay(20)
     assert.deepEqual(updates, [])
-    assert.deepEqual(source.snapshotPendingApprovals(), [])
+    assert.deepEqual(source.snapshotPending(), [])
     source.dispose()
   })
 
@@ -127,7 +128,7 @@ describe('L3 notify-host: approval source', () => {
     fake.emit('session/event', ROOT, approvalDecided('a1', 5))
     assert.equal(updates.at(-1)?.type, 'withdraw')
     assert.equal(updates.at(-1)?.seq, 5)
-    assert.deepEqual(source.snapshotPendingApprovals(), [])
+    assert.deepEqual(source.snapshotPending(), [])
     source.dispose()
   })
 
@@ -176,7 +177,7 @@ describe('L3 notify-host: approval source', () => {
     await delay(20)
     fake.emit('agent/disposed', { agent: { session: { id: 'root' } } })
     assert.equal(updates.at(-1)?.type, 'withdraw')
-    assert.deepEqual(source.snapshotPendingApprovals(), [])
+    assert.deepEqual(source.snapshotPending(), [])
     source.dispose()
   })
 })
@@ -219,6 +220,69 @@ describe('L3 notify-host: turn endings', () => {
     fake.emit('session/event', ROOT, turnEnd({ kind: 'completed' }))
     fake.emit('session/event', ROOT, turnEnd({ kind: 'error', error: { message: 'x' } }))
     assert.deepEqual(updates, [])
+    source.dispose()
+  })
+})
+
+describe('L3 notify-host: question cards', () => {
+  const call = (id = 'q1') => ({ type: 'tool/call', seq: 10, time: 1000,
+    data: { callId: id, name: 'ask_user_question', arguments: JSON.stringify({ questions: [{ id: 'choice', question: '  Which\noption? ' }] }) } })
+  const result = (content: object, isError = false) => ({ type: 'tool/result', seq: 11, time: 1001,
+    data: { message: { toolCallId: 'q1', content: [{ type: 'text', text: JSON.stringify(content) }], isError } } })
+  it('notifies root calls once, retains timed cards, and withdraws a late answer', () => {
+    const fake = createContext(agentsWith(['root'], ['sub']))
+    const source = createNotificationSource(fake.ctx, OPTIONS), { updates, listener } = collect()
+    source.subscribe(listener)
+    fake.emit('session/event', SUB, call())
+    fake.emit('session/event', ROOT, call())
+    fake.emit('session/event', ROOT, call())
+    assert.equal(updates.length, 1)
+    assert.deepEqual(updates[0], { type: 'show', kind: 'question', id: 'root:question:q1', sessionId: 'root', seq: 10, at: 1000, question: 'Which option?' })
+    fake.emit('session/event', ROOT, result({ pending: true }))
+    assert.equal(source.snapshotPending().length, 1)
+    fake.emit('session/event', ROOT, { type: 'user/message', seq: 12, time: 1002, data: { source: { kind: 'user-question-reply', callId: 'q1', outcome: 'answered' } } })
+    assert.equal(source.snapshotPending().length, 0)
+    assert.equal(updates.at(-1)?.type, 'withdraw')
+    source.dispose()
+  })
+  it('withdraws completed, failed and cancelled calls and honors the switch', () => {
+    for (const isError of [false, true]) {
+      const fake = createContext(agentsWith(['root'], []))
+      const source = createNotificationSource(fake.ctx, OPTIONS), { updates, listener } = collect()
+      source.subscribe(listener)
+      fake.emit('session/event', ROOT, call())
+      fake.emit('session/event', ROOT, result({ answers: [] }, isError))
+      assert.equal(source.snapshotPending().length, 0)
+      assert.equal(updates.at(-1)?.type, 'withdraw')
+      source.dispose()
+    }
+    const fake = createContext(agentsWith(['root'], []))
+    const source = createNotificationSource(fake.ctx, { ...OPTIONS, notifyOnQuestion: false })
+    fake.emit('session/event', ROOT, call())
+    assert.deepEqual(source.snapshotPending(), [])
+    source.dispose()
+  })
+  it('keeps unknown repaired outcomes and cleans cards when the agent is disposed', () => {
+    const fake = createContext(agentsWith(['root'], []))
+    const source = createNotificationSource(fake.ctx, OPTIONS), { updates, listener } = collect()
+    source.subscribe(listener)
+    fake.emit('session/event', ROOT, call())
+    fake.emit('session/event', ROOT, { type: 'tool/result', seq: 11, time: 1001, data: { error: { code: 'TOOL_OUTCOME_UNKNOWN' }, message: { toolCallId: 'q1', content: [] } } })
+    assert.equal(source.snapshotPending().length, 1)
+    fake.emit('agent/disposed', { agent: { session: ROOT } })
+    assert.equal(source.snapshotPending().length, 0)
+    assert.equal(updates.at(-1)?.type, 'withdraw')
+    source.dispose()
+  })
+  it('tracks a continued programmatic sub-call without duplicating it', () => {
+    const fake = createContext(agentsWith(['root'], []))
+    const source = createNotificationSource(fake.ctx, OPTIONS), { updates, listener } = collect()
+    source.subscribe(listener)
+    const event = { type: 'tool/ptc-dispatch', seq: 10, time: 1000, data: { name: 'ask_user_question', subCallId: 'q1', arguments: { questions: [{ id: 'choice', question: 'Which option?' }] }, content: [{ type: 'text', text: '{"pending":true}' }], isError: false } }
+    fake.emit('session/event', ROOT, event)
+    fake.emit('session/event', ROOT, event)
+    assert.equal(updates.length, 1)
+    assert.equal(source.snapshotPending()[0]?.kind, 'question')
     source.dispose()
   })
 })

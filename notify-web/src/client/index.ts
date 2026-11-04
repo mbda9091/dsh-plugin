@@ -13,13 +13,14 @@
  */
 import {
   approvalContent,
+  questionContent,
   fallbackTranslate,
   turnEndContent,
   zh,
   en,
 } from '@local/notify-core'
 import type { NotificationContent, Translate, TurnEndReason } from '@local/notify-core'
-import type { ApprovalShowUpdate, NotificationUpdate } from '@local/notify-host'
+import type { PendingShowUpdate, NotificationUpdate } from '@local/notify-host'
 
 /** Client locale namespace owned by this plugin. */
 const NS = 'notify-web'
@@ -72,7 +73,7 @@ interface SyncPayload {
   readonly epoch?: string
   readonly seq?: number
   readonly reset?: boolean
-  readonly pending?: readonly ApprovalShowUpdate[]
+  readonly pending?: readonly PendingShowUpdate[]
   readonly replay?: readonly NotificationUpdate[]
 }
 
@@ -164,9 +165,10 @@ function jitter(base: number): number {
  * Extract one notification id's family from its stable identity.
  *
  * @param id - notification id.
- * @returns `'approval'`, `'turn-end'`, or `undefined`.
+ * @returns `'approval'`, `'question'`, `'turn-end'`, or `undefined`.
  */
-function idKind(id: string): 'approval' | 'turn-end' | undefined {
+function idKind(id: string): 'approval' | 'question' | 'turn-end' | undefined {
+  if (id.includes(':question:')) return 'question'
   if (id.includes(':approval:')) return 'approval'
   if (id.includes(':turn-end:')) return 'turn-end'
   return undefined
@@ -339,9 +341,9 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     remember(id)
   }
 
-  const showApproval = (update: ApprovalShowUpdate, force = false): void => {
-    const content = approvalContent({ toolName: update.toolName, reason: update.reason }, t)
-    show(update.id, `dsh-approval:${update.id}`, content, update.sessionId, force)
+  const showPending = (update: PendingShowUpdate, force = false): void => {
+    const content = update.kind === 'question' ? questionContent(update.question, t) : approvalContent({ toolName: update.toolName, reason: update.reason }, t)
+    show(update.id, `dsh-${update.kind}:${update.id}`, content, update.sessionId, force)
   }
 
   const showTurnEnd = (update: NotificationUpdate & { type: 'show'; kind: 'turn-end' }): void => {
@@ -361,7 +363,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
       closeNotification(update.id)
       return
     }
-    if (update.kind === 'approval') showApproval(update)
+    if (update.kind !== 'turn-end') showPending(update)
     else showTurnEnd(update)
   }
 
@@ -379,14 +381,14 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     }
     if (typeof payload.epoch !== 'string') return
     currentEpoch = payload.epoch
-    const pending = new Map<string, ApprovalShowUpdate>()
+    const pending = new Map<string, PendingShowUpdate>()
     for (const update of payload.pending ?? []) {
       if (typeof update.id !== 'string' || typeof update.sessionId !== 'string') continue
       pending.set(update.id, update)
-      showApproval(update, restorePending)
+      showPending(update, restorePending)
     }
     for (const id of [...shown.keys()]) {
-      if (idKind(id) === 'approval' && !pending.has(id)) closeNotification(id)
+      if ((idKind(id) === 'approval' || idKind(id) === 'question') && !pending.has(id)) closeNotification(id)
     }
     for (const update of payload.replay ?? []) applyUpdate(update)
     restorePending = false

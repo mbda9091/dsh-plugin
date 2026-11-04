@@ -2,6 +2,7 @@
     - id: desktop-notify
       name: '@local/desktop-notify'
       config:
+        notifyOnQuestion: true
         notifyOnApproval: true
         notifyOnTurnEnd: true
         notifyOnTurnError: true

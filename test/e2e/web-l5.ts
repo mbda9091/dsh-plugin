@@ -175,7 +175,7 @@ async function prepareFixture(page: Page, name: string): Promise<void> {
   assert.equal(state.slot, 'conversation.composer.dock')
 }
 
-async function notify(page: Page, action: 'approval' | 'complete' | 'withdraw'): Promise<void> {
+async function notify(page: Page, action: 'approval' | 'complete' | 'withdraw' | 'question' | 'answer'): Promise<void> {
   const status = await page.evaluate(async action => {
     const response = await fetch(new URL('api/web-hello/notify', document.baseURI), {
       method: 'POST', headers: { 'content-type': 'application/json' },
@@ -262,6 +262,8 @@ try {
           if (language === 'denied') {
             await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.requests === 1)
             assert.deepEqual(await page.evaluate(() => window.__L5_NOTIFICATIONS__.interactionsAtRequest), [0], 'permission request must precede user interaction')
+            await notify(page, 'question')
+            await notify(page, 'answer')
             await notify(page, 'complete')
             // Observe beyond the Host's default 300ms approval delay.
             await page.waitForTimeout(600)
@@ -279,6 +281,12 @@ try {
               ['需要确认权限', 'shell-test 正在请求授权：L5 test'],
               ['对话已完成', '本轮回复已结束，可以回来查看了。'],
             ])
+            await notify(page, 'question')
+            await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.length === 3)
+            const question = await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls[2]!)
+            assert.deepEqual([question.title, question.body], [language === 'en' ? 'Answer required' : '需要回答', 'Which option?'])
+            await notify(page, 'answer')
+            await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls[2]?.closed === true)
             assert.ok(streams >= 1)
             await notify(page, 'withdraw')
             settled = true

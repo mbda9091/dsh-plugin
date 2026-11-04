@@ -19,7 +19,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
-import { approvalContent, fallbackTranslate, turnEndContent } from '@local/notify-core'
+import { questionContent, approvalContent, fallbackTranslate, turnEndContent } from '@local/notify-core'
 import { createNotificationSource } from '@local/notify-host'
 import { assertTarget } from './targets.js'
 
@@ -37,6 +37,8 @@ export { detectEnvironment, evaluateTarget } from './targets.js'
  * interface, and TypeScript checks every use inside the plugin.
  */
 export interface Config {
+  /** Notify when the agent asks the human a question. @default true */
+  notifyOnQuestion?: boolean
   /** Notify when a tool asks the user to approve a wider permission. @default true */
   notifyOnApproval?: boolean
   /**
@@ -64,6 +66,7 @@ export type Options = Required<Config>
 
 /** Defaults, merged under the row's `config`. */
 export const DEFAULTS: Options = {
+  notifyOnQuestion: true,
   notifyOnApproval: true,
   approvalDelayMs: 300,
   notifyOnTurnEnd: true,
@@ -124,6 +127,7 @@ export type Notify = (options: Options, title: string, body: string) => void
  */
 export function registerSessionNotifications(ctx: Context, options: Options, notify: Notify = show): () => void {
   const source = createNotificationSource(ctx, {
+    notifyOnQuestion: options.notifyOnQuestion,
     notifyOnApproval: options.notifyOnApproval,
     approvalDelayMs: options.approvalDelayMs,
     notifyOnTurnEnd: options.notifyOnTurnEnd,
@@ -132,6 +136,11 @@ export function registerSessionNotifications(ctx: Context, options: Options, not
 
   const unsubscribe = source.subscribe((update) => {
     if (update.type !== 'show') return
+    if (update.kind === 'question') {
+      const content = questionContent(update.question, t)
+      notify(options, content.title, content.body)
+      return
+    }
     if (update.kind === 'approval') {
       const content = approvalContent({ toolName: update.toolName, reason: update.reason }, t)
       notify(options, content.title, content.body)

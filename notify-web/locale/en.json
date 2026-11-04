@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Browser Notifications",
-    "description": "[Web · All platforms] Sends browser system notifications for approvals and turn ends; clicking focuses the tab and opens the matching Session."
+    "description": "[Web · All platforms] Sends browser system notifications for questions, approvals and turn ends; clicking focuses the tab and opens the matching Session."
   }
 }

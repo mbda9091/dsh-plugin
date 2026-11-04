@@ -165,6 +165,8 @@ function createFixture(options: FixtureOptions = {}): Fixture {
   }
 
   const zh: Record<string, string> = {
+    'question.title': '需要回答',
+    'question.body': '助手正在等待你的回答。',
     'approval.title': '需要确认权限',
     'approval.body': '{toolName} 正在请求授权',
     'approval.body.reason': '{toolName} 正在请求授权：{reason}',
@@ -175,6 +177,8 @@ function createFixture(options: FixtureOptions = {}): Fixture {
     'turnEnd.error.body': '{message}',
   }
   const en: Record<string, string> = {
+    'question.title': 'Answer required',
+    'question.body': 'The assistant is waiting for your answer.',
     'approval.title': 'Approval required',
     'approval.body': '{toolName} is requesting permission',
     'approval.body.reason': '{toolName} is requesting permission: {reason}',
@@ -664,4 +668,24 @@ describe('L3 notify-web client: permission', () => {
       assert.equal(fixture.fetchUrls.length, 0)
     })
   }
+})
+
+it('L3 question notifications restore pending cards, focus the session and withdraw on answer', async () => {
+  const fixture = createFixture()
+  try {
+    fixture.apply()
+    await waitFor(() => fixture.fetchUrls.length === 1)
+    const question = { type: 'show', kind: 'question', id: 'session-1:question:q1', sessionId: 'session-1', seq: 1, at: Date.now(), question: 'Which option?' }
+    fixture.sendSync({ version: 1, epoch: 'epoch-1', seq: 1, reset: false, pending: [question], replay: [] })
+    await waitFor(() => fixture.notifications.length === 1)
+    assert.equal(fixture.notifications[0]!.title, '需要回答')
+    assert.equal(fixture.notifications[0]!.options.body, 'Which option?')
+    fixture.notifications[0]!.onclick?.()
+    assert.deepEqual(fixture.opened, ['session-1'])
+    const next = { ...question, id: 'session-1:question:q2' }
+    fixture.sendUpdate({ seq: 2, update: next })
+    await waitFor(() => fixture.notifications.length === 2)
+    fixture.sendUpdate({ seq: 3, update: { ...next, type: 'withdraw' } })
+    await waitFor(() => fixture.notifications[1]!.closed)
+  } finally { fixture.dispose() }
 })
