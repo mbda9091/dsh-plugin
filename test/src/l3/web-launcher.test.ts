@@ -17,7 +17,7 @@ it('L3 Web launcher uses initialized config from another cwd, forwards args and 
     const capture = join(f.root, 'capture.json')
     writeFileSync(f.entry, `#!/usr/bin/env node
       require('node:fs').writeFileSync(process.env.TEST_CAPTURE, JSON.stringify({
-        args: process.argv.slice(2), cwd: process.cwd(), patch: require('node:fs').readFileSync(process.argv[4], 'utf8'),
+        args: process.argv.slice(2), cwd: process.cwd(), patch: require('node:fs').readFileSync(process.argv[process.argv.indexOf('--patch') + 1], 'utf8'),
         pnpmShim: require('node:fs').readFileSync(require('node:path').join(process.env.PATH.split(require('node:path').delimiter)[0], process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'), 'utf8'),
       }));
       ${fakeWebServer(7)}
@@ -29,7 +29,7 @@ it('L3 Web launcher uses initialized config from another cwd, forwards args and 
     })
     assert.equal(code, 7)
     const recorded = JSON.parse(readFileSync(capture, 'utf8')) as { args: string[]; cwd: string; patch: string; pnpmShim: string }
-    assert.deepEqual(recorded.args, ['web', '--patch', patch, '--no-open', '--host', '127.0.0.1', '--port', '0'])
+    assert.deepEqual(recorded.args, ['--profile', 'web', '--patch', patch, '--no-open', '--host', '127.0.0.1', '--port', '0'])
     assert.equal(recorded.cwd, f.root)
     assert.equal(recorded.patch, readFileSync(patch, 'utf8'))
     assert.ok(recorded.pnpmShim.includes(process.execPath))

@@ -132,7 +132,7 @@ export async function runWeb(args: readonly string[], root: string = repoRoot, e
     }
     writePnpmShim(p.bin, pnpm)
     control = await createDevelopmentControl(context, () => { requestedStop = true; void stop().catch(() => {}) })
-    started = startToFiles(runner.command, runner.build(['web', '--patch', p.patch, '--no-open', '--host', host, '--port', String(port)]), {
+    started = startToFiles(runner.command, runner.build(['--profile', 'web', '--patch', p.patch, '--no-open', '--host', host, '--port', String(port)]), {
       cwd: root, env: { ...developmentEnvironment(context), ...runner.env }, verbatim: runner.verbatim,
       stdoutPath: join(p.logs, 'web.out.log'), stderrPath: join(p.logs, 'web.err.log'),
     })

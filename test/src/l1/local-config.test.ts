@@ -33,6 +33,9 @@ describe('L1 local configuration lifecycle', () => {
       const patch = renderWebPatch(readFileSync(f.paths.patchExample, 'utf8'), f.root)
       const parsed = parse(patch) as Array<{ id: string; config: { root?: string[] } }>
       assert.equal(parsed[0]?.config.root?.[0], join(f.root, 'app-restart/lib'))
+      const devPatch = renderWebPatch(readFileSync(join(f.root, 'profiles/web/cordis.dev.patch.yml'), 'utf8'), f.root)
+      const workspace = (parse(devPatch) as Array<{ id: string; config: { documentsDirectory?: string } }>).find(row => row.id === 'workspace-controller')
+      assert.equal(workspace?.config.documentsDirectory, join(f.root, '.local/dsh-dev/home/documents'))
       writeFileSync(f.paths.example, 'broken template')
       writeFileSync(f.paths.patchExample, 'broken template')
       assert.equal(initializeConfig(f.options, f.root, f.env).state, 'existing')

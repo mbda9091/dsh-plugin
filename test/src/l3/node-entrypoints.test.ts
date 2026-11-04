@@ -66,14 +66,14 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     const patch = developmentPatch(f)
     writeFileSync(f.entry, `#!/usr/bin/env node\nconst fs = require('node:fs');
       fs.writeFileSync(process.env.TEST_CAPTURE, JSON.stringify({args: process.argv.slice(2), cwd: process.cwd()}));
-      if (process.argv[2] === 'web') { ${fakeWebServer(7)} }
+      if (process.argv.includes('--no-open')) { ${fakeWebServer(7)} }
       else process.exit(7);
     `)
     run([...install, '--skip-build'], 7)
     assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')).args, ['plugin', '--profile', 'web', 'add', join(f.root, 'alpha')])
     run(['dev-web', '--no-open', '--port', '0', '--host', '127.0.0.1'], 7)
     assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')), {
-      args: ['web', '--patch', patch, '--no-open', '--host', '127.0.0.1', '--port', '0'], cwd: f.root,
+      args: ['--profile', 'web', '--patch', patch, '--no-open', '--host', '127.0.0.1', '--port', '0'], cwd: f.root,
     })
     mkdirSync(join(env.DSH_HOME!, 'profiles/web'), { recursive: true })
     writeFileSync(join(env.DSH_HOME!, 'profiles/web/package.json'), '{"dependencies":{}}')

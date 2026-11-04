@@ -199,6 +199,8 @@ try {
     await check('no-custom-plugins', async page => {
       await open(page, true)
       assert.equal(await page.evaluate(() => window.__DSH_WEB_HELLO__), undefined)
+      await page.getByRole('tree', { name: 'Sessions', exact: true }).getByText('Default workspace', { exact: true }).waitFor()
+      assert.equal(await page.getByText('Unable to create default workspace. Use Choose workspace to select a folder.', { exact: true }).count(), 0)
       await page.getByRole('tree', { name: 'Sessions', exact: true }).waitFor({ state: 'visible' })
     })
   } else {

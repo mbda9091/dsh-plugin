@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { checkTestBrowser, commandEnv, loadCommandContext } from '../core/command-context.js'
 import type { CommandContext } from '../core/command-context.js'
@@ -39,6 +39,12 @@ export async function runL5(input: L5Options, settings: CommandContext = loadCom
     await step('prerequisites', async () => {
       checkTestBrowser(settings); ensurePnpmShim(context)
       mkdirSync(join(runDir, 'workspace'), { recursive: true })
+      context.webPatch = join(runDir, 'workspace.patch.yml')
+      writeFileSync(context.webPatch, JSON.stringify([{
+        id: 'workspace-controller',
+        config: { documentsDirectory: join(runDir, 'workspace/documents') },
+      }]))
+
       return 'browser and pinned pnpm ready'
     })
     await step('profile-init', () => initProfile(context, 'profile-init', context.home))
@@ -54,6 +60,9 @@ export async function runL5(input: L5Options, settings: CommandContext = loadCom
       })
       if (result.status !== 0 || result.timedOut) throw new Error(`browser checks failed (${result.status}, timedOut=${result.timedOut}):\n${result.stdout}\n${result.stderr}`)
       assertBrowserResults(join(runDir, 'artifacts', mode), mode)
+      if (!existsSync(join(runDir, 'workspace/documents/deepseek-harness/default-workspace'))) {
+        throw new Error('default workspace was not created inside the owned test directory')
+      }
       if (mode === 'fixture' && options.artifacts) checkArtifactInstallations(context, options.artifacts)
       return result.stdout.trim()
     }))

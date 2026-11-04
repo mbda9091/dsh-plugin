@@ -13,3 +13,8 @@
       - 'data'
       - '**\\node_modules'
       - '**\\.*'
+
+# Keep first-use files inside the managed development home, including on WSL.
+- id: workspace-controller
+  config:
+    documentsDirectory: '${repoRoot}/.local/dsh-dev/home/documents'

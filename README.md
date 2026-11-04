@@ -171,3 +171,24 @@ Linux 本机验证（2026-11-04，Node 24.15.0 / DSH 0.2.1-rc.2，当前分支�
 测试兼容宿主不显示登录弹窗的路径；WSL 的 VS Code 原生图标 404 按宿主通用图标回退行为单独记录，其他控制台错误仍会失败。
 此前截图因本机缺少中文字体显示方框；2026-11-05 安装 Noto CJK 后重跑 L5 通过，并检查浅色/深色中文截图，中文已正常显示。系统真实通知弹窗和点击聚焦仍需在桌面浏览器验证。
 Ubuntu CI 矩阵已配置，远端执行及 Linux 桌面宿主尚未验收。
+
+### WSL 默认工作区与验收边界
+
+DSH 首次启动会通过 `xdg-user-dir DOCUMENTS` 查找文档目录。WSL 未配置该目录时可能返回用户主目录，宿主会拒绝创建默认工作区并显示提示。新建开发环境现在显式使用 `.local/dsh-dev/home/documents`；L5 使用本次 `.tmp/l5/run-*/workspace/documents`，并检查默认工作区确实创建，避免写入个人 Documents。
+
+已有开发环境的 patch 会保留，不自动重写。需要修复时先备份 `.local/dsh-dev/cordis.patch.yml` 为同目录 `cordis.patch.yml.bak`，再在该受管开发 patch 中设置：
+
+```yaml
+- id: workspace-controller
+  config:
+    documentsDirectory: '/绝对路径/dsh-plugin/.local/dsh-dev/home/documents'
+```
+
+日常目标可通过界面显式选择工作目录；仓库命令不会改动其个人目录设置。WSL 的 Windows VS Code 命令可能被宿主发现但没有 Linux desktop entry 图标，宿主以通用图标回退；此项不通过修改宿主依赖或伪造图标解决。
+
+2026-11-05 收尾验证：默认工作区 L5 通过（`.tmp/l5/run-SzZrau/report.json`），L1–L3 247 项通过、1 项跳过，fast 环境 28 项通过（`.tmp/environment-tests/run-HANy7c/report.json`）。
+完整真实环境验收须显式选择 Chromium：
+```sh
+node scripts/bootstrap.mjs test-env --suite real --test-browser chromium --pnpm-script /绝对路径/pnpm/bin/pnpm.cjs
+```
+Windows 浏览器中的实际系统通知、点击聚焦仍需桌面人工验收；无头测试只替换系统 Notification API，不证明操作系统弹窗行为。

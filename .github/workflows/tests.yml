@@ -2,7 +2,7 @@ name: Plugin tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, feat/linux-support]
   pull_request:
   workflow_dispatch:
 
