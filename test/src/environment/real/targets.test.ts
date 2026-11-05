@@ -1,3 +1,4 @@
+import { workspaceDshVersion } from '../../harness/dsh-version.js'
 import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -20,7 +21,7 @@ async function prepare(f: ReturnType<typeof fixture>, names: string[]) {
   const prepared = prepareIsolation(f, true)
   const host = join(f.root, '.formal-host'), preparation = join(f.root, '.formal-preparation'), home = join(f.root, '.formal-home')
   mkdirSync(host); mkdirSync(preparation)
-  writeFileSync(join(host, 'package.json'), JSON.stringify({ private: true, dependencies: { '@deepseek-ai/dsh': '0.2.1-rc.2' } }))
+  writeFileSync(join(host, 'package.json'), JSON.stringify({ private: true, dependencies: { '@deepseek-ai/dsh': workspaceDshVersion } }))
   writeFileSync(join(host, 'pnpm-workspace.yaml'), readFileSync(join(sourceRoot, 'pnpm-workspace.yaml'), 'utf8').replace(/packages:\r?\n(?:  .*\r?\n)+/, 'packages: []\n'))
   const env: NodeJS.ProcessEnv = { ...prepared.env, CI: 'true' }
   for (const key of Object.keys(env)) if (/^(DSH_|NODE_OPTIONS$|NODE_PATH$)/i.test(key)) delete env[key]

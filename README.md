@@ -13,12 +13,14 @@
 | [notify-web](notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS |
 | [approval-allowlist](approval-allowlist/README.md) | 按工具名和调用参数匹配审批规则，默认只观察、不自动放行 | 桌面、Web | Windows、macOS |
 
-完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断；Windows、macOS 的远端类型检查与 L1–L5 已通过，包含真实 DSH Web 与 Chromium。系统原生通知、桌面 Electron 行为及日常浏览器启动仍需按场景另行验收。
+完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断；历史 Windows、macOS 远端类型检查与 L1–L5 结果保留。2026-11-05 升级至 DSH `0.2.1-rc.5` 后，本机 macOS / Node 24.16.0 已通过类型检查、L1–L3（276 通过、2 项平台跳过）、L4 与 L5；43 项环境测试中 42 项首轮通过，干净安装 TOOL-04 在关闭可选 Kerberos 构建后单项复验通过，首次完整 CI 失败记录保留。本轮未执行 Windows 和桌面 Electron 验收，系统原生通知及真实桌面重启仍需按场景另行验证。
 
 ## 准备环境
 
-- DeepSeek Harness：当前开发与类型依赖版本为 **`0.2.1-rc.2`**，开发宿主由 workspace 冻结安装，无需全局 DSH；正式桌面应用单独管理。
+- DeepSeek Harness：当前开发与类型依赖版本为 **`0.2.1-rc.5`**，开发宿主由 workspace 冻结安装，无需全局 DSH；正式桌面应用单独管理。
 - Node.js **24**、pnpm **11.28.5**；下面的依赖安装命令要求 pnpm 在 PATH 中可用。
+
+2026-11-05 查询 npm `latest` 得到 `0.2.1-rc.5`，仓库使用该精确版本及锁文件保证可复现安装。宿主、插件类型包和真实环境测试版本同步；未来升级仍先解析 `latest` 再更新精确版本。`pnpm-workspace.yaml` 允许新增 WebSocket 原生依赖构建；可选 Kerberos 模块默认不构建，因为其 node-gyp 在带空格的用户目录下编译失败。普通 Web 与代理功能不依赖它；需要 Negotiate/SPNEGO 代理认证时，须在支持的本机环境单独启用并验证 Kerberos 构建。
 
 统一入口为 `node scripts/bootstrap.mjs <command>`。普通 Node 24 需要在 PATH 中，或使用其绝对路径启动；不通过 `DSH_NODE` 选择运行时。编译器、pnpm 和开发 DSH 使用当前 Node。`config init` 只从 PATH 发现 pnpm 包脚本及系统浏览器，不扫描私有 runtime；无法发现时显式提供 `--pnpm-script <pnpm包>/bin/pnpm.cjs`。例如用 npm 全局安装指定 pnpm 后，包位于 `npm root -g` 输出目录下。准备说明和 v1 迁移见 [配置 v2](docs/configuration-v2.md)。
 

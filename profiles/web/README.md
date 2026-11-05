@@ -29,7 +29,7 @@ macOS 使用 `--platform mac`。可传 `web --target NAME` 选择其他完整 We
 
 该字段只存在于本机 `scripts/config/local.json`，不入库；`target bind` 重绑时保留。`daily-launcher prepare|deploy` 目前不透传该字段，目标配置了 `patch` 会直接报错，避免部署后静默丢配置。
 
-开发使用 workspace 锁定的普通 Node DSH `0.2.1-rc.2`，固定 profile `web`，可变数据在 `.local/dsh-dev/`。完整字段、目录归属和异常恢复见 [配置 v2](../../docs/configuration-v2.md)。
+开发使用 workspace 锁定的普通 Node DSH `0.2.1-rc.5`，固定 profile `web`，可变数据在 `.local/dsh-dev/`。完整字段、目录归属和异常恢复见 [配置 v2](../../docs/configuration-v2.md)。
 
 ## 准备与使用
 
@@ -87,7 +87,7 @@ node scripts/bootstrap.mjs dev-web reset --yes
 
 ## Windows 上安装依赖时报 `ENOENT scandir ..._tmp_...\node_modules`
 
-本机 dsh `0.2.1-rc.2` 的 HMR 将 `path.relative()` 返回的 Windows 反斜杠路径直接交给 picomatch，默认的 `**/node_modules` / `**/.*` 因此可能不匹配。尤其 profile 在 C 盘、仓库在 D 盘时，依赖和隐藏目录都会被监听。监听器持有子目录句柄，pnpm 的 hoisted 安装移动旧依赖目录时先遇到 `EPERM rename`，随后其合并回退又扫描不存在的临时目录，最终显示 `ENOENT scandir`。
+此前本机 dsh `0.2.1-rc.2` 的 HMR 将 `path.relative()` 返回的 Windows 反斜杠路径直接交给 picomatch，默认的 `**/node_modules` / `**/.*` 因此可能不匹配。尤其 profile 在 C 盘、仓库在 D 盘时，依赖和隐藏目录都会被监听。监听器持有子目录句柄，pnpm 的 hoisted 安装移动旧依赖目录时先遇到 `EPERM rename`，随后其合并回退又扫描不存在的临时目录，最终显示 `ENOENT scandir`。
 
 本目录的 patch 已将代码监听范围收窄为各插件的 `lib/`，同时显式保留默认排除规则，并补充 Windows 反斜杠规则。这里的 `**\\node_modules` 使用 YAML 单引号，两个反斜杠原样传给 picomatch，用于匹配路径中的一个反斜杠；不要改成单个反斜杠。
 

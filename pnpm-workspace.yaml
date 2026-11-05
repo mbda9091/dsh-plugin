@@ -14,5 +14,8 @@ allowBuilds:
   '@deepseek-ai/dsh-subprocess-local': true # restore macOS spawn-helper executable bit
   node-pty: true # select shipped platform prebuilds
   koffi: true # select shipped FFI prebuilds
+  bufferutil: true # select WebSocket native prebuilds
+  utf-8-validate: true # select WebSocket UTF-8 validation prebuilds
+  kerberos: false # optional Negotiate proxy auth; node-gyp fails with spaced HOME paths
   '@google/genai': false # published JS; preinstall is a no-op
   protobufjs: false # published JS; optional postinstall is not needed

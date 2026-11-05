@@ -1,3 +1,4 @@
+import { workspaceDshVersion } from '../harness/dsh-version.js'
 import assert from 'node:assert/strict'
 import { it } from 'node:test'
 import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
@@ -16,7 +17,7 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
       copyFileSync(join(repoRoot, file), join(f.root, file))
     }
     const manifest = JSON.parse(readFileSync(join(f.root, 'package.json'), 'utf8'))
-    manifest.devDependencies['@deepseek-ai/dsh'] = '0.2.1-rc.2'
+    manifest.devDependencies['@deepseek-ai/dsh'] = workspaceDshVersion
     writeFileSync(join(f.root, 'package.json'), JSON.stringify(manifest))
     // bootstrap requires a local compiler; other dependencies resolve from the
     // workspace ancestor. Copying avoids requiring symlink privileges on Windows.

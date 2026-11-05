@@ -1,3 +1,4 @@
+import { workspaceDshVersion } from './dsh-version.js'
 import assert from 'node:assert/strict'
 import { copyFileSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -68,8 +69,8 @@ export function fixture(base: string) {
   const fake = () => {
     const directory = join(root, 'node_modules/@deepseek-ai/dsh')
     mkdirSync(directory, { recursive: true })
-    writeFileSync(join(root, 'package.json'), JSON.stringify({ packageManager: 'pnpm@11.28.5', devDependencies: { '@deepseek-ai/dsh': '0.2.1-rc.2' } }))
-    writeFileSync(join(directory, 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh', version: '0.2.1-rc.2', bin: { dsh: './cli.cjs' } }))
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ packageManager: 'pnpm@11.28.5', devDependencies: { '@deepseek-ai/dsh': workspaceDshVersion } }))
+    writeFileSync(join(directory, 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh', version: workspaceDshVersion, bin: { dsh: './cli.cjs' } }))
     const entry = join(directory, 'cli.cjs')
     writeFileSync(entry, `const fs=require('node:fs');fs.writeFileSync(process.argv[2],JSON.stringify({node:process.execPath,args:process.argv.slice(3),home:process.env.DSH_HOME,profile:process.env.DSH_PROFILE,cli:process.env.DSH_CLI,store:process.env.PNPM_CONFIG_STORE_DIR||process.env.pnpm_config_store_dir}));`)
     return entry

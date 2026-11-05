@@ -1,3 +1,4 @@
+import { workspaceDshVersion } from '../../harness/dsh-version.js'
 import assert from 'node:assert/strict'
 import { mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -25,7 +26,7 @@ it('DLY-05 real archived migration survives repository loss and coexists with de
   const f = fixture(outer.root), prepared = prepareIsolation(f, true), d = dailyFixture(outer.root)
   const pnpm = process.env.DSH_ENV_TEST_PNPM!
   const host = join(outer.root, 'installed-host'); mkdirSync(host)
-  writeFileSync(join(host, 'package.json'), JSON.stringify({ private: true, dependencies: { '@deepseek-ai/dsh': '0.2.1-rc.2' } }))
+  writeFileSync(join(host, 'package.json'), JSON.stringify({ private: true, dependencies: { '@deepseek-ai/dsh': workspaceDshVersion } }))
   writeFileSync(join(host, 'pnpm-workspace.yaml'), readFileSync(join(sourceRoot, 'pnpm-workspace.yaml'), 'utf8').replace(/packages:\r?\n(?:  .*\r?\n)+/, 'packages: []\n'))
   const env: NodeJS.ProcessEnv = { ...prepared.env, CI: 'true' }
   for (const key of Object.keys(env)) if (/^(DSH_|NODE_OPTIONS$|ELECTRON_)/i.test(key)) delete env[key]
@@ -86,5 +87,5 @@ it('DLY-05 real archived migration survives repository loss and coexists with de
   assert.equal(handler?.(), 'alpha')
   assert.equal(readFileSync(join(d.home, 'history.sentinel'), 'utf8'), sentinel)
   assert.equal(dailyHash(readFileSync(pkg.archive!)), pkg.sha256)
-  writeFileSync(join(process.env.DSH_ENV_TEST_RUN!, 'DLY-05-details.json'), JSON.stringify({ report, launcher: d.built, tools: { node: process.version, pnpm: '11.28.5', dsh: '0.2.1-rc.2' }, platform: 'windows', surface: 'web', repositoryOffline: true, realCapability: 'alpha handler response', coexistence: ['daily', 'development', 'disposable'], failedTestAndResetPreserveDaily: true }, null, 2))
+  writeFileSync(join(process.env.DSH_ENV_TEST_RUN!, 'DLY-05-details.json'), JSON.stringify({ report, launcher: d.built, tools: { node: process.version, pnpm: '11.28.5', dsh: workspaceDshVersion }, platform: 'windows', surface: 'web', repositoryOffline: true, realCapability: 'alpha handler response', coexistence: ['daily', 'development', 'disposable'], failedTestAndResetPreserveDaily: true }, null, 2))
 }, false))

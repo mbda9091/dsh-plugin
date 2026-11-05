@@ -98,7 +98,7 @@ it('TOOL-03 current Node drives DSH and pnpm shim; Electron retains its engine',
 
 it('TOOL-05 DSH belongs only to root development dependencies', () => environmentCase('TOOL-05', () => {
   const manifest = JSON.parse(readFileSync(join(sourceRoot, 'package.json'), 'utf8'))
-  assert.equal(manifest.devDependencies['@deepseek-ai/dsh'], '0.2.1-rc.2')
+  assert.match(manifest.devDependencies['@deepseek-ai/dsh'], /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/)
   assert.equal(manifest.dependencies, undefined)
   for (const plugin of discoverPlugins(sourceRoot)) {
     assert.equal(plugin.manifest.dependencies, undefined)
