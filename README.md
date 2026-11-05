@@ -1,5 +1,8 @@
 # dsh-plugin
 
+`node scripts/bootstrap.mjs` 无子命令时默认执行 `web`，也支持直接传 `--target`、`--port`、`--no-open` 等启动参数；显式 `build`、`test`、`ci` 等命令仍按原用途执行，`--help` 显示总帮助。
+
+
 为 DeepSeek Harness（DSH）编写的自定义插件，提供桌面重启、审批提醒、任务完成通知和精确调用审批白名单。
 
 每个插件都是独立的 npm 包和 Cordis bundle，可以按需安装到 DSH profile，单独启停。本仓库保存插件源码、构建脚本和文档，使用前需要安装 DSH 并构建插件。
@@ -65,18 +68,20 @@ node scripts/bootstrap.mjs config init
 node scripts/bootstrap.mjs config check
 
 # 初始化持久开发环境，再构建安装兼容 Web 插件
-node scripts/bootstrap.mjs web init
+node scripts/bootstrap.mjs dev-web init
 node scripts/bootstrap.mjs dev-install
 
-node scripts/bootstrap.mjs web
+node scripts/bootstrap.mjs dev-web
 # 另一个终端查看/停止；停止保留会话和配置
-node scripts/bootstrap.mjs web status
-node scripts/bootstrap.mjs web stop
+node scripts/bootstrap.mjs dev-web status
+node scripts/bootstrap.mjs dev-web stop
 # 默认只预览；添加 --yes 才停止自己的实例并清理开发数据
-node scripts/bootstrap.mjs web reset
+node scripts/bootstrap.mjs dev-web reset
 ```
 
-开发只使用 workspace 锁定的普通 Node DSH。缺依赖时先冻结安装，不接受 `--dsh-cli` 或日常环境变量重定向。`web` 默认监听 `127.0.0.1:3000`，可用 `--port 0` 选择空闲端口；重复启动或端口占用会报错。
+开发只使用 workspace 锁定的普通 Node DSH。缺依赖时先冻结安装，不接受 `--dsh-cli` 或日常环境变量重定向。`dev-web` 默认使用随机空闲端口，可用 `--port 0` 选择空闲端口；重复启动或端口占用会报错。
+
+日常启动使用 `node scripts/bootstrap.mjs web`：默认 target `macos-web`、端口 `3080`、`--no-open`；可显式覆盖 target/port，并用 `--open` 让 DSH 打开浏览器。它只在前台启动 DSH，输出直接进入终端，Ctrl+C 退出；不提供 status/stop，不读写旧 runtime/lock 或委托部署入口。
 
 浏览器通知需要允许站点通知权限，并保持标签页打开。完整参数、配置层序和 Windows 排障见 [Web 配置与启动说明](profiles/web/README.md)。
 

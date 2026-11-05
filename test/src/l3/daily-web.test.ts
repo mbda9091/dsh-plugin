@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { spawn } from 'node:child_process'
 import { it } from 'node:test'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -16,7 +17,7 @@ function dailyFixture() {
   writeFileSync(join(profile, 'package.json'), '{"private":true}')
   writeFileSync(join(home, 'history-sentinel'), 'existing daily data')
   const disk = JSON.parse(readFileSync(f.paths.local, 'utf8'))
-  disk.targets = [{ name: 'daily', dshCli: f.cli, home, profile: 'macos-web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : 'mac' }]
+  disk.targets = [{ name: 'macos-web', dshCli: f.cli, home, profile: 'macos-web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : 'mac' }]
   writeFileSync(f.paths.local, JSON.stringify(disk))
   return { ...f, home, profile }
 }
@@ -36,7 +37,7 @@ it('L3 daily Web selects the bound external target despite poisoned DSH variable
     assert.equal(readFileSync(join(f.profile, 'package.json'), 'utf8'), before)
     assert.equal(readFileSync(join(f.home, 'history-sentinel'), 'utf8'), 'existing daily data')
     assert.equal(existsSync(join(f.root, '.local/dsh-dev')), false)
-    assert.equal(existsSync(join(f.root, '.local/dsh-daily/daily/runtime.json')), false)
+    assert.equal(existsSync(join(f.root, '.local/dsh-daily/macos-web/runtime.json')), false)
   } finally { removeDir(f.root) }
 })
 
@@ -67,25 +68,55 @@ it('L3 daily Web fails closed when the configured target patch is missing', asyn
   } finally { removeDir(f.root) }
 })
 
-it('L3 daily Web status/stop authenticate their own supervisor and retain daily data', async () => {
+it('L3 daily Web defaults are independent of browser preferences and stale supervisor/deployment records', async () => {
   const f = dailyFixture()
-  let running: Promise<number> | undefined
   try {
-    writeFileSync(f.entry, `const server=require('node:http').createServer((req,res)=>res.end('ready')); server.listen(Number(process.argv[process.argv.indexOf('--port')+1]),'127.0.0.1',()=>console.log('dsh web: http://127.0.0.1:'+server.address().port+'/'));`)
-    running = runDailyWeb(['--no-open', '--port', '0'], f.root, { ...process.env, ...f.env })
-    const runtime = join(f.root, '.local/dsh-daily/daily/runtime.json')
+    const directory = join(f.root, '.local/dsh-daily/macos-web')
+    mkdirSync(directory, { recursive: true })
+    for (const name of ['runtime.json', 'operation.lock', 'deployment.json']) writeFileSync(join(directory, name), 'stale')
+    const capture = join(f.root, 'capture.json')
+    writeFileSync(f.entry, `require('node:fs').writeFileSync(process.env.TEST_CAPTURE, JSON.stringify(process.argv.slice(2))); process.exit(7)`)
+    assert.equal(await runDailyWeb([], f.root, { ...process.env, ...f.env, TEST_CAPTURE: capture }), 7)
+    assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')), ['--profile', 'macos-web', '--no-open', '--host', '127.0.0.1', '--port', '3080'])
+    for (const name of ['runtime.json', 'operation.lock', 'deployment.json']) assert.equal(readFileSync(join(directory, name), 'utf8'), 'stale')
+    assert.equal(await runDailyWeb(['--target=macos-web', '--port=3099', '--open'], f.root, { ...process.env, ...f.env, TEST_CAPTURE: capture }), 7)
+    assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')), ['--profile', 'macos-web', '--host', '127.0.0.1', '--port', '3099'])
+  } finally { removeDir(f.root) }
+})
+
+it('L3 daily Web rejects removed management commands and invalid ports', async () => {
+  for (const args of [['status'], ['stop'], ['check'], ['--port', '65536'], ['--port', '-1'], ['--port', 'abc'], ['--target'], ['--port', '1', '--port', '2']]) {
+    await assert.rejects(runDailyWeb(args), /unsupported daily Web option|--port|--target/)
+  }
+})
+
+// Windows kill(SIGTERM) forcibly terminates the wrapper, rather than delivering a catchable signal.
+it('L3 daily Web forwards POSIX termination to its child and cleans up the temporary pnpm shim', { skip: process.platform === 'win32' }, async () => {
+  const f = dailyFixture()
+  let child: ReturnType<typeof spawn> | undefined
+  let running: Promise<number | null> | undefined
+  try {
+    const ready = join(f.root, 'ready.json')
+    writeFileSync(f.entry, `const fs=require('node:fs'); process.on('SIGTERM',()=>process.exit(23)); fs.writeFileSync(process.env.TEST_READY,JSON.stringify({bin:process.env.PATH.split(require('node:path').delimiter)[0]})); setInterval(()=>{},1000);`)
+    const wrapper = join(f.root, 'wrapper.mjs')
+    const entry = new URL('../../../scripts/.build/commands/daily-web.js', import.meta.url).href
+    writeFileSync(wrapper, `import { runDailyWeb } from ${JSON.stringify(entry)}; process.exitCode = await runDailyWeb([], ${JSON.stringify(f.root)});`)
+    child = spawn(process.execPath, [wrapper], { env: { ...process.env, ...f.env, TEST_READY: ready }, stdio: 'inherit' })
+    running = new Promise((resolve, reject) => { child!.once('error', reject); child!.once('exit', resolve) })
     const deadline = Date.now() + 5000
-    while (!existsSync(runtime) || JSON.parse(readFileSync(runtime, 'utf8')).state !== 'running') {
-      assert.ok(Date.now() < deadline, 'daily supervisor did not become ready')
+    while (!existsSync(ready)) {
+      assert.ok(Date.now() < deadline, 'child did not start')
       await sleep(20)
     }
-    assert.equal(await runDailyWeb(['status'], f.root, f.env), 0)
-    assert.equal(await runDailyWeb(['stop'], f.root, f.env), 0)
-    assert.equal(await running, 0)
-    assert.equal(existsSync(runtime), false)
-    assert.equal(readFileSync(join(f.home, 'history-sentinel'), 'utf8'), 'existing daily data')
+    const { bin } = JSON.parse(readFileSync(ready, 'utf8'))
+    assert.equal(existsSync(bin), true)
+    child.kill('SIGTERM')
+    assert.equal(await running, 23)
+    running = undefined
+    assert.equal(existsSync(bin), false)
+    assert.equal(existsSync(join(f.root, '.local/dsh-daily')), false)
   } finally {
-    if (running) { await runDailyWeb(['stop'], f.root, f.env); await running }
+    if (running) { child?.kill('SIGTERM'); await running }
     removeDir(f.root)
   }
 })
@@ -95,7 +126,7 @@ it('L3 daily Web fails closed for absent targets, uninitialized profiles and des
   try {
     await assert.rejects(runDailyWeb(['--target', 'missing'], f.root, f.env), /unknown named target/)
     for (const action of ['init', 'reset', 'reset --yes']) {
-      await assert.rejects(runDailyWeb(action.split(' '), f.root, f.env), /no init\/reset/)
+      await assert.rejects(runDailyWeb(action.split(' '), f.root, f.env), /unsupported daily Web option/)
     }
     const disk = JSON.parse(readFileSync(f.paths.local, 'utf8'))
     disk.targets[0].profile = 'uninitialized'

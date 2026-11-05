@@ -1,10 +1,13 @@
 # 本机配置 v2：字段、命令与迁移
 
+`node scripts/bootstrap.mjs` 无子命令时默认执行 `web`，也支持直接传 `--target`、`--port`、`--no-open` 等启动参数；显式 `build`、`test`、`ci` 等命令仍按原用途执行，`--help` 显示总帮助。
+
+
 M1–M6 实现协议（2026-10-31）。对应[环境计划](development-environment-plan.md)。M5 绑定固定产物与验收记录，M6 提供明确目标管理、安装预览和逐包交付报告；实际平台验收范围见计划中的实施记录。
 
 日常独立运行 S1–S3 增加 `daily-launcher prepare|deploy --target NAME --destination <绝对外部目录>` 和 `stable-install --archive-root <绝对外部归档目录>`。独立入口与外部配置 v1 的使用及恢复见 [启动器说明](../packages/daily-launcher/README.md)，实施与验收见 [日常隔离方案](daily-environment-isolation-plan.md)。本机入口切换属于 S4。
 
-`prepare` 只在仓库 `dist/daily-launcher` 写候选；`deploy --dry-run` 只读；`deploy` 保留旧 release，原子选择发行件及不可变配置快照，并在仓库 `.local/dsh-daily/<target>/deployment.json` 保存便利入口定位。部署后的 `web` 委托独立入口，但 bootstrap 仍依赖仓库；外部 `bin/dshweb.ps1` / shell 函数才是仓库离线入口。未部署的目标保留原仓库 Web 管理流程。
+`prepare` 只在仓库 `dist/daily-launcher` 写候选；`deploy --dry-run` 只读；`deploy` 保留旧 release，原子选择发行件及不可变配置快照，并在仓库 `.local/dsh-daily/<target>/deployment.json` 保存便利入口定位。仓库 `web` 现为直接启动 DSH 的参数封装，不再读取部署定位记录；外部 `bin/dshweb.ps1` / shell 函数仍是独立启动器的显式入口。
 
 `--archive-root` 保留原有源码/构建/目标/验收门禁，安装前在外部按批次复制原 manifest、所选 tarball 和原成功记录；不同字节拒绝覆盖。安装从外部副本执行 add/update，并检查 manifest spec、lockfile specifier/version/tarball/integrity、实际目录、包内文件哈希及 bundle/row。安装前 spec/真实路径和逐包结果同时写入仓库报告及归档父目录 `receipts/run-*/report.json`；文件安装、加载和能力仍分别记录，归档不产生新的能力证据。归档/receipt 写入失败返回失败，不宣称交付完成；不回滚已安装包。`dev-install` 拒绝该参数，测试/开发清理不回收这些外部来源。
 
@@ -47,7 +50,7 @@ node scripts/bootstrap.mjs ci
 | `web.openBrowser` / `startupTimeoutMs` | `true` / `30000` | 开发 Web；超时为 1–2147483647 的整数毫秒 |
 | `test.browser` / `browserPath` | `chrome` / 路径或 `null` | 测试偏好；支持 Playwright 管理的 `chromium`，只有 L5/CI 需要浏览器 |
 | `test.timeoutMs` | `120000` | 测试操作超时，取值范围同上 |
-| `targets` | 完整目标对象数组，默认 `[]` | 必填；空数组是合法开发配置；日常 `web` 默认选择名为 `daily` 的目标，安装仍须显式选择 |
+| `targets` | 完整目标对象数组，默认 `[]` | 必填；空数组是合法开发配置；日常 `web` 默认选择名为 `macos-web` 的目标，安装仍须显式选择 |
 | `targets[].name` | 唯一标签 | ASCII 字母或数字开头，后续允许字母、数字、`_`、`-` |
 | `targets[].dshCli` / `home` | 非空路径 | 目标 CLI 和数据根；不从环境变量补齐 |
 | `targets[].profile` | profile 名 | 同 name 字符规则，不允许目录穿越 |
@@ -78,11 +81,11 @@ node scripts/bootstrap.mjs config check
 
 ## 日常 Web 默认入口
 
-> 当前边界：以下是已实现的仓库入口协议，`dshweb` 目前仍调用仓库 bootstrap 并现场编译脚本，不能保证仓库不可用时日常仍能启动。本机日常插件去源码 link 也尚未完成。独立启动器、外部固定包来源和迁移计划见[日常环境独立运行方案](daily-environment-isolation-plan.md)；其中拟新增接口尚不可用。
+2026-11-05 起，`node scripts/bootstrap.mjs web` 只封装目标参数并在前台启动 DSH：默认 target `macos-web`、host `127.0.0.1`、port `3080`、`--no-open`。支持 `--target NAME`、`--port PORT`、loopback `--host HOST` 和 `--open|--no-open`；`start` 保留为可选别名。目标仍明确绑定 CLI/home/profile，模型配置继续由 `targets[].patch` 传递，未配置 patch 时不额外加载 YAML。
 
-`node scripts/bootstrap.mjs web`（本机 `dshweb`）默认选择已配置的 `daily` Web 目标，监听 `127.0.0.1:3080`。通过 `target bind daily --dsh-cli <外部普通Node版CLI> --home <原日常home> --profile web --surface web --platform windows` 明确绑定；macOS 使用 `--platform mac`。可用 `web --target NAME` 选择其他完整 Web 目标。启动重验目标身份，拒绝 Electron、workspace DSH、未初始化 profile、开发/测试路径重叠以及继承变量重定向；缺少 daily 绑定直接失败，不创建另一套空历史。
+输出直接进入终端，退出码由子进程返回，Ctrl+C/SIGTERM 转交当前子进程。入口不提供 status/stop/check，不维护 runtime.json、operation.lock、控制服务、就绪探测或日志文件，也不委托部署入口；旧运行记录不会影响启动。仅 pnpm shim 使用临时目录并在退出时清理。不会安装插件或重置数据。浏览器启动由 DSH 的默认行为或 no-open 参数控制，不读取 web.openBrowser 偏好；browser-path/startup-timeout 属于 dev-web，不再适用于此入口。
 
-日常启动不构建/安装插件，不应用仓库开发 patch，不迁移/复制历史或凭据；宿主正常使用已有 profile/home 层配置。目标显式配置 `targets[].patch` 时，`web` 把该路径作为最后一个 `--patch` 覆盖层传给宿主（层序 bundle → profile → home → `--patch`），用于模型清单、端点等本机配置；未配置时不加载任何额外 YAML，文件缺失则启动前失败。`web status/stop` 通过自己的受认证控制接口管理本入口持有的子进程，停止保留数据；`web init/reset` 明确拒绝。管理记录/日志/pnpm shim 仅写 `.local/dsh-daily/<目标名>/`，数据仍在目标 home。不同 Node 引擎路径会触发绑定身份检查，使用正常终端的 Node 执行 bind 和 web；不自动重绑。开发、测试仍使用 workspace DSH。
+此前报错来自 supervisor 异常退出后残留的 running 记录：旧入口必须通过控制接口核验身份，控制接口消失后会阻止启动。新入口不持久化进程身份，因此无需手工恢复这类记录。开发环境和测试 harness 继续保留各自隔离与生命周期管理。
 
 ## 持久开发环境（M3）
 
@@ -117,7 +120,7 @@ node scripts/bootstrap.mjs dev-web reset --yes
 | `config check` | 校验磁盘 v2/事务状态，输出工具诊断；不接受覆盖、不要求 DSH/pnpm 已安装 | 不使用运行时覆盖 |
 | `config migrate [--dry-run]` | 只读取磁盘旧值；不依赖 DSH/pnpm，不启动工具探测 | 不使用运行时覆盖 |
 | `build`、`pack`、`test` | 工具上下文；`--pnpm-script` | `DSH_PNPM` |
-| `web [start]/status/stop` | 日常目标上下文；默认 `daily`，可传 `--target NAME`；start 支持浏览器、超时、loopback `--host`、`--port`，默认 3080；应用目标 `targets[].patch`；无 init/reset | `DSH_PNPM`；不继承 DSH 目的地变量 |
+| `web [start]` | 日常目标上下文；默认 `macos-web`、3080、no-open；支持 `--target`、`--port`、loopback `--host`、`--open/--no-open`；应用目标 patch；前台参数封装 | `DSH_PNPM`；不继承 DSH 目的地变量 |
 | `dev-web [start]` | 开发上下文；`--open/--no-open`、`--browser`、`--browser-path`、`--startup-timeout`、loopback `--host`、`--port`，默认随机端口 | `DSH_PNPM`；无浏览器变量覆盖 |
 | `dev-web init/status/stop/reset` | 开发上下文；仅 reset 接受 `--yes`；status 同时显示开发插件安装状态 | `DSH_PNPM` 仅 init 需要 |
 | `dev-install` | 开发上下文；只安装开发 home；`--pnpm-script`、`--dry-run`、`--skip-build`、`--all` | `DSH_PNPM` |

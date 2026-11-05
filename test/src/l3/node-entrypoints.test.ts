@@ -83,6 +83,15 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     assert.match(run(['build', '--unknown'], 1).stderr, /Unknown option/)
     assert.equal(existsSync(f.paths.patch), false)
     assert.deepEqual([f.paths.local].map(path => readFileSync(path, 'utf8')), before)
+    const disk = JSON.parse(readFileSync(f.paths.local, 'utf8'))
+    disk.targets = [{ name: 'macos-web', dshCli: f.cli, home: env.DSH_HOME, profile: 'web', surface: 'web', platform }]
+    writeFileSync(f.paths.local, JSON.stringify(disk))
+    run([], 7)
+    assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')).args, ['--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', '3080'])
+    run(['--target', 'macos-web', '--port', '3090'], 7)
+    assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')).args, ['--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', '3090'])
+    assert.match(run(['test', '--unknown'], 1).stderr, /Unknown option/)
+    assert.match(run(['unknown-command'], 1).stderr, /unknown command/i)
   } finally {
     removeDir(f.root)
   }

@@ -27,11 +27,13 @@ const TEST_OPTIONS = {
 } as const
 const TARGET_OPTIONS = { target: { type: 'string' }, 'dsh-cli': { type: 'string' }, home: { type: 'string' }, profile: { type: 'string' }, surface: { type: 'string' }, platform: { type: 'string' } } as const
 
-const USAGE = `Usage: node scripts/bootstrap.mjs <command> [options]
+const USAGE = `Usage: node scripts/bootstrap.mjs [command] [options]
+
+Default command: web (also when only startup options are supplied).
 
   config init [--dry-run] | check | migrate [--dry-run]   Manage v2 disk configuration
   test-env --suite fast|real|all [--only ID,ID] [--keep] [--pnpm-script PATH]  CFG/TOOL/DEV/ISO/ART/TGT tests (per-case deadlines; no --timeout)
-  web [start|status|stop|check] [--target NAME] Daily Web; delegates after deployment (repository convenience entry)
+  web [--target NAME] [--port PORT] [--open|--no-open] Foreground DSH (macos-web, 3080, no-open)
   daily-launcher prepare|deploy --target NAME --destination PATH [--dry-run] Independent Windows launcher
   dev-web [init|start|status|stop|reset] Managed development Web (random port); reset previews
   build [--check]                     Build/type-check plugins
@@ -59,9 +61,9 @@ Runtime commands read local.json, then supported environment variables, then fla
 L4/L5 always create disposable profiles and never load the personal Web patch.`
 
 export async function main(argv: string[]): Promise<number> {
-  const command = argv[0]
-  const rest = argv.slice(1)
-  if (command === undefined) { console.error(USAGE); return 1 }
+  const defaultWeb = argv[0] === undefined || (argv[0].startsWith('-') && !['--help', '-h'].includes(argv[0]))
+  const command = defaultWeb ? 'web' : argv[0]!
+  const rest = defaultWeb ? argv : argv.slice(1)
   if (['help', '--help', '-h'].includes(command) || (!['web', 'dev-web'].includes(command) && rest.includes('--help'))) {
     console.log(USAGE)
     return 0

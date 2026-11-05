@@ -1,17 +1,20 @@
 # 日常、开发与测试 Web
 
-Windows 独立日常入口已实现：先用 `daily-launcher prepare|deploy --target daily --destination <仓库和home之外的绝对目录>` 准备和部署，再按 [启动器说明](../../packages/daily-launcher/README.md) 接入外部 `dshweb`。部署后仓库 `web` 委托它，但仍须编译 bootstrap；只有外部入口可以在仓库不可用时启停。独立状态/日志在外部 `state/<instanceId>`，配置和 release 由 `active.json` 选择。以下仓库命令和 `.local/dsh-daily` 进程记录说明适用于尚未部署的目标。本机入口迁移尚属 S4，不会由普通构建或部署自动改写 shell 函数。
+`node scripts/bootstrap.mjs` 无子命令时默认执行 `web`，也支持直接传 `--target`、`--port`、`--no-open` 等启动参数；显式 `build`、`test`、`ci` 等命令仍按原用途执行，`--help` 显示总帮助。
 
-默认 `node scripts/bootstrap.mjs web`（本机 `dshweb`）启动日常环境，选择 `local.json` 中名为 `daily` 的完整目标，默认监听 `127.0.0.1:3080`。首次明确绑定原来的普通 Node CLI、home 和 Web profile：
+
+日常入口简化为 DSH 前台参数封装：默认选择 local.json 的 `macos-web` 目标、监听 `127.0.0.1:3080`、传入 `--no-open`。已有目标配置可直接使用：
 
 ```sh
-node scripts/bootstrap.mjs target bind daily --dsh-cli <外部普通Node版CLI> --home <原日常home> --profile web --surface web --platform windows
 node scripts/bootstrap.mjs web
-node scripts/bootstrap.mjs web status
-node scripts/bootstrap.mjs web stop
+node scripts/bootstrap.mjs web --target macos-web --port 3080
+# 可选：由 DSH 打开浏览器
+node scripts/bootstrap.mjs web --open
 ```
 
-macOS 使用 `--platform mac`。可传 `web --target NAME` 选择其他完整 Web 目标；缺少绑定、profile 尚未初始化、路径身份变化时停止，不猜测数据目录。日常启动只使用已有 profile/home 配置，不安装开发 link，不应用仓库开发 patch，也不提供 `init/reset`。`status/stop` 仅控制本入口启动且通过随机令牌核对的实例；不会接管旧的独立进程。管理记录和原始日志在 `.local/dsh-daily/<目标名>/`，日常数据保留在绑定的 home。
+输出直接显示在终端，Ctrl+C 退出。入口不维护 runtime.json、operation.lock、控制端口或日志文件，不提供 status/stop/check，也不读取部署定位记录；旧记录不会阻止启动。pnpm shim 仅放在本次临时目录，退出时清理。首次使用仍需通过 target bind 明确绑定外部 CLI、home、profile、surface 和 platform；缺少目标或未初始化 profile 时明确报错。目标可用 `--target NAME` 覆盖，日常数据继续保存在目标 home。
+
+独立 Windows 启动器仍通过[外部入口](../../packages/daily-launcher/README.md)显式使用，与此仓库参数封装分开。
 
 目标可选 `patch` 字段：`web` 启动时把它作为最后一个 `--patch` 覆盖层传给宿主（层序 bundle → profile → home → `--patch`），用于本机模型清单、端点这类不随仓库分发的配置。相对路径按仓库根解析，允许指向仓库外；路径缺失或不是普通文件时在启动前失败，不会退化成"没有 patch"。
 
@@ -43,13 +46,13 @@ node scripts/bootstrap.mjs dev-install
 node scripts/bootstrap.mjs dev-web --no-open
 ```
 
-`dev-web` 显式启动开发环境，默认通过 `--port 0` 分配空闲端口，可显式传 `--port` 覆盖。日常与开发入口都只接受 loopback 地址，前台运行并按偏好打开浏览器；重复启动报告已有实例，端口冲突报错，不杀占用者。
+`dev-web` 显式启动开发环境，默认通过 `--port 0` 分配空闲端口，可显式传 `--port` 覆盖。日常与开发入口都只接受 loopback 地址并前台运行。日常默认 no-open，端口占用等启动结果由 DSH 处理；开发入口保留原有生命周期管理。
 
 三种环境分别管理：
 
 | 用途 | 端口 | 数据目录 |
 |---|---|---|
-| 日常使用（`dshweb` / `web`） | 默认固定 `3080` | `daily` 目标绑定的原日常 home，停止后保留 |
+| 日常使用（`dshweb` / `web`） | 默认固定 `3080` | `macos-web`（或显式选择）目标绑定的原日常 home，停止后保留 |
 | 开发预览（`dev-web`） | 默认随机空闲端口 | `.local/dsh-dev/home`，停止后保留 |
 | 自动化测试（L4/L5） | 每次通过 `--port 0` 由系统分配空闲端口 | `.tmp/<suite>/run-*/dsh-home`，一次性独立数据 |
 

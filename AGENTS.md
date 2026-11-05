@@ -1,10 +1,13 @@
 # AGENTS.md
 
+`node scripts/bootstrap.mjs` 无子命令时默认执行 `web`，也支持直接传 `--target`、`--port`、`--no-open` 等启动参数；显式 `build`、`test`、`ci` 等命令仍按原用途执行，`--help` 显示总帮助。
+
+
 本文件是本仓库的工作约定，供在本仓库中工作的 agent 与开发者阅读。**所有自定义 DeepSeek Harness (dsh) 插件都在这里实现，每个插件单独一个顶层目录。**
 
 > 概念与机制（bundle / patch / profile 的定义、安装与配置流程）见 [docs/dsh-concepts.md](docs/dsh-concepts.md)。本文件只讲规则，那份文档解释"为什么"。
 
-> M1 配置协议已升级为 v2，M2 已锁定 workspace 开发 DSH，M3 已交付受管开发环境，M4 统一一次性测试隔离与报告门禁，M5 绑定固定产物与持久验收证据，M6 提供目标管理及逐包交付报告；字段、命令适用表和恢复步骤见 [docs/configuration-v2.md](docs/configuration-v2.md)。仓库命令不再从日常 DSH 环境变量推断宿主或安装目的地；外部 dsh CLI 自身的参数规则不变。默认 `web`（本机 `dshweb`）启动绑定的 `daily` 日常目标，端口 3080；`dev-web init`/首次 `dev-web`/`dev-install` 初始化独立开发数据，不回退日常宿主、不认领已有未知目录。
+> M1 配置协议已升级为 v2，M2 已锁定 workspace 开发 DSH，M3 已交付受管开发环境，M4 统一一次性测试隔离与报告门禁，M5 绑定固定产物与持久验收证据，M6 提供目标管理及逐包交付报告；字段、命令适用表和恢复步骤见 [docs/configuration-v2.md](docs/configuration-v2.md)。仓库命令不再从日常 DSH 环境变量推断宿主或安装目的地；外部 dsh CLI 自身的参数规则不变。默认 `web`（本机 `dshweb`）启动绑定的 `macos-web` 日常目标，端口 3080，默认 no-open，前台参数封装、不维护 runtime/status/stop；`dev-web init`/首次 `dev-web`/`dev-install` 初始化独立开发数据，不回退日常宿主、不认领已有未知目录。
 
 ## 1. 仓库定位
 
@@ -29,7 +32,7 @@
 
 本机可能同时存在普通 Node 和 Electron 版 `dsh`。**Web 必须用普通 Node 版**。开发 Web 与 L4/L5 只取 workspace 精确声明的开发 DSH；依赖缺失时停止并提示冻结安装。正式安装的 `--dsh-cli` 只能与完整 home/profile/surface/platform 一起使用，或改用 `--target NAME`；`DSH_CLI` 不再覆盖仓库命令。Web、安装及 L4/L5 都用临时 PATH shim 保证 DSH 内部 pnpm 使用选定脚本与当前 Node。
 
-日常入口 `node scripts/bootstrap.mjs web` 默认选择已明确配置的 `daily` Web 目标，或用 `--target NAME` 选择其他完整目标；不安装开发 link、不应用开发 patch，不提供 init/reset。保留目标原 home 的历史和凭据。开发入口为 `dev-web`，默认随机空闲端口；L4/L5 仍使用独立临时 home 和随机端口。端口不是环境身份，home/profile/CLI 才是。
+日常入口 `node scripts/bootstrap.mjs web` 默认选择已明确配置的 `macos-web` Web 目标，或用 `--target NAME` 选择其他完整目标；不安装开发 link、不应用开发 patch，不提供 init/reset。保留目标原 home 的历史和凭据。开发入口为 `dev-web`，默认随机空闲端口；L4/L5 仍使用独立临时 home 和随机端口。端口不是环境身份，home/profile/CLI 才是。
 
 先准备普通 Node 24、`packageManager` 指定的 pnpm 11.28.5，再运行 `pnpm install --frozen-lockfile`。编译器、pnpm 和开发 DSH 的 Node 入口统一使用 `process.execPath`；pnpm 脚本必须属于对应版本包的 `bin/pnpm.cjs`，不自动下载或扫描私有 runtime。init 可从 PATH 的 npm 包布局发现，其他布局显式指定 `--pnpm-script`。以下命令假定 Node 在 PATH 中；否则使用已安装 Node 的绝对路径调用 bootstrap，不能依赖已移除的 `.ps1` 或 `DSH_NODE` 自动定位：
 
@@ -467,7 +470,7 @@ node scripts/bootstrap.mjs status --target daily
 
 ## 8. 依赖与构建
 
-- **独立日常入口（Windows Web，S1–S3）**：`packages/daily-launcher` 是非插件工具；`daily-launcher prepare|deploy --target NAME --destination <外部绝对目录>` 生成/部署自包含 ESM，不包含 Node/DSH/pnpm。部署后仓库 `web` 按定位记录委托，但独立运行必须使用外部入口。生成的 PowerShell 薄入口仅转交参数/退出码，业务仍在 TS；不增加手写 shell 管理层。配置快照、状态、release/receipt 留在外部，普通 build/config/target 命令不重写它们。实际迁移和 shell 切换是 S4。
+- **独立日常入口（Windows Web，S1–S3）**：`packages/daily-launcher` 是非插件工具；`daily-launcher prepare|deploy --target NAME --destination <外部绝对目录>` 生成/部署自包含 ESM，不包含 Node/DSH/pnpm。仓库 `web` 直接封装目标参数启动 DSH，不再委托部署定位记录；独立启动器须通过外部入口显式调用。生成的 PowerShell 薄入口仅转交参数/退出码，业务仍在 TS；不增加手写 shell 管理层。配置快照、状态、release/receipt 留在外部，普通 build/config/target 命令不重写它们。实际迁移和 shell 切换是 S4。
 - **外部固定来源**：`stable-install --archive-root <外部绝对目录>` 先归档原清单、所选固定包及成功证据，再由外部副本 add/update；保留全部门禁并核对 lockfile 和安装字节。逐包报告同步到归档父目录 `receipts`。仍被 profile 引用的归档不得随仓库清理删除。详见 [日常隔离方案](docs/daily-environment-isolation-plan.md) 和 [启动器说明](packages/daily-launcher/README.md)。
 
 - **运行时零依赖**是默认目标：Host 侧只用 `ctx` 提供的服务与 Node 内置模块；Client 侧用浏览器模块表里的 React。这样插件被链接进 profile 后不需要额外安装步骤。

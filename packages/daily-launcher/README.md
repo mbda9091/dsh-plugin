@@ -14,7 +14,7 @@ node scripts/bootstrap.mjs daily-launcher deploy --target daily --destination <�
 
 独立入口暂不透传目标的 `patch` 覆盖层（`prepare|deploy` 遇到 `targets[].patch` 直接报错），以免部署后静默丢失本机模型清单；需要该覆盖层时使用仓库 `web` 入口。
 
-部署后的 `bin/shell-integration.txt` 提供 PowerShell 函数接入内容，`bin/dshweb.ps1` 是直接调用入口。切换已有 shell 函数属于另行安排的 S4；需要备份并验证命令实际解析。仓库 `web` 在存在部署定位记录时委托外部入口，仍需仓库编译；独立运行必须调用外部入口。
+部署后的 `bin/shell-integration.txt` 提供 PowerShell 函数接入内容，`bin/dshweb.ps1` 是直接调用入口。切换已有 shell 函数属于另行安排的 S4；需要备份并验证命令实际解析。仓库 `web` 已简化为直接启动 DSH 的参数封装，不再读取部署定位记录；本包的独立运行及管理命令必须通过外部入口显式调用。
 
 独立入口支持 `start`（默认）、`status`、`stop`、`check`。启动选项为 `--no-open|--open`、`--port`、`--host`；默认 127.0.0.1:3080。工具版本、真实路径、入口文件和 Node 字节绑定在快照中，不跟随仓库版本或 PATH。状态查询和停止只依赖已部署配置及认证控制通道，不检查 pnpm/DSH 是否仍存在。禁止按记录中的 PID 强杀进程。
 

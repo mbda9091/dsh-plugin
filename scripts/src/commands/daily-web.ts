@@ -1,121 +1,71 @@
-import { existsSync, mkdirSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { spawn } from 'node:child_process'
+import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { commandEnv, configuredPnpm, loadCommandContext } from '../core/command-context.js'
 import { inspectTarget } from '../core/formal-target.js'
-import { digest, safeConfigPath } from '../core/config-transaction.js'
 import { repoRoot } from '../core/repo.js'
 import { writePnpmShim } from '../core/pnpm.js'
-import { checkDevelopmentPort } from '../core/development-process.js'
-import { createWebProcessControl, stopWebProcess, webProcessStatus } from '../core/web-process.js'
-import { startToFiles, stopChild, waitForHttp, waitForServerUrl } from '../core/exec.js'
-import { redactLaunchTokens } from '../core/web-harness.js'
 import { requireFile } from '../core/config-tools.js'
-import { openBrowser, webArguments } from './web.js'
 
-/** Daily data is selected by an explicit configured target, never inherited
- * from the invoking DSH session. No installs, resets or development overlays. */
+/** Foreground argument wrapper. DSH owns its server, output and browser launch. */
 export async function runDailyWeb(args: readonly string[], root = repoRoot, env: NodeJS.ProcessEnv = process.env): Promise<number> {
   if (args.includes('--help') || args.includes('-h')) {
-    console.log('Usage: node scripts/bootstrap.mjs web [start|status|stop|check] [--target NAME]')
-    console.log('After daily-launcher deploy, delegates to the deployed launcher. This convenience entry still needs the repository; use external dshweb for independent operation. check requires deployment.')
-    console.log('Default target: daily; default address: 127.0.0.1:3080. Bind the daily target with its external plain-Node CLI, existing home and Web profile first.')
-    console.log('start: [--open|--no-open] [--browser edge|default] [--browser-path PATH] [--startup-timeout MS] [--port PORT] [--host 127.0.0.1|::1|localhost]')
-    console.log('Development: dev-web [init|start|status|stop|reset]; tests: l4/l5. Daily Web never installs plugins or resets data.')
+    console.log('Usage: node scripts/bootstrap.mjs web [--target NAME] [--port PORT] [--host HOST] [--open|--no-open]')
+    console.log('Defaults: target macos-web, port 3080, host 127.0.0.1, --no-open. Runs DSH in the foreground; Ctrl+C exits.')
+    console.log('No status/stop, runtime records or deployment delegation. Development lifecycle: dev-web.')
     return 0
   }
-  let name = 'daily'
-  let selected = false
-  const remaining: string[] = []
+  let name = 'macos-web', port = '3080', host = '127.0.0.1', open = false
+  const seen = new Set<string>()
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!
-    if (arg === '--target' || arg.startsWith('--target=')) {
-      if (selected) throw new Error('--target may only be specified once')
-      selected = true
-      name = arg === '--target' ? args[++i] ?? '' : arg.slice('--target='.length)
-      if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(name)) throw new Error('--target requires a valid configured name')
-    } else remaining.push(arg)
+    if (i === 0 && arg === 'start') continue
+    if (arg === '--') continue
+    if (arg === '--open' || arg === '--no-open') { open = arg === '--open'; continue }
+    const split = arg.indexOf('=')
+    const key = split < 0 ? arg : arg.slice(0, split)
+    if (!['--target', '--port', '--host'].includes(key)) throw new Error(`unsupported daily Web option: ${key}; use web --help`)
+    if (seen.has(key)) throw new Error(`${key} may only be specified once`)
+    seen.add(key)
+    const value = split < 0 ? args[++i] : arg.slice(split + 1)
+    if (!value || value.startsWith('--')) throw new Error(`${key} requires a value`)
+    if (key === '--target') {
+      if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(value)) throw new Error('--target requires a valid configured name')
+      name = value
+    } else if (key === '--port') {
+      if (!/^\d+$/.test(value) || Number(value) > 65535) throw new Error('--port must be an integer from 0 to 65535')
+      port = value
+    } else {
+      if (!['127.0.0.1', '::1', 'localhost'].includes(value)) throw new Error('--host must be a loopback address')
+      host = value
+    }
   }
-  const locator = join(root, '.local/dsh-daily', name, 'deployment.json')
-  safeConfigPath(root, locator)
-  if (existsSync(locator)) {
-    const deployed = JSON.parse(readFileSync(locator, 'utf8'))
-    if (typeof deployed.node !== 'string' || typeof deployed.destination !== 'string') throw new Error('invalid daily deployment locator')
-    return await new Promise<number>((resolve, reject) => {
-      const child = spawn(deployed.node, [join(deployed.destination, 'bin/dshweb.mjs'), ...remaining], { stdio: 'inherit', env, windowsHide: true })
-      child.once('error', reject); child.once('exit', code => resolve(code ?? 1))
-    })
-  }
-  const action = ['start', 'status', 'stop'].includes(remaining[0] ?? '') ? remaining.shift()! : 'start'
-  if (['init', 'reset'].includes(remaining[0] ?? '')) throw new Error('daily Web has no init/reset; use dev-web for managed development data')
-  if (action !== 'start' && remaining.length) throw new Error(`unsupported web ${action} option`)
-  const parsed = webArguments(remaining)
-  const context = loadCommandContext({ ...parsed.overrides, target: name }, root, env, 'target')
-  const { target, runner, directory: profile, identity } = inspectTarget(context)
+  const context = loadCommandContext({ target: name }, root, env, 'target')
+  const { target, runner, directory: profile } = inspectTarget(context)
   if (target.surface !== 'web') throw new Error('daily Web requires a Web target with a plain-Node CLI')
-  // Refuse typo/new destinations instead of silently creating an empty history.
   if (!existsSync(join(profile, 'package.json'))) throw new Error('daily Web requires an existing initialized profile; check the bound target home/profile')
-  // Only an explicitly configured target overlay may extend the profile layer;
-  // its absence must never be silently replaced by an empty file. status/stop
-  // stay usable when that file was moved, so validate it only before starting.
   const patch = target.patch ?? null
-  const directory = join(root, '.local/dsh-daily', name)
-  const runtime = join(directory, 'runtime.json')
-  const logs = join(directory, 'logs'), bin = join(directory, 'bin'), lock = join(directory, 'operation.lock')
-  const validate = () => {
-    inspectTarget(context)
-    for (const path of [directory, runtime, logs, bin, lock, join(bin, process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'), join(logs, 'web.out.log'), join(logs, 'web.err.log')]) safeConfigPath(root, path)
-  }
-  validate()
-  const scope = { runtime, owner: digest(JSON.stringify({ root: realpathSync(root), name, identity })), validate }
-  console.log(`daily target: ${name}; home: ${target.home}; profile: ${target.profile}; CLI: ${target.dshCli}; patch: ${patch ?? 'none'}`)
-  if (action === 'status') { console.log(`daily: ${await webProcessStatus(scope)}`); return 0 }
-  if (action === 'stop') { await stopWebProcess(scope); console.log('daily stopped; data retained'); return 0 }
-  const pnpm = configuredPnpm(context)
   if (patch !== null) requireFile(patch, 'targets[].patch')
-  mkdirSync(directory, { recursive: true })
-  try { writeFileSync(lock, JSON.stringify({ pid: process.pid }), { flag: 'wx' }) }
-  catch { throw new Error(`daily Web operation locked: ${lock}; inspect before manual recovery`) }
-  let locked = true, interrupted = false, requestedStop = false
-  let started: ReturnType<typeof startToFiles> | undefined
-  let control: Awaited<ReturnType<typeof createWebProcessControl>> | undefined
-  let stopped: Promise<void> | undefined
-  const stop = () => started ? stopped ??= stopChild(started.child) : Promise.resolve()
-  const signal = () => { interrupted = true; void stop().catch(() => {}) }
+  const pnpm = configuredPnpm(context)
+  console.log(`daily target: ${name}; home: ${target.home}; profile: ${target.profile}; CLI: ${target.dshCli}; patch: ${patch ?? 'none'}`)
+  const bin = mkdtempSync(join(tmpdir(), 'dsh-web-pnpm-'))
   try {
-    if (existsSync(runtime)) throw new Error(`daily instance already recorded: ${await webProcessStatus(scope)}`)
-    const port = parsed.forward.includes('--port') ? Number(parsed.forward[parsed.forward.indexOf('--port') + 1]) : 3080
-    const host = parsed.forward.includes('--host') ? parsed.forward[parsed.forward.indexOf('--host') + 1]! : '127.0.0.1'
-    await checkDevelopmentPort(port, host)
-    for (const path of [logs, bin]) mkdirSync(path, { recursive: true })
     writePnpmShim(bin, pnpm)
-    validate()
-    control = await createWebProcessControl(scope, () => { requestedStop = true; void stop().catch(() => {}) })
     const childEnv = commandEnv(context)
     childEnv.PATH = `${bin}${delimiter}${childEnv.PATH ?? ''}`
-    started = startToFiles(runner.command, runner.build(['--profile', target.profile, ...(patch === null ? [] : ['--patch', patch]), '--no-open', '--host', host, '--port', String(port)]), {
-      cwd: target.home, env: { ...childEnv, ...runner.env }, verbatim: runner.verbatim,
-      stdoutPath: join(logs, 'web.out.log'), stderrPath: join(logs, 'web.err.log'),
+    return await new Promise<number>((resolve, reject) => {
+      const child = spawn(runner.command, runner.build([
+        '--profile', target.profile, ...(patch === null ? [] : ['--patch', patch]),
+        ...(open ? [] : ['--no-open']), '--host', host, '--port', port,
+      ]), { cwd: target.home, env: { ...childEnv, ...runner.env }, stdio: 'inherit', windowsHide: true })
+      // Forward signals only to our live child handle; never use persisted PIDs.
+      const interrupt = () => { child.kill('SIGINT') }
+      const terminate = () => { child.kill('SIGTERM') }
+      const cleanup = () => { process.off('SIGINT', interrupt); process.off('SIGTERM', terminate) }
+      process.on('SIGINT', interrupt); process.on('SIGTERM', terminate)
+      child.once('error', error => { cleanup(); reject(error) })
+      child.once('exit', (code, signal) => { cleanup(); resolve(code ?? (signal === 'SIGINT' ? 130 : signal === 'SIGTERM' ? 143 : 1)) })
     })
-    control.update(started.child.pid)
-    process.on('SIGINT', signal); process.on('SIGTERM', signal)
-    const timeout = context.config.web.startupTimeoutMs, deadline = Date.now() + timeout
-    const url = await waitForServerUrl(started, { urlPattern: /dsh web:\s*(https?:\/\/\S+)/, timeoutMs: timeout })
-    const address = new URL(url)
-    if (!['127.0.0.1', 'localhost', '[::1]'].includes(address.hostname) || (port !== 0 && Number(address.port || 80) !== port)) throw new Error('DSH changed the requested daily address/port')
-    if (await waitForHttp(url, Math.max(1, deadline - Date.now())) !== 200) throw new Error('daily Web readiness failed')
-    control.update(started.child.pid, url)
-    validate(); unlinkSync(lock); locked = false
-    console.log(`dsh web: ${url}`)
-    if (context.config.web.openBrowser && !interrupted && !requestedStop) await openBrowser(context.config.web, url, env)
-    if (started.child.exitCode === null && started.child.signalCode === null) await new Promise<void>(resolve => started!.child.once('exit', () => resolve()))
-    return interrupted ? 130 : requestedStop ? 0 : started.child.exitCode ?? 1
-  } catch (error) {
-    if (interrupted) return 130
-    if (requestedStop) return 0
-    throw new Error(redactLaunchTokens(error instanceof Error ? error.message : String(error)))
-  } finally {
-    process.off('SIGINT', signal); process.off('SIGTERM', signal)
-    try { await stop(); await control?.close() } finally { if (locked) { validate(); unlinkSync(lock) } }
-  }
+  } finally { rmSync(bin, { recursive: true, force: true }) }
 }
