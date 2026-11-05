@@ -8,6 +8,33 @@ M1–M6 实现协议（2026-10-31）。对应[环境计划](development-environm
 
 `--archive-root` 保留原有源码/构建/目标/验收门禁，安装前在外部按批次复制原 manifest、所选 tarball 和原成功记录；不同字节拒绝覆盖。安装从外部副本执行 add/update，并检查 manifest spec、lockfile specifier/version/tarball/integrity、实际目录、包内文件哈希及 bundle/row。安装前 spec/真实路径和逐包结果同时写入仓库报告及归档父目录 `receipts/run-*/report.json`；文件安装、加载和能力仍分别记录，归档不产生新的能力证据。归档/receipt 写入失败返回失败，不宣称交付完成；不回滚已安装包。`dev-install` 拒绝该参数，测试/开发清理不回收这些外部来源。
 
+## 开发完成标准与依赖职责（2026-11-05）
+
+当前架构支持：业务代码不绑定个人机器的具体路径、日常 DSH 数据或凭据；环境层提供工具和宿主，代码完成约定的功能及自动化测试即可视为开发完成。这里的“不绑定具体依赖”指不把机器配置写入业务实现；软件版本声明和 DSH 服务/API 契约仍是必要依赖。
+
+环境准备完成后，完整开发验收入口为：
+
+```sh
+node scripts/bootstrap.mjs ci
+```
+
+该入口执行环境测试（fast/real）→ 类型检查 → L1–L3 → L4 → L5，失败即停止，并核验报告完整性。按需求约定的平台执行；单独 `test` 只覆盖 L1–L3，不能代替完整门禁。测试须覆盖本次功能与验收要求，通过后即可结束开发，不要求安装到个人日常环境。固定包验收、正式安装和日常使用属于后续独立流程，继续遵守已有产物与目标门禁。
+
+| 阶段 | 依赖 | 管理职责 |
+|---|---|---|
+| 开发与构建 | 普通 Node 24、准确版本 pnpm、TypeScript/esbuild、DSH 类型包；开发调试使用 workspace DSH | 调用方准备工具；`package.json`、`pnpm-lock.yaml` 声明并锁定依赖，冻结安装；工具层校验版本 |
+| 独立测试 L1–L3 | 编译工具、`node:test`、构建产物；打包契约需要 pnpm | 测试入口管理构建、fixture 和执行，不依赖个人日常会话 |
+| 隔离真实集成 L4–L5 | workspace DSH、pnpm、本机端口；L5 另需 Playwright 与 Chrome/Chromium | harness 管理一次性 home/profile、服务、浏览器、安装、报告与清理 |
+| 正式交付与日常运行 | 外部 DSH、明确目标 home/profile、固定插件包和本机配置 | target 与交付流程管理；不作为业务代码完成自动化测试的前置条件 |
+
+机器路径、浏览器选择及正式目标由不入库的 `scripts/config/local.json` 和命令上下文管理。开发数据位于 `.local/dsh-dev`，测试数据位于 `.tmp` 的一次性目录，日常数据位于明确绑定的目标。插件交付包保持零 npm 运行时依赖，共享实现构建期内联；插件仍通过宿主服务、事件和浏览器 API 工作。
+
+以下三点是已确认的预期边界，不属于待解决的架构问题：
+
+- **工具由调用方提前准备。** Node、pnpm、workspace 依赖和浏览器无需由业务代码自动下载或补齐；缺失或版本不符时报错是预期行为。
+- **包管理沿用系统环境。** registry、代理、证书、缓存和 store 共享是既定设计；隔离对象是 DSH 数据、会话、profile 与插件安装关系，无需为每次开发或测试建立独立包管理环境。
+- **系统 Notification 不属于 DSH 实现。** L5 使用真实 DSH、HTTP/SSE 和浏览器执行插件链路，在系统 Notification API 边界替换实现，验证插件的调用、内容和撤回行为即可满足当前 Web 通知开发验收。系统原生弹窗的实际呈现无需作为开发完成门禁。该结论不代表已验证真实窗口聚焦或 Electron 重启；若需求涉及这些行为，另行约定对应测试范围。
+
 ## 字段归属
 
 配置位置为 `scripts/config/local.json`，相对路径始终以仓库根解析。运行时不补缺字段、不覆盖旧文件；初始化默认值来自 [example](../scripts/config/example.json)，校验依据为 [schema](../scripts/config/schema.json)。

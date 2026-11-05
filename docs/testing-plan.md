@@ -12,6 +12,7 @@
 
 ## 1. 结论摘要
 
+- **开发完成标准（2026-11-05）**：环境由调用方准备，业务代码不绑定个人环境；完成约定功能并在约定平台通过完整 `ci` 门禁即可视为开发完成，无需先部署到日常环境。工具预装、系统包管理配置共享和 L5 的系统 Notification API 替换均是预期边界，不是架构缺口。依赖分工与适用范围见[开发完成标准与依赖职责](configuration-v2.md#开发完成标准与依赖职责2026-11-05)。
 - **L5 先只做 Web**，使用真实 `dsh web` + Playwright；桌面端 L5 延期。
 - **`app-restart`、`desktop-notify` 不适配 Web**，保持 desktop-only；Web L5 已覆盖 fixture 和真实 `notify-web`，后续 Web/UI 插件复用该 harness。
 - **Web profile 由官方 shipped `web` 初始化**，不手工拼配置；已初始化并验证，测试使用独立的 workspace-local `DSH_HOME`。
