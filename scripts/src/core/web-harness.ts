@@ -26,6 +26,7 @@ export interface WebHarness {
   readonly logDir: string
   readonly options: { readonly timeoutMs: number }
   pnpmDir?: string | undefined
+  webPatch?: string | undefined
 }
 export function childEnv(context: WebHarness, home: string): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
@@ -99,7 +100,7 @@ export async function serveAndCheck(
   context.signal?.throwIfAborted()
   const stdoutPath = join(context.logDir, `${label}.web.out.log`)
   const stderrPath = join(context.logDir, `${label}.web.err.log`)
-  const started = startToFiles(context.runner.command, context.runner.build(['web', '--no-open', '--host', '127.0.0.1', '--port', '0']), {
+  const started = startToFiles(context.runner.command, context.runner.build([...(context.webPatch ? ['--profile', 'web', '--patch', context.webPatch] : ['web']), '--no-open', '--host', '127.0.0.1', '--port', '0']), {
     cwd: context.runDir,
     env: childEnv(context, home ?? context.home),
     verbatim: context.runner.verbatim,

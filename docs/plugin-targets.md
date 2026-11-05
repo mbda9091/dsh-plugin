@@ -1,4 +1,4 @@
-# 插件适用场景：desktop / web 与 mac / windows
+# 插件适用场景：desktop / web 与 linux / mac / windows
 
 > 本文定义本仓库的 `dsh.targets` 约定。dsh 0.2.1-rc.2 本身没有“适用场景”元数据：
 > 内置插件管理器读取展示信息时只认 locale 的 `meta.title` / `meta.description` / `icon`，
@@ -15,19 +15,19 @@
 | 字段 | 取值 | 含义 |
 |---|---|---|
 | `surfaces` | `desktop` / `web` 的非空精确集合 | 插件**实际能运行**的形态 |
-| `platforms` | `windows` / `mac` 的非空精确集合 | 插件**实际能运行**的操作系统 |
+| `platforms` | `windows` / `mac` / `linux` 的非空精确集合 | 插件**实际能运行**的操作系统 |
 
 两个维度互相独立，例如：
 
 - `["desktop"]` + `["windows"]`：只在桌面应用的 Windows 上运行；
-- `["desktop","web"]` + `["mac","windows"]`：桌面和 Web、macOS 和 Windows 都能运行（通用 + 通用平台）；
-- `["web"]` + `["mac","windows"]`：只在 Web 形态运行，不保证桌面应用里可用。
+- `["desktop","web"]` + `["linux","mac","windows"]`：桌面和 Web、Linux、macOS 和 Windows 都能运行（通用 + 通用平台）；
+- `["web"]` + `["linux","mac","windows"]`：只在 Web 形态运行，不保证桌面应用里可用。
 
 **`web` 表示“只在 Web 形态可用”，不是“Web UI 插件”。**
 桌面应用内嵌的是同一套 Web UI；一个纯 Client 插件如果桌面里也能渲染，必须写
 `["desktop","web"]`，显示为“通用”。只有确实依赖 `dsh web` 的插件才写 `["web"]`。
 
-`headless` 和 `linux` 是保留值，当前校验不接受；等出现对应插件时再扩展校验、标签和目录。
+`linux` 已启用；`headless` 仍是保留值，当前校验不接受。
 
 ## 2. 声明位置
 
@@ -48,7 +48,7 @@
 约束：
 
 - `surfaces` / `platforms` 都是非空数组，不允许重复项；
-- 只允许本文列出的值；`headless`、`linux` 暂不接受；
+- 只允许本文列出的值；`headless` 暂不接受；
 - 不允许 `dsh.targets` 里出现未定义字段；
 - 如果一个 bundle 里同时有不同场景的行，拆成多个 bundle；**一个 bundle 一个场景 envelope**；
 - `dsh.targets` 不是版本兼容声明。版本兼容仍然用 `engines.dsh` / DSH peer，两者互不替代。
@@ -62,7 +62,9 @@
 | `surfaces: ["desktop","web"]` | 通用 | Universal |
 | `platforms: ["windows"]` | Windows | Windows |
 | `platforms: ["mac"]` | macOS | macOS |
-| `platforms: ["mac","windows"]` | 通用平台 | All platforms |
+| `platforms: ["linux"]` | Linux | Linux |
+| `platforms: ["mac","windows"]` | Windows / macOS | Windows / macOS |
+| `platforms: ["linux","mac","windows"]` | 通用平台 | All platforms |
 
 locale 的 `meta.description` 必须以对应场景前缀开头，方便在内置插件管理器的卡片上直接看到：
 
@@ -122,7 +124,7 @@ node scripts/bootstrap.mjs check-targets
 |---|---|
 | `windows` | `process.platform === 'win32'` |
 | `mac` | `process.platform === 'darwin'` |
-| `linux` | `process.platform === 'linux'`（保留，当前不声明） |
+| `linux` | `process.platform === 'linux'` |
 
 注意：
 
@@ -137,7 +139,7 @@ node scripts/bootstrap.mjs check-targets
 
 组合的单位是 bundle。dsh 已经支持任意启用/停用 bundle，不需要发明新的组合格式；只需要按目标过滤：
 
-- `node scripts/bootstrap.mjs dev-install` / `stable-install` 增加 `--surface desktop|web`、`--platform windows|mac`；
+- `node scripts/bootstrap.mjs dev-install` / `stable-install` 增加 `--surface desktop|web`、`--platform windows|mac|linux`；
 - 默认值：`--platform` 取当前系统，`--surface` 从 profile 名 `desktop`/`web` 推断；自定义 profile 必须显式传 `--surface`；
 - 默认只安装目标兼容的插件，跳过时打印 `requires ...`；`--all` 才强制安装不兼容插件；
 - desktop profile 安装“桌面 + 平台”和“通用 + 平台”的插件；
@@ -154,7 +156,7 @@ node scripts/bootstrap.mjs check-targets
 |---|---|---|---|
 | `@mbda9091/app-restart` | `["desktop"]` | `["windows"]` | 使用 WMI / Windows Script Host 重启桌面应用 |
 | `@mbda9091/desktop-notify` | `["desktop"]` | `["windows"]` | 使用 Windows PowerShell WinRT 通知绑定 |
-| `@mbda9091/notify-web` | `["web"]` | `["mac","windows"]` | Host 统一判断并通过认证 SSE 投递，浏览器 `Notification` 展示 |
+| `@mbda9091/notify-web` | `["web"]` | `["linux","mac","windows"]` | Host 统一判断并通过认证 SSE 投递，浏览器 `Notification` 展示 |
 
 ## 8. 不采用的做法
 

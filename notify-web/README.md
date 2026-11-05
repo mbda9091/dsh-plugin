@@ -5,8 +5,8 @@
 ## 适用场景
 
 - 形态：Web（`dsh web` 的浏览器界面）；桌面应用、headless 不适用。
-- 平台：Windows、macOS 宿主（浏览器通知本身跨平台；平台声明用于宿主侧的目标校验）。
-- 声明：`package.json` 的 `dsh.targets` 为 `["web"]` / `["mac","windows"]`。
+- 平台：Windows、macOS、Linux 宿主（浏览器通知本身跨平台；平台声明用于宿主侧的目标校验）。
+- 声明：`package.json` 的 `dsh.targets` 为 `["web"]` / `["linux","mac","windows"]`。
 - 桌面应用使用 `desktop-notify`，不要同时安装本插件；客户端检测到桌面启动标记时会主动跳过，避免重复。
 
 ## 行为

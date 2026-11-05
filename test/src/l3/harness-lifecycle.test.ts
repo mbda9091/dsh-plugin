@@ -42,3 +42,16 @@ it('L3 harness: hung HTTP requests respect deadlines and do not count as closed 
     clearTimeout(keepAlive)
   }
 })
+
+it('L3 harness: shutdown socket resets require a subsequent refused connection', async (t) => {
+  let calls = 0
+  let resetOnly = false
+  t.mock.method(globalThis, 'fetch', async () => {
+    calls++
+    throw new TypeError('fetch failed', { cause: { code: resetOnly ? 'ECONNRESET' : calls === 1 ? 'UND_ERR_SOCKET' : 'ECONNREFUSED' } })
+  })
+  await waitForHttpClosed('http://127.0.0.1:1/', 1000, 1)
+  assert.equal(calls, 2)
+  resetOnly = true
+  await assert.rejects(waitForHttpClosed('http://127.0.0.1:1/', 30, 1), /still accepts connections/)
+})

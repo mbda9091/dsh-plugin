@@ -22,7 +22,7 @@ export function tarball(files: Record<string, string | Buffer>): Buffer {
 }
 export function packageFixture() {
   const manifest = { name: '@mbda9091/alpha', version: '1.0.0', type: 'module', exports: { '.': { default: './lib/index.js' }, './icon': './icon.svg' },
-    dsh: { bundle: { patch: './cordis.patch.yml' }, targets: { surfaces: ['web'], platforms: ['windows', 'mac'] } } }
+    dsh: { bundle: { patch: './cordis.patch.yml' }, targets: { surfaces: ['web'], platforms: ['windows', 'mac', 'linux'] } } }
   const files: Record<string, string> = { 'package.json': JSON.stringify(manifest), 'lib/index.js': "export const name='alpha'; export function apply(ctx) { ctx.on('fixture/check', () => name) }",
     'cordis.patch.yml': "- insert:\n    - id: alpha\n      name: '@mbda9091/alpha'\n", 'README.md': 'test Web plugin', 'icon.svg': '<svg/>',
     'locale/en.json': JSON.stringify({ meta: { title: 'Alpha', description: '[Web · All platforms] Test' } }),
@@ -36,7 +36,7 @@ export function artifactFixture(root: string, bytes = tarball(packageFixture().f
   return loadArtifacts(root, path)
 }
 export function verificationFixture(set: ArtifactSet): Verification {
-  const startedAt = new Date().toISOString(), platform = process.platform === 'win32' ? 'windows' : 'mac'
+  const startedAt = new Date().toISOString(), platform = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'mac' : 'linux'
   const report: TestReport = { version: 1, kind: 'l4', ok: true, runDir: 'removed', platform: process.platform, node: process.version, startedAt, finishedAt: startedAt, cleanup: 'removed',
     steps: artifactSteps.l4.map(name => ({ name, ok: true, durationMs: 1, detail: name === 'host-capabilities' ? JSON.stringify(set.manifest.packages.filter(p => !p.client && p.surfaces.includes('web') && p.platforms.includes(platform)).map(p => ({name:p.name,sha256:p.sha256,adapter:'fixture-v1',checks:['registration','response'],status:'passed'}))) : name === 'package-contracts' ? set.hash : name === 'install-artifacts' ? JSON.stringify(set.manifest.packages.filter(p => p.surfaces.includes('web') && p.platforms.includes(platform)).map(p => ({ name: p.name, sha256: p.sha256, actual: 'isolated/store/' + p.name }))) : 'checked' })) }
   return { version: 1, batch: set.manifest.batch, manifestSha256: set.hash, sourceSha256: set.manifest.source.sha256, startedAt, finishedAt: startedAt, status: 'passed',

@@ -25,7 +25,7 @@
 | profile 目录 | 由对应上下文的 home/profile 组合，不继承日常 `DSH_PROFILE_DIR` |
 | `DSH_HOME` | 开发 `.local/dsh-dev/home`；测试 `.tmp`；正式目标的显式 home |
 | Web GUI | `$env:DSH_WEB_URL` 或启动器打印的地址；带认证信息的地址不入库 |
-| 工具链 | Node 24；仓库命令不依赖 PowerShell 7，Windows/macOS 共用 Node CLI |
+| 工具链 | Node 24；仓库命令不依赖 PowerShell 7，Windows/macOS/Linux 共用 Node CLI |
 | 本仓库 | 从脚本位置解析；文档中的 `<repo>` 表示本机仓库绝对路径 |
 
 **这些值属于不同用途**：从命令上下文统一解析和向下传递，不在内部函数里重新从环境猜测。日常 DSH/profile/Web 变量从开发/测试子进程清理；父环境不变。包管理器沿用系统 registry、代理、证书及 npm/pnpm 配置、缓存、store、状态，不为日常开发/验收建立独立包管理环境；已有安装也不读取旧 store 关联来覆盖系统配置，不提供旧 store 兼容或迁移。DSH home/profile、会话与插件依赖关系仍分开；测试清理不得删除共享包管理数据。
@@ -138,8 +138,8 @@ dsh-plugin/
 ```
 
 - `surfaces` 是精确集合：`["desktop"]`（桌面）、`["web"]`（仅 Web 形态）、`["desktop","web"]`（通用）。`web` **不表示**“Web UI 插件”：桌面内嵌同一套 Web UI，纯 Client 插件如果桌面里也能渲染，必须同时写 `desktop` 和 `web`。
-- `platforms` 是精确集合：`["windows"]`、`["mac"]`、`["mac","windows"]`（通用平台）。
-- `headless`、`linux` 是保留值；当前 `node scripts/bootstrap.mjs check-targets` 不接受，等有对应插件再启用。
+- `platforms` 是精确集合：`["windows"]`、`["mac"]`、`["linux"]`、`["linux","mac","windows"]`（通用平台）。
+- `linux` 已启用；`headless` 仍为保留值，当前 `node scripts/bootstrap.mjs check-targets` 不接受。
 - 一个 bundle 只承载一个场景 envelope；混合就拆包。
 - 声明由 `node scripts/bootstrap.mjs check-targets` 校验，`build` 会调用；`CATALOG.md` 由 `node scripts/bootstrap.mjs catalog` 生成，不要手改。
 - 安装过滤与运行时守卫已落地；UI 徽章/页面属于阶段 3，当前不做。两者都必须读取 `dsh.targets`，不得另写一份环境判断。语义见 [docs/plugin-targets.md](docs/plugin-targets.md)。
@@ -203,7 +203,7 @@ UI 插件在此基础上增加：
     "bundle": { "patch": "./cordis.patch.yml" },
     "targets": {
       "surfaces": ["desktop", "web"],
-      "platforms": ["mac", "windows"]
+      "platforms": ["linux", "mac", "windows"]
     },
     "client": {
       "platform": "web",
@@ -217,7 +217,7 @@ UI 插件在此基础上增加：
 要点：
 
 - `private: true`：这些包不发布到 registry。
-- `dsh.targets` 必填，示例是桌面 Windows；通用插件写 `["desktop","web"]` / `["mac","windows"]`（UI 模板示例就是通用，locale 前缀按实际值写）。字段语义见 §4.1 与 [docs/plugin-targets.md](docs/plugin-targets.md)。
+- `dsh.targets` 必填，示例是桌面 Windows；通用插件写 `["desktop","web"]` / `["linux","mac","windows"]`（UI 模板示例就是通用，locale 前缀按实际值写）。字段语义见 §4.1 与 [docs/plugin-targets.md](docs/plugin-targets.md)。
 - `exports.types` 指向编译产物，`default` 指向 `lib/index.js`；loader 只加载 `lib`，**不要**把入口指回 `src/`。
 - `files` 必须覆盖**所有运行时文件**；新增模块或资源时同步更新（本地目录安装是链接，不受 `files` 过滤，但打包/发布时会用到）。
 - devDependencies 里的 DSH 类型包必须**与运行时版本一致**（当前 `0.2.2-rc.1`）；升级 dsh 后同步升级，否则类型和运行时漂移。
@@ -357,7 +357,7 @@ window.__ModuleLoader__.load({
 
 - `meta.description` 必须以场景前缀开头，并与 `dsh.targets` 一致：
   - surface：`桌面`/`Desktop`、`Web`/`Web`、`通用`/`Universal`；
-  - platform：`Windows`/`Windows`、`macOS`/`macOS`、`通用平台`/`All platforms`；
+  - platform：`Windows`/`Windows`、`macOS`/`macOS`、`Linux`/`Linux`、`通用平台`/`All platforms`；
   - 组合成 `【桌面 · Windows】`、`【通用 · 通用平台】`，英文用 `[Desktop · Windows]`。
   `node scripts/bootstrap.mjs check-targets` 会检查。
 - 图标：`icon.svg`（或 png/jpeg/webp），**必须放在包内**，≤ 256 KiB；自定义或确认可再分发，保留必要的署名。不要留模板占位图。

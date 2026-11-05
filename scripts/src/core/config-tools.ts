@@ -84,6 +84,11 @@ export function discoverBrowser(kind: 'edge' | 'chrome', env: NodeJS.ProcessEnv)
   } else if (process.platform === 'darwin') {
     candidates.push(kind === 'edge' ? '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'
       : '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome')
+  } else if (process.platform === 'linux') {
+    const names = kind === 'edge' ? ['microsoft-edge', 'microsoft-edge-stable'] : ['google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser']
+    for (const base of (envValue(env, 'PATH') ?? '').split(delimiter).filter(Boolean)) {
+      candidates.push(...names.map(name => join(base, name)))
+    }
   }
   return candidates.find(path => { try { return statSync(path).isFile() } catch { return false } }) ?? null
 }

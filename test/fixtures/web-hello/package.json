@@ -17,7 +17,7 @@
     "bundle": { "patch": "./cordis.patch.yml" },
     "targets": {
       "surfaces": ["web"],
-      "platforms": ["windows", "mac"]
+      "platforms": ["windows", "mac", "linux"]
     },
     "client": {
       "platform": "web",

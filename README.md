@@ -13,7 +13,7 @@
 | --- | --- | --- | --- |
 | [app-restart](app-restart/README.md) | 在对话中输入 `/restart`，重启桌面应用及 Host | 桌面 | Windows |
 | [desktop-notify](desktop-notify/README.md) | 审批申请、任务完成或出错时弹出系统通知，可播放提示音 | 桌面 | Windows |
-| [notify-web](notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS |
+| [notify-web](notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS、Linux |
 
 完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断。2026-11-06 升级 DSH `0.2.2-rc.1`、Cordis `4.1.0` 后，本机 macOS 完整 CI 通过：环境 42 项、类型检查、L1–L3（226 通过、1 跳过）、L4 与 L5。详见 [本次验收记录](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)。Windows CI、真实 Desktop 和个人日常 profile 尚未在本版本验收。
 
@@ -136,7 +136,7 @@ node scripts/bootstrap.mjs ci
 
 L1–L3 覆盖逻辑、包契约和集成行为；L4 使用一次性 profile 验证真实 DSH 安装与加载；L5 通过 Playwright 验证 Web 交互和通知。L4/L5 需要普通 Node 版 DSH 和配置中的 pnpm，L5 使用 `test.browser` / `test.browserPath`；Chromium 需先通过 Playwright 安装。`test.timeoutMs` 控制测试操作和浏览器场景的超时。测试说明和环境覆盖参数见 [测试方案](docs/testing-plan.md)。
 
-GitHub Actions 在 Windows 和 macOS runner 上先初始化各自的本机配置，再运行同一套检查。测试产物保存在本机或临时 CI runner 的 `.tmp/`，不自动上传日志、截图或 trace。
+GitHub Actions 在 Windows、macOS 和 Linux runner 上先初始化各自的本机配置，再运行同一套检查。测试产物保存在本机或临时 CI runner 的 `.tmp/`，不自动上传日志、截图或 trace。
 
 当前验收记录见 [测试方案 §19.10](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)，保留历史基线和失败原因；尚未完成的建设见 [§20](docs/testing-plan.md#20-当前未完成事项)。
 
@@ -151,3 +151,41 @@ GitHub Actions 在 Windows 和 macOS runner 上先初始化各自的本机配置
 ## 许可证
 
 [BSD 3-Clause](LICENSE)。
+
+## Linux 开发
+
+使用普通 Node 24 和 pnpm 11.28.5；在仓库根目录运行：
+
+```sh
+pnpm install --frozen-lockfile
+node scripts/bootstrap.mjs config init --browser default --test-browser chromium
+node scripts/bootstrap.mjs build --check
+node scripts/bootstrap.mjs dev-install
+node scripts/bootstrap.mjs dev-web --no-open
+```
+
+若使用 Corepack，初始化时通过 `--pnpm-script <pnpm-11.28.5包目录>/bin/pnpm.cjs` 显式指定脚本；初始化不会自动扫描 Corepack 私有缓存。
+
+启动器打印访问地址；有桌面会话时可去掉 `--no-open`，通过 `xdg-open` 打开默认浏览器。自动化测试可用 `node node_modules/playwright-core/cli.js install --with-deps chromium` 准备浏览器及系统依赖。
+
+Linux 支持 `notify-web`。正式目标使用 `--platform linux`，仍需独立目标及匹配 Linux 的固定产物验收证据。Windows 专用的 `app-restart`、`desktop-notify` 和独立日常启动器不适用于 Linux；日常 Web 可使用仓库的 `web --target NAME` 入口。
+
+### WSL 默认工作区与验收边界
+
+DSH 首次启动会通过 `xdg-user-dir DOCUMENTS` 查找文档目录。WSL 未配置该目录时可能返回用户主目录，宿主会拒绝创建默认工作区并显示提示。新建开发环境现在显式使用 `.local/dsh-dev/home/documents`；L5 使用本次 `.tmp/l5/run-*/workspace/documents`，并检查默认工作区确实创建，避免写入个人 Documents。
+
+已有开发环境的 patch 会保留，不自动重写。需要修复时先备份 `.local/dsh-dev/cordis.patch.yml` 为同目录 `cordis.patch.yml.bak`，再在该受管开发 patch 中设置：
+
+```yaml
+- id: workspace-controller
+  config:
+    documentsDirectory: '/绝对路径/dsh-plugin/.local/dsh-dev/home/documents'
+```
+
+日常目标可通过界面显式选择工作目录；仓库命令不会改动其个人目录设置。WSL 的 Windows VS Code 命令可能被宿主发现但没有 Linux desktop entry 图标，宿主以通用图标回退；此项不通过修改宿主依赖或伪造图标解决。
+
+完整真实环境验收须显式选择 Chromium：
+```sh
+node scripts/bootstrap.mjs test-env --suite real --test-browser chromium --pnpm-script /绝对路径/pnpm/bin/pnpm.cjs
+```
+Windows 浏览器中的实际系统通知、点击聚焦仍需桌面人工验收；无头测试只替换系统 Notification API，不证明操作系统弹窗行为。

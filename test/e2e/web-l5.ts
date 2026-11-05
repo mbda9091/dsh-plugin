@@ -81,10 +81,13 @@ async function check(name: string, body: (page: Page, context: BrowserContext, d
   page.on('console', message => {
     if (message.type() !== 'error') return
     const location = message.location().url
-    // DSH 0.2.1-rc.2 on Windows requests a missing Explorer icon after selecting
-    // a session. Keep this exact upstream defect visible; no blanket 404 filter.
-    if (process.platform === 'win32'
-      && location === new URL('/open-in-app/icon/explorer', url).href
+    // DSH 0.2.1-rc.2 falls back to a generic glyph when native icon extraction
+    // fails: Explorer on Windows, or Windows VS Code exposed in WSL without a
+    // Linux desktop entry. Retain these exact 404s in diagnostics, not all 404s.
+    const missingHostIcon = process.platform === 'win32' ? 'explorer'
+      : process.platform === 'linux' ? 'vscode' : undefined
+    if (missingHostIcon !== undefined
+      && location === new URL(`/open-in-app/icon/${missingHostIcon}`, url).href
       && message.text() === 'Failed to load resource: the server responded with a status of 404 (Not Found)') {
       knownHostErrors.push(`${location}: ${message.text()}`)
     } else errors.push(`console: ${message.text()} (${location})`)
@@ -130,8 +133,15 @@ async function open(page: Page, baseline: boolean): Promise<void> {
     assert.deepEqual(await page.evaluate(() => window.__L5_NOTIFICATIONS__.interactionsAtRequest), [0])
     assert.deepEqual(await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls), [])
   }
-  await page.getByRole('dialog', { name: /Get started|开始使用/ }).getByRole('button', { name: /Close|关闭/, exact: true }).click()
-  await page.getByRole('tree', { name: /Sessions|会话/, exact: true }).waitFor({ state: 'visible' })
+  const login = page.getByRole('dialog', { name: /Get started|开始使用/ })
+  const sessions = page.getByRole('tree', { name: /Sessions|会话/, exact: true })
+  // The host may open directly into the session UI without a login dialog.
+  await login.or(sessions).first().waitFor({ state: 'visible' })
+  if (await login.isVisible()) {
+    await login.getByRole('button', { name: /Close|关闭/, exact: true }).click()
+    await login.waitFor({ state: 'hidden' })
+  }
+  await sessions.waitFor({ state: 'visible' })
 }
 
 /** Wait for the Host settings write before reloading or opening the next context. */
@@ -189,6 +199,8 @@ try {
     await check('no-custom-plugins', async page => {
       await open(page, true)
       assert.equal(await page.evaluate(() => window.__DSH_WEB_HELLO__), undefined)
+      await page.getByRole('tree', { name: 'Sessions', exact: true }).getByText('Default workspace', { exact: true }).waitFor()
+      assert.equal(await page.getByText('Unable to create default workspace. Use Choose workspace to select a folder.', { exact: true }).count(), 0)
       await page.getByRole('tree', { name: 'Sessions', exact: true }).waitFor({ state: 'visible' })
     })
   } else {

@@ -42,6 +42,7 @@
         "web"
       ],
       "platforms": [
+        "linux",
         "mac",
         "windows"
       ]
