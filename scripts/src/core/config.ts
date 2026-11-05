@@ -12,6 +12,8 @@ export interface InstallTarget {
   surface: 'desktop' | 'web'
   platform: 'windows' | 'mac'
   binding?: import('./formal-target.js').TargetIdentity
+  /** Optional --patch overlay for target-scoped Web launches; null means none. */
+  patch?: string | null
 }
 
 export interface RepoConfig {
@@ -149,7 +151,12 @@ export function resolveConfig(
   config.tools.pnpmScript = path(config.tools.pnpmScript)
   config.web.browserPath = path(config.web.browserPath)
   config.test.browserPath = path(config.test.browserPath)
-  config.targets = config.targets.map(target => ({ ...target, dshCli: path(target.dshCli)!, home: path(target.home)! }))
+  config.targets = config.targets.map(target => ({
+    ...target,
+    dshCli: path(target.dshCli)!,
+    home: path(target.home)!,
+    patch: target.patch === undefined ? null : path(target.patch),
+  }))
   return { config, sources }
 }
 

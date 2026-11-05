@@ -8,7 +8,6 @@
     "build": "node scripts/bootstrap.mjs build",
     "check": "node scripts/bootstrap.mjs build --check",
     "config": "node scripts/bootstrap.mjs config",
-    "web": "node scripts/bootstrap.mjs web",
     "dev-web": "node scripts/bootstrap.mjs dev-web",
     "pack": "node scripts/bootstrap.mjs pack",
     "verify-artifacts": "node scripts/bootstrap.mjs verify-artifacts",
@@ -20,12 +19,13 @@
     "test": "node scripts/bootstrap.mjs test",
     "test:env": "node scripts/bootstrap.mjs test-env",
     "test:l4": "node scripts/bootstrap.mjs l4",
-    "test:e2e:web": "node scripts/bootstrap.mjs l5"
+    "test:e2e:web": "node scripts/bootstrap.mjs l5",
+    "install-plugins": "node scripts/bootstrap.mjs install"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh": "0.2.1-rc.2",
-    "@local/notify-core": "workspace:*",
-    "@local/notify-host": "workspace:*",
+    "@deepseek-ai/dsh": "0.2.1-rc.5",
+    "@mbda9091/notify-core": "workspace:*",
+    "@mbda9091/notify-host": "workspace:*",
     "@types/node": "^24.0.0",
     "esbuild": "^0.28.2",
     "playwright-core": "^1.64.1",

@@ -137,7 +137,7 @@ async function bundlePlugin(dir: string, spec: BuildSpec, env: NodeJS.ProcessEnv
 /**
  * Builds or type-checks every plugin with the TypeScript compiler. Plugins that
  * declare `build.json` are bundled with esbuild after their declarations are
- * emitted, so shared `@local/notify-core` code is inlined into each runtime
+ * emitted, so shared `@mbda9091/notify-core` code is inlined into each runtime
  * artifact and never needs a profile dependency.
  *
  * The metadata gates run first so a bad dsh.targets, a stale locale prefix, or

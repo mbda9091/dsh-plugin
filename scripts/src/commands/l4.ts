@@ -14,6 +14,10 @@ import type { ArtifactSet } from '../core/artifacts.js'
 import { artifactPrerequisites, installArtifacts, checkArtifactInstallations, webArtifacts } from '../core/artifact-harness.js'
 import { checkHostCapabilities } from '../core/host-capability.js'
 import type { HostCapabilityCheck } from '../core/host-capability.js'
+import { discoverPlugins } from '../core/plugins.js'
+import type { Plugin } from '../core/plugins.js'
+import { isTargetCompatible, resolveTarget } from '../core/targets.js'
+import type { Target } from '../core/targets.js'
 
 /**
  * L4: install into a disposable profile, then assert the loader's observable
@@ -47,6 +51,21 @@ interface Row {
 
 const WEB_PROFILE = 'web'
 
+/** Smoke-test candidates, filtered by their manifests rather than a second target matrix. */
+export function selectL4Plugins(root: string = repoRoot, target: Target = resolveTarget({ surface: 'web' })): { links: Plugin[]; tarball: Plugin } {
+  const plugins = discoverPlugins(root)
+  const links = ['notify-web'].flatMap(id => {
+    const plugin = plugins.find(plugin => plugin.dirName === id)
+    if (!plugin) throw new Error(`L4 smoke plugin manifest is missing: ${id}`)
+    return isTargetCompatible(plugin, target) ? [plugin] : []
+  })
+  // The link phase also checks notify-web's client module and authenticated SSE.
+  if (!links.some(plugin => plugin.dirName === 'notify-web')) throw new Error(`L4 requires notify-web support for ${target.surface}/${target.platform}`)
+  const tarball = links[0]
+  if (!tarball) throw new Error(`no L4 tarball plugin supports ${target.surface}/${target.platform}`)
+  return { links, tarball }
+}
+
 export async function runL4(input: L4Options, settings: CommandContext = loadCommandContext({}, undefined, undefined, 'test'), onReport?: (report: TestReport) => void): Promise<number> {
   const options = { ...input, timeoutMs: input.timeoutMs ?? settings.config.test.timeoutMs }
   return runIsolatedTest('l4', settings, options, async run => {
@@ -60,15 +79,15 @@ export async function runL4(input: L4Options, settings: CommandContext = loadCom
       await step('install-artifacts', async () => {
         const evidence = await installArtifacts(context, artifacts)
         const rows = parseRows(await dumpConfig(context, 'dump-artifacts', context.home))
-        for (const item of webArtifacts(artifacts)) assertRow(rows, item.name.slice(7), item.name)
+        for (const item of webArtifacts(artifacts)) assertRow(rows, item.name.split('/').at(-1)!, item.name)
         return evidence
       })
       await step('host-capabilities', () => (options.hostCapabilityCheck ?? checkHostCapabilities)(context, artifacts))
       await step('web-artifacts', () => serveAndCheck(context, 'artifacts', async (url, stderr) => {
         const page = await fetchAuthorizedPage(url)
-        if (/did not activate|@local\//.test(stderr)) throw new Error(`artifact activation failed: ${stderr}`)
+        if (/did not activate|@mbda9091\//.test(stderr)) throw new Error(`artifact activation failed: ${stderr}`)
         for (const item of webArtifacts(artifacts).filter(p => p.client)) if (!page.html.includes(item.name)) throw new Error(`missing client: ${item.name}`)
-        if (artifacts.packages.has('@local/notify-web')) await checkSse(page.pageUrl, page.cookie)
+        if (artifacts.packages.has('@mbda9091/notify-web')) await checkSse(page.pageUrl, page.cookie)
         checkArtifactInstallations(context, artifacts)
         return `HTTP, client modules and applicable SSE passed; manifest ${artifacts.hash}`
       }))
@@ -80,11 +99,11 @@ export async function runL4(input: L4Options, settings: CommandContext = loadCom
     await step('web-link', () =>
       serveAndCheck(context, 'link', async (url, stderr) => {
         const page = await fetchAuthorizedPage(url)
-        for (const module of ['@local/web-hello', '@local/notify-web']) {
+        for (const module of ['@mbda9091/web-hello', '@mbda9091/notify-web']) {
           if (!page.html.includes(module)) throw new Error(`boot HTML is missing the ${module} client module`)
         }
         if (stderr.includes('did not activate')) throw new Error(`compatible plugins failed to activate:\n${stderr}`)
-        if (/@local\//.test(stderr)) throw new Error(`unexpected @local warning in server stderr:\n${stderr}`)
+        if (/@mbda9091\//.test(stderr)) throw new Error(`unexpected @mbda9091 warning in server stderr:\n${stderr}`)
         const sse = await checkSse(page.pageUrl, page.cookie)
         return `HTTP 200, boot HTML contains both client modules, no activation warnings, ${sse}`
       }),
@@ -129,8 +148,7 @@ interface L4Context extends WebHarness {
 
 async function checkPrerequisites(context: L4Context): Promise<string> {
   const required = [
-    join(repoRoot, 'approval-allowlist', 'lib', 'index.js'),
-    join(repoRoot, 'notify-web', 'lib', 'index.js'),
+    ...selectL4Plugins().links.map(plugin => join(plugin.dir, 'lib', 'index.js')),
     join(repoRoot, 'notify-web', 'lib', 'client.js'),
     join(repoRoot, 'test', 'fixtures', 'web-hello', 'client.js'),
     join(repoRoot, 'test', 'fixtures', 'target-mismatch', 'index.js'),
@@ -144,10 +162,10 @@ async function checkPrerequisites(context: L4Context): Promise<string> {
 
 /** Install through the manager, then check both manifest and composed rows. */
 async function installLinks(context: L4Context): Promise<string> {
+  const plugins = selectL4Plugins().links
   const targets = [
     join(repoRoot, 'test', 'fixtures', 'web-hello'),
-    join(repoRoot, 'approval-allowlist'),
-    join(repoRoot, 'notify-web'),
+    ...plugins.map(plugin => plugin.dir),
   ]
   for (const target of targets) {
     await runDsh(
@@ -162,7 +180,7 @@ async function installLinks(context: L4Context): Promise<string> {
   const profile = readProfile(context.home)
   const dependencies = isRecord(profile['dependencies']) ? profile['dependencies'] : {}
   const bundles = readBundles(profile)
-  for (const name of ['@local/web-hello', '@local/approval-allowlist', '@local/notify-web']) {
+  for (const name of ['@mbda9091/web-hello', ...plugins.map(plugin => plugin.packageName)]) {
     const spec = dependencies[name]
     if (typeof spec !== 'string' || !spec.toLowerCase().startsWith('link:')) {
       throw new Error(`${name} is not a link: dependency (got ${JSON.stringify(spec)})`)
@@ -171,9 +189,8 @@ async function installLinks(context: L4Context): Promise<string> {
   }
 
   const rows = parseRows(await dumpConfig(context, 'dump-link', context.home))
-  assertRow(rows, 'web-hello', '@local/web-hello')
-  assertRow(rows, 'approval-allowlist', '@local/approval-allowlist')
-  assertRow(rows, 'notify-web', '@local/notify-web')
+  assertRow(rows, 'web-hello', '@mbda9091/web-hello')
+  for (const plugin of plugins) assertRow(rows, plugin.dirName, plugin.packageName)
   return 'link install + rows enabled'
 }
 
@@ -186,11 +203,12 @@ async function installMismatch(context: L4Context): Promise<string> {
     context.options.timeoutMs,
   )
   const rows = parseRows(await dumpConfig(context, 'dump-mismatch', context.home))
-  assertRow(rows, 'target-mismatch', '@local/target-mismatch')
+  assertRow(rows, 'target-mismatch', '@mbda9091/target-mismatch')
   return 'mismatched fixture installed; failure asserted at runtime'
 }
 
 async function installTarball(context: L4Context): Promise<string> {
+  const plugin = selectL4Plugins().tarball
   const home = join(context.runDir, 'dsh-home-tarball')
   context.tarballHome = home
   await initProfile(context, 'profile-init-tarball', home)
@@ -199,7 +217,7 @@ async function installTarball(context: L4Context): Promise<string> {
   const packDir = join(context.artifactDir, 'tarball')
   mkdirSync(packDir, { recursive: true })
   const pack = await runToFilesAsync(process.execPath, [pnpm, 'pack', '--pack-destination', packDir], {
-    cwd: join(repoRoot, 'approval-allowlist'),
+    cwd: plugin.dir,
     signal: context.signal,
     env: childEnv(context, home),
     timeoutMs: context.options.timeoutMs,
@@ -221,22 +239,22 @@ async function installTarball(context: L4Context): Promise<string> {
 
   const profile = readProfile(home)
   const dependencies = isRecord(profile['dependencies']) ? profile['dependencies'] : {}
-  const spec = dependencies['@local/approval-allowlist']
+  const spec = dependencies[plugin.packageName]
   if (typeof spec !== 'string' || !/\.tgz$/i.test(spec)) {
-    throw new Error(`@local/approval-allowlist is not installed from a tarball (got ${JSON.stringify(spec)})`)
+    throw new Error(`${plugin.packageName} is not installed from a tarball (got ${JSON.stringify(spec)})`)
   }
-  if (!readBundles(profile).includes('@local/approval-allowlist')) {
-    throw new Error('@local/approval-allowlist is missing from dsh.profile.bundles')
+  if (!readBundles(profile).includes(plugin.packageName)) {
+    throw new Error(`${plugin.packageName} is missing from dsh.profile.bundles`)
   }
 
-  const installed = join(home, 'profiles', WEB_PROFILE, 'node_modules', '@local', 'approval-allowlist')
+  const installed = join(home, 'profiles', WEB_PROFILE, 'node_modules', ...plugin.packageName.split('/'))
   if (!existsSync(installed)) throw new Error(`tarball install did not create ${installed}`)
   if (lstatSync(installed).isSymbolicLink()) {
     throw new Error(`${installed} is still a link; the stable install did not copy files`)
   }
 
-  assertRow(parseRows(await dumpConfig(context, 'dump-tarball', home)), 'approval-allowlist', '@local/approval-allowlist')
-  return `tarball install is a real copy (${lastSegment(tarball)})`
+  assertRow(parseRows(await dumpConfig(context, 'dump-tarball', home)), plugin.dirName, plugin.packageName)
+  return `${plugin.packageName} tarball install is a real copy (${lastSegment(tarball)})`
 }
 
 /** Start `dsh web`, run the assertions, then stop it and prove the port closed. */

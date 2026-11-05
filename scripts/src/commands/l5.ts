@@ -21,7 +21,7 @@ export async function runL5(input: L5Options, settings: CommandContext = loadCom
     const { runDir, step } = context
     await step(options.artifacts ? 'package-contracts' : 'build', async () => {
       if (options.artifacts) {
-        if (!options.artifacts.packages.has('@local/notify-web')) throw new Error('artifact L5 currently requires notify-web; no generic UI pass is inferred')
+        if (!options.artifacts.packages.has('@mbda9091/notify-web')) throw new Error('artifact L5 currently requires notify-web; no generic UI pass is inferred')
         return artifactPrerequisites(context, options.artifacts)
       }
       const code = await runBuild({ check: false }, settings)
@@ -43,7 +43,7 @@ export async function runL5(input: L5Options, settings: CommandContext = loadCom
     })
     await step('profile-init', () => initProfile(context, 'profile-init', context.home))
     const browser = (mode: 'baseline' | 'fixture') => step(mode, () => serveAndCheck(context, mode, async (url, stderr) => {
-      if (/did not activate|@local\//.test(stderr)) throw new Error(`unexpected loader warnings: ${stderr}`)
+      if (/did not activate|@mbda9091\//.test(stderr)) throw new Error(`unexpected loader warnings: ${stderr}`)
       const result = await runToFilesAsync(process.execPath, [join(repoRoot, 'test/.build/e2e/web-l5.js')], {
         cwd: runDir, signal: context.signal,
         env: { ...childEnv(context, context.home), DSH_E2E_URL: url, DSH_E2E_MODE: mode,

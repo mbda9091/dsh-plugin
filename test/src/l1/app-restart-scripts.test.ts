@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { dirname } from 'node:path'
-import { buildHelperScript, buildLauncherScript, vbsString } from '@local/app-restart'
+import { buildHelperScript, buildLauncherScript, vbsString } from '@mbda9091/app-restart'
 
 describe('L1 app-restart: VBScript literals', () => {
   it('doubles embedded quotes and leaves backslashes alone', () => {

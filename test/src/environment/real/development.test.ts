@@ -1,3 +1,4 @@
+import { workspaceDshVersion } from '../../harness/dsh-version.js'
 import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -21,11 +22,11 @@ it('DEV-03 real link, loaded revisions, restart/reset persistence (DEV-01/04/05 
   rmSync(dependency, { recursive: true })
   symlinkSync(realpathSync(join(sourceRoot, 'node_modules/@deepseek-ai/dsh')), dependency, process.platform === 'win32' ? 'junction' : 'dir')
   f.config.tools.pnpmScript = pnpm; f.config.web.startupTimeoutMs = 60_000; f.write()
-  const plugin = { packageName: '@local/m3-fixture', dir: join(f.root, 'm3-fixture') }
+  const plugin = { packageName: '@mbda9091/m3-fixture', dir: join(f.root, 'm3-fixture') }
   mkdirSync(join(plugin.dir, 'lib'), { recursive: true })
   writeFileSync(join(plugin.dir, 'package.json'), JSON.stringify({ name: plugin.packageName, version: '1.0.0', type: 'module', exports: './lib/index.js', files: ['lib', 'cordis.patch.yml'],
     dsh: { bundle: { patch: './cordis.patch.yml' }, targets: { surfaces: ['web'], platforms: ['windows', 'mac'] } } }))
-  writeFileSync(join(plugin.dir, 'cordis.patch.yml'), '- insert:\n    - id: m3-fixture\n      name: "@local/m3-fixture"\n')
+  writeFileSync(join(plugin.dir, 'cordis.patch.yml'), '- insert:\n    - id: m3-fixture\n      name: "@mbda9091/m3-fixture"\n')
   writeFileSync(join(f.root, 'profiles/web/cordis.dev.patch.yml'), "- id: hmr\n  config:\n    root: ['${repoRoot}/m3-fixture/lib']\n")
   const p = developmentPaths(f.root), marker = join(p.home, 'loaded-revision')
   const revision = (n: number) => writeFileSync(join(plugin.dir, 'lib/index.js'), `import {writeFileSync} from 'node:fs'; export const name='m3-fixture'; export function apply(){writeFileSync(${JSON.stringify(marker)},${JSON.stringify(String(n))})}`)
@@ -56,5 +57,5 @@ it('DEV-03 real link, loaded revisions, restart/reset persistence (DEV-01/04/05 
   finally { if (existsSync(p.runtime)) await stopDevelopment(context); await waitForExit(started.child, 10_000) }
   assert.equal(existsSync(p.directory), false)
   assert.deepEqual(snapshot(plugin.dir), before)
-  writeFileSync(join(process.env.DSH_ENV_TEST_RUN!, 'DEV-03-details.json'), JSON.stringify({ coverage: ['DEV-01 real', 'DEV-03', 'DEV-04 real duplicate', 'DEV-05 real'], host: '0.2.1-rc.2', revisionsLoaded: [1, 2], resetSourceUnchanged: true, personalSentinelsUnchanged: true }, null, 2))
+  writeFileSync(join(process.env.DSH_ENV_TEST_RUN!, 'DEV-03-details.json'), JSON.stringify({ coverage: ['DEV-01 real', 'DEV-03', 'DEV-04 real duplicate', 'DEV-05 real'], host: workspaceDshVersion, revisionsLoaded: [1, 2], resetSourceUnchanged: true, personalSentinelsUnchanged: true }, null, 2))
 }, false))

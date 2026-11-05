@@ -5,7 +5,6 @@ import { assertArtifactsUnchanged } from './artifacts.js'
 import { isRecord } from './json.js'
 import type { TestReport } from './test-run.js'
 import type { Target } from './targets.js'
-import { approvalCapabilityChecks } from './host-capability.js'
 
 export const artifactSteps = {
   l4: ['context', 'package-contracts', 'profile-init', 'install-artifacts', 'host-capabilities', 'web-artifacts', 'cleanup'],
@@ -39,8 +38,7 @@ export function validateArtifactReport(report: unknown, kind: 'l4' | 'l5', set: 
     const hosts = selected.filter(p => !p.client)
     if (!Array.isArray(results) || results.length !== hosts.length || hosts.some(p => results.filter(r => isRecord(r)
       && r.name === p.name && r.sha256 === p.sha256 && r.status === 'passed' && typeof r.adapter === 'string' && r.adapter.length > 0
-      && Array.isArray(r.checks) && r.checks.length > 0 && new Set(r.checks).size === r.checks.length && r.checks.every((c: unknown) => typeof c === 'string' && c.length > 0)
-      && (p.name !== '@local/approval-allowlist' || r.adapter === 'approval-allowlist-v1' && JSON.stringify(r.checks) === JSON.stringify(approvalCapabilityChecks))).length !== 1)) throw new Error('incomplete Host capability evidence')
+      && Array.isArray(r.checks) && r.checks.length > 0 && new Set(r.checks).size === r.checks.length && r.checks.every((c: unknown) => typeof c === 'string' && c.length > 0)).length !== 1)) throw new Error('incomplete Host capability evidence')
   }
 }
 export function validateVerification(set: ArtifactSet, value: unknown, target: Target, host: string, names: readonly string[]): asserts value is Verification {

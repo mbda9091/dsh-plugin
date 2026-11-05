@@ -35,10 +35,10 @@ export function prepareTarget(f: ReturnType<typeof fixture>) {
     ${recordStores}
     const mode=fs.existsSync(${JSON.stringify(mode)})?fs.readFileSync(${JSON.stringify(mode)},'utf8'):'';
     if(args[0]==='--version'){console.log(mode==='version'?'0.9.0':'0.2.1-rc.2');process.exit(0)}
-    if(args.includes('--dump-config')){const m=JSON.parse(fs.readFileSync(path.join(process.env.DSH_PROFILE_DIR,'package.json')));for(const name of m.dsh.profile.bundles)console.log('- id: '+name.slice(7)+'\\n  name: '+JSON.stringify(name));process.exit(0)}
+    if(args.includes('--dump-config')){const m=JSON.parse(fs.readFileSync(path.join(process.env.DSH_PROFILE_DIR,'package.json')));for(const name of m.dsh.profile.bundles)console.log('- id: '+name.split('/').at(-1)+'\\n  name: '+JSON.stringify(name));process.exit(0)}
     fs.appendFileSync(${JSON.stringify(trace)},JSON.stringify(args)+'\\n');
     import(${parser}).then(({readPackage})=>{const p=readPackage(fs.readFileSync(args[4])),profile=process.env.DSH_PROFILE_DIR;
-      if(mode==='second-fails'&&p.name==='@local/beta')process.exit(2);
+      if(mode==='second-fails'&&p.name==='@mbda9091/beta')process.exit(2);
       fs.mkdirSync(profile,{recursive:true});const file=path.join(profile,'package.json');
       const manifest=fs.existsSync(file)?JSON.parse(fs.readFileSync(file)):{};
       manifest.dependencies??={};manifest.dependencies[p.name]='file:'+args[4];

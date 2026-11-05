@@ -20,7 +20,7 @@ it('L3 artifact delivery validates evidence before target writes and installs th
     const parser = pathToFileURL(join(repoRoot, 'scripts/.build/core/artifact-package.js')).href
     writeFileSync(f.entry, `const fs=require('node:fs'),path=require('node:path');const args=process.argv.slice(2);
       if(args[0]==='--version'){console.log('0.2.1-rc.2');process.exit(0)}
-      if(args.includes('--dump-config')){console.log("- id: alpha\\n  name: '@local/alpha'");process.exit(0)}
+      if(args.includes('--dump-config')){console.log("- id: alpha\\n  name: '@mbda9091/alpha'");process.exit(0)}
       fs.appendFileSync(${JSON.stringify(trace)},'add\\n');
       import(${JSON.stringify(parser)}).then(({readPackage})=>{const p=readPackage(fs.readFileSync(args[4])),profile=process.env.DSH_PROFILE_DIR;
         for(const [file,bytes] of p.files){const dest=path.join(profile,'node_modules',p.name,file);fs.mkdirSync(path.dirname(dest),{recursive:true});fs.writeFileSync(dest,bytes)}
@@ -42,7 +42,7 @@ it('L3 artifact delivery validates evidence before target writes and installs th
     assert.equal(existsSync(directory), false)
     assert.equal(await runInstall(options, context), 0)
     assert.equal(readFileSync(trace, 'utf8'), 'add\nupdate\n')
-    const spec = JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8')).dependencies['@local/alpha'] as string
+    const spec = JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8')).dependencies['@mbda9091/alpha'] as string
     assert.ok(existsSync(spec.slice(5)), 'stable spec references a persistent snapshot outside .tmp')
     assert.ok(spec.includes('dist') && spec.includes('consumption'))
   } finally { removeDir(home); removeDir(f.root) }

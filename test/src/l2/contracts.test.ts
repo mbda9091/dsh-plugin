@@ -137,12 +137,12 @@ const plugins = discover()
 
 describe('L2 package contracts: discovery', () => {
   it('finds every top-level bundle package and nothing else', () => {
-    assert.deepEqual(plugins.map((plugin) => plugin.dirName), ['app-restart', 'approval-allowlist', 'desktop-notify', 'notify-web'])
+    assert.deepEqual(plugins.map((plugin) => plugin.dirName), ['app-restart', 'desktop-notify', 'notify-web'])
   })
 
   it('keeps directory name, package suffix and loader row id aligned', () => {
     for (const plugin of plugins) {
-      assert.equal(plugin.name, `@local/${plugin.dirName}`)
+      assert.equal(plugin.name, `@mbda9091/${plugin.dirName}`)
       assert.match(readFileSync(plugin.patchPath, 'utf8'), new RegExp(`^\\s*- id: ${escapeRegExp(plugin.dirName)}$`, 'm'))
       assert.match(
         readFileSync(plugin.patchPath, 'utf8'),
@@ -158,7 +158,7 @@ for (const plugin of plugins) {
     it('has the required package metadata', () => {
       assert.equal(plugin.manifest['private'], true)
       assert.equal(plugin.manifest['type'], 'module')
-      assert.match(plugin.name, /^@local\/[a-z0-9-]+$/)
+      assert.match(plugin.name, /^@mbda9091\/[a-z0-9-]+$/)
       const version = plugin.manifest['version']
       assert.equal(typeof version, 'string')
       assert.match(version as string, /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/)
@@ -318,7 +318,7 @@ describe('L2 package contracts: test fixtures', () => {
     const clientSource = readFileSync(join(fixtures, 'web-hello', 'client.js'), 'utf8')
     assert.ok(clientSource.includes('window.__ModuleLoader__.load'))
     assert.ok(clientSource.includes('conversation.composer.dock'))
-    assert.ok(clientSource.includes('@local/web-hello'))
+    assert.ok(clientSource.includes('@mbda9091/web-hello'))
     assert.ok(!/require\(['"]@deepseek-ai\/dsh-client-/.test(clientSource))
   })
 
@@ -331,7 +331,7 @@ describe('L2 package contracts: test fixtures', () => {
 
     const patch = readFileSync(join(fixtures, 'target-mismatch', 'cordis.patch.yml'), 'utf8')
     assert.match(patch, /^\s*- id: target-mismatch$/m)
-    assert.match(patch, /^\s+name: '@local\/target-mismatch'$/m)
+    assert.match(patch, /^\s+name: '@mbda9091\/target-mismatch'$/m)
 
     const source = readFileSync(join(fixtures, 'target-mismatch', 'index.js'), 'utf8')
     assert.ok(source.includes('target mismatch'))

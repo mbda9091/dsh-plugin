@@ -1,16 +1,16 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { Context } from '@deepseek-ai/cordis'
-import { detectEnvironment as detectAppRestart } from '@local/app-restart'
-import { detectEnvironment as detectAllowlist } from '@local/approval-allowlist'
-import { detectEnvironment as detectNotify } from '@local/desktop-notify'
+import { detectEnvironment as detectAppRestart } from '@mbda9091/app-restart'
+import { detectEnvironment as detectWebNotify } from '@mbda9091/notify-web'
+import { detectEnvironment as detectNotify } from '@mbda9091/desktop-notify'
 import { withElectron } from '../harness/env.js'
 import { createFakeContext } from '../harness/fake-context.js'
 
 const detectors = [
   { name: 'app-restart', detect: detectAppRestart },
+  { name: 'notify-web', detect: detectWebNotify },
   { name: 'desktop-notify', detect: detectNotify },
-  { name: 'approval-allowlist', detect: detectAllowlist },
 ]
 
 const WEB_BUNDLES = ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app']

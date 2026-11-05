@@ -8,9 +8,9 @@
  * selection.
  *
  * The module is a build-time workspace library. esbuild inlines it into each
- * plugin, so a profile never installs `@local/notify-host` at runtime.
+ * plugin, so a profile never installs `@mbda9091/notify-host` at runtime.
  *
- * @module @local/notify-host
+ * @module @mbda9091/notify-host
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type { Session, SessionEvent, TurnEndReason } from '@deepseek-ai/dsh-session'

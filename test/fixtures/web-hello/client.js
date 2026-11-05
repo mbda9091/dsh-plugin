@@ -1,7 +1,7 @@
 /** Test fixture: actual composer slot, host round-trip, and host locale service. */
 window.__DSH_WEB_HELLO__ = { factory: false, applied: false, registered: false, error: null, slot: null }
 window.__ModuleLoader__.load({
-  id: '@local/web-hello',
+  id: '@mbda9091/web-hello',
   factory(require) {
     const React = require('react')
     const h = React.createElement

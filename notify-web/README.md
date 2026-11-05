@@ -1,4 +1,4 @@
-# @local/notify-web
+# @mbda9091/notify-web
 
 在 **Web 界面（`dsh web`）** 中，当根会话的工具申请权限或一轮对话结束时，通过浏览器调用操作系统的系统通知；点击通知会聚焦 DSH 标签页并切换到对应会话。
 
@@ -55,7 +55,7 @@ Host 从 `notify-web` loader 行读取以下字段，默认值如下：
 ```yaml
 - insert:
     - id: notify-web
-      name: '@local/notify-web'
+      name: '@mbda9091/notify-web'
       config:
         notifyOnTurnError: false
         approvalDelayMs: 500
@@ -76,9 +76,9 @@ Host 从 `notify-web` loader 行读取以下字段，默认值如下：
 
 - `src/index.ts`：Web Host。建立共享通知源，并通过 DSH Connection 的认证 Fetch 路由 `GET /api/notify-web/events` 提供 SSE。
 - `src/client/index.ts`：浏览器入口。消费 SSE、按当前 locale 格式化、请求权限、显示/撤回通知、处理点击和多标签页。
-- `@local/notify-host`：与 `desktop-notify` 共用的触发逻辑（根会话过滤、审批延迟、`turn/end`、`agent/disposed` 清理）。
-- `@local/notify-core`：共用的文案与 locale。
-- 两个 `@local/*` 共享库都由 esbuild 在构建期内联，profile 不需要安装。
+- `@mbda9091/notify-host`：与 `desktop-notify` 共用的触发逻辑（根会话过滤、审批延迟、`turn/end`、`agent/disposed` 清理）。
+- `@mbda9091/notify-core`：共用的文案与 locale。
+- 两个 `@mbda9091/*` 共享库都由 esbuild 在构建期内联，profile 不需要安装。
 - `build.json` 声明 Host（ESM）和 Client（IIFE classic script）两个 bundle 入口。Client 只注入 `locale` 与 `uiWorkspace`，不再读取当前 Session 或逐 Session 事件流。
 
 ## 构建

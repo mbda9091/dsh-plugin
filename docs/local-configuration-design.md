@@ -213,7 +213,7 @@ bundle → profile → home → 本机 --patch
 
 同一行的 `config` 整体替换，不深合并。仓库不实现另一套插件配置合并规则，也不让 JSON 配置重复持有通知和审批参数。插件仍使用自己导出的 `Config` 和默认值。
 
-通知配置所引用的插件需要由插件管理器安装。`init` 和启动器都不隐式安装插件；默认模板包含通知配置，使用前需安装 `@local/notify-web`，或在本地 patch 中移除该行。
+通知配置所引用的插件需要由插件管理器安装。`init` 和启动器都不隐式安装插件；默认模板包含通知配置，使用前需安装 `@mbda9091/notify-web`，或在本地 patch 中移除该行。
 
 本机制不使用 `.tmp/web` 保存运行时生成的 patch，也不需要内部 HMR 环境变量。已有 L4/L5 在 `.tmp` 中保存一次性 profile 和测试产物的用途不受影响。
 
@@ -313,7 +313,7 @@ L4/L5 只使用工具位置和允许的测试参数，继续强制使用一次�
 - 工具路径覆盖参数确定为 `--dsh-cli`、`--pnpm-script`；浏览器参数为 `--browser`、`--browser-path`、`--test-browser`、`--test-browser-path`。
 - 初始化会读已有 DSH/npm shim 以识别普通 Node 引擎，不运行 CLI、不创建 profile。PATH 中选取第一个可识别的普通 Node CLI；Electron 或不透明 wrapper 不作为 Web 的成功候选。
 - 可选 pnpm/Chrome 缺失时保留允许的空值并提示；Edge 缺失时在生成的本机配置中明确选择 `default`。显式指定的路径无效直接失败。
-- Web example 保留原有四个 HMR 目录和八个通知参数。默认要求先安装 `@local/notify-web`；不使用时可删除本地 patch 的通知行。
+- Web example 保留原有四个 HMR 目录和八个通知参数。默认要求先安装 `@mbda9091/notify-web`；不使用时可删除本地 patch 的通知行。
 - YAML 使用脚本层开发依赖 `yaml` 的文档树处理：只在 `hmr.config.root` 中展开 `${repoRoot}`，保留注释和原有排除规则；其他字段的占位符被拒绝。`!!js` 在初始化与检查中保持惰性，不会执行。
 - 本机 patch 带生成时的仓库位置注释，用于搬迁提示。检查不会据此自动修复，也不限制用户自行编辑监听范围。
 - `check` 对警告返回 1，例如 HMR 路径缺失或动态路径无法静态验证；无警告返回 0。它不确认实际插件安装和激活成功。

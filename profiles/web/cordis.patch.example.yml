@@ -5,7 +5,6 @@
   config:
     root:
       - '${repoRoot}/app-restart/lib'
-      - '${repoRoot}/approval-allowlist/lib'
       - '${repoRoot}/desktop-notify/lib'
       - '${repoRoot}/notify-web/lib'
     ignored:
@@ -16,7 +15,7 @@
       - '**\\node_modules'
       - '**\\.*'
 
-# Install @local/notify-web via the plugin manager before starting with this row.
+# Install @mbda9091/notify-web via the plugin manager before starting with this row.
 # To run without it, remove this row from your local patch.
 - id: notify-web
   config:
@@ -29,5 +28,4 @@
     maxReplayEntries: 256
     maxQueuedUpdates: 256
 
-# Keep private endpoints, paths and exact approval rules in the local file.
-# No approval rule is installed or enabled by config init.
+# Keep private endpoints and paths in the local file.

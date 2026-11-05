@@ -1,13 +1,11 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { evaluateTarget as evaluateAppRestart } from '@local/app-restart'
-import { evaluateTarget as evaluateAllowlist } from '@local/approval-allowlist'
-import { evaluateTarget as evaluateNotify } from '@local/desktop-notify'
-import { evaluateTarget as evaluateWebNotify } from '@local/notify-web'
+import { evaluateTarget as evaluateAppRestart } from '@mbda9091/app-restart'
+import { evaluateTarget as evaluateNotify } from '@mbda9091/desktop-notify'
+import { evaluateTarget as evaluateWebNotify } from '@mbda9091/notify-web'
 
 const DESKTOP_WINDOWS = { surfaces: ['desktop'], platforms: ['windows'] }
 const WEB_UNIVERSAL = { surfaces: ['web'], platforms: ['mac', 'windows'] }
-const UNIVERSAL = { surfaces: ['desktop', 'web'], platforms: ['mac', 'windows'] }
 
 describe('L1 plugin target guards', () => {
   it('accepts a desktop plugin on desktop/windows', () => {
@@ -28,7 +26,7 @@ describe('L1 plugin target guards', () => {
   })
 
   it('rejects the headless surface for every packaged plugin', () => {
-    for (const evaluate of [evaluateAppRestart, evaluateNotify, evaluateAllowlist, evaluateWebNotify]) {
+    for (const evaluate of [evaluateAppRestart, evaluateNotify, evaluateWebNotify]) {
       const problem = evaluate(
         { surfaces: ['desktop', 'web'], platforms: ['windows', 'mac'] },
         { surface: 'headless', platform: 'windows' },
@@ -46,20 +44,4 @@ describe('L1 plugin target guards', () => {
     assert.match(problem, /declared surfaces=web/)
   })
 
-  it('accepts the dual-target plugin on both surfaces and platforms', () => {
-    for (const environment of [
-      { surface: 'desktop', platform: 'windows' },
-      { surface: 'desktop', platform: 'mac' },
-      { surface: 'web', platform: 'windows' },
-      { surface: 'web', platform: 'mac' },
-    ]) {
-      assert.equal(evaluateAllowlist(UNIVERSAL, environment), undefined)
-    }
-  })
-
-  it('rejects an unsupported platform for the dual-target plugin', () => {
-    const problem = evaluateAllowlist(UNIVERSAL, { surface: 'web', platform: 'linux' })
-    assert.ok(problem !== undefined)
-    assert.match(problem, /platforms=mac\+windows; current surface=web platform=linux$/)
-  })
 })

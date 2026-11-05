@@ -40,7 +40,7 @@ export function readPackage(bytes: Buffer): PackageContent {
   }
   const required = (path: string) => { const bytes = files.get(path); if (!bytes) throw new Error(`package missing ${path}`); return bytes }
   const manifest: unknown = JSON.parse(required('package.json').toString())
-  if (!isRecord(manifest) || typeof manifest.name !== 'string' || !/^@local\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(manifest.name)
+  if (!isRecord(manifest) || typeof manifest.name !== 'string' || !/^@mbda9091\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(manifest.name)
     || typeof manifest.version !== 'string' || !/^\d+\.\d+\.\d+(?:-[\w.-]+)?$/.test(manifest.version)
     || manifest.type !== 'module' || !isRecord(manifest.dsh) || !isRecord(manifest.dsh.targets) || !isRecord(manifest.dsh.bundle)) throw new Error('invalid plugin package metadata')
   for (const key of ['dependencies', 'optionalDependencies', 'peerDependencies', 'bundledDependencies', 'bundleDependencies']) {
@@ -69,7 +69,7 @@ export function readPackage(bytes: Buffer): PackageContent {
   checkExport(exports)
   if (typeof manifest.dsh.bundle.patch !== 'string') throw new Error('missing bundle patch')
   const patch = required(manifest.dsh.bundle.patch.replace(/^\.\//, '')).toString()
-  if (!patch.includes(`id: ${manifest.name.slice(7)}`) || !patch.includes(manifest.name) || !/^\s*- insert:/m.test(patch)) throw new Error('bundle patch does not insert its plugin')
+  if (!patch.includes(`id: ${manifest.name.split('/').at(-1)!}`) || !patch.includes(manifest.name) || !/^\s*- insert:/m.test(patch)) throw new Error('bundle patch does not insert its plugin')
   required('README.md')
   for (const lang of ['en', 'zh'] as const) {
     const locale: unknown = JSON.parse(required(`locale/${lang}.json`).toString())
@@ -78,7 +78,7 @@ export function readPackage(bytes: Buffer): PackageContent {
   }
   if (typeof exports['./icon'] !== 'string' || required(exports['./icon'].replace(/^\.\//, '')).length > 256 * 1024) throw new Error('missing/oversized icon')
   if (manifest.dsh.client && typeof exports['./client'] !== 'string') throw new Error('missing client export')
-  for (const [path, bytes] of files) if (path.endsWith('.js') && /(?:from\s*|import\s*\(|require\s*\()\s*['"](?:@local\/|@deepseek-ai\/|\.\.\/\.\.\/)/.test(bytes.toString())) throw new Error(`non-self-contained runtime import: ${path}`)
+  for (const [path, bytes] of files) if (path.endsWith('.js') && /(?:from\s*|import\s*\(|require\s*\()\s*['"](?:@mbda9091\/|@deepseek-ai\/|\.\.\/\.\.\/)/.test(bytes.toString())) throw new Error(`non-self-contained runtime import: ${path}`)
   return { name: manifest.name, version: manifest.version, surfaces, platforms, client: !!manifest.dsh.client, entry,
     files, hashes: Object.fromEntries([...files].map(([path, bytes]) => [path, digest(bytes)])) }
 }
@@ -86,7 +86,7 @@ export function readPackage(bytes: Buffer): PackageContent {
 export function checkPackageImports(pkg: PackageContent, destination: string): void {
   mkdirSync(destination, { recursive: true })
   for (const [path, bytes] of pkg.files) { mkdirSync(dirname(join(destination, path)), { recursive: true }); writeFileSync(join(destination, path), bytes, { flag: 'wx' }) }
-  const script = `const p=await import(${JSON.stringify(pathToFileURL(join(destination, pkg.entry)).href)});if(typeof p.apply!=='function'||p.name!==${JSON.stringify(pkg.name.slice(7))}||p.default!==undefined)throw Error('invalid Host module exports')`
+  const script = `const p=await import(${JSON.stringify(pathToFileURL(join(destination, pkg.entry)).href)});if(typeof p.apply!=='function'||p.name!==${JSON.stringify(pkg.name.split('/').at(-1)!)}||p.default!==undefined)throw Error('invalid Host module exports')`
   for (const preserve of [false, true]) {
     const result = runToFiles(process.execPath, [...preserve ? ['--preserve-symlinks'] : [], '--input-type=module', '--eval', script], {
       cwd: destination, timeoutMs: 30_000, stdoutPath: join(destination, `import-${preserve}.out`), stderrPath: join(destination, `import-${preserve}.err`),
@@ -101,7 +101,7 @@ export function checkPackageImports(pkg: PackageContent, destination: string): v
 export function checkPackedSource(source: string, pkg: PackageContent): void {
   const original = JSON.parse(readFileSync(join(source, 'package.json'), 'utf8'))
   const packed = JSON.parse(pkg.files.get('package.json')!.toString())
-  for (const key of ['name', 'version', 'type', 'exports', 'dsh']) if (JSON.stringify(original[key]) !== JSON.stringify(packed[key])) throw new Error(`packed metadata differs from source: ${key}`)
+  for (const key of ['name', 'version', 'type', 'exports', 'dsh', 'dshPlugin']) if (JSON.stringify(original[key]) !== JSON.stringify(packed[key])) throw new Error(`packed metadata differs from source: ${key}`)
   const walk = (directory: string) => { for (const item of readdirSync(directory, { withFileTypes: true })) {
     const path = join(directory, item.name)
     if (item.isSymbolicLink()) throw new Error(`source runtime resource is a link: ${path}`)
@@ -111,13 +111,17 @@ export function checkPackedSource(source: string, pkg: PackageContent): void {
       if (pkg.hashes[file] !== digest(readFileSync(path))) throw new Error(`tarball missing or changed runtime resource: ${file}`)
     }
   } }
+  if (original.dshPlugin?.profileDefaults) {
+    const path = original.dshPlugin.profileDefaults.replace(/^\.\//, '')
+    if (pkg.hashes[path] !== digest(readFileSync(join(source, path)))) throw new Error('packed default configuration differs from source')
+  }
   for (const directory of ['lib', 'locale']) if (existsSync(join(source, directory))) walk(join(source, directory))
 }
 
 /** A normal pnpm store link is fine; repository source and differing bytes are not. */
 export function checkInstalledPackage(pkg: PackageContent, profile: string, root: string): string {
   const installed = join(profile, 'node_modules', pkg.name)
-  const source = join(root, pkg.name.slice(7))
+  const source = join(root, pkg.name.split('/').at(-1)!)
   const actual = realpathSync(installed)
   const under = (base: string, path: string) => { const rel = relative(base, path); return !isAbsolute(rel) && rel !== '..' && !rel.startsWith('../') && !rel.startsWith('..\\') }
   if (under(source, actual)) throw new Error(`installed package resolves to repository source: ${actual}`)

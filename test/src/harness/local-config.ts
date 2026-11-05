@@ -1,3 +1,4 @@
+import { workspaceDshVersion } from './dsh-version.js'
 import { chmodSync, copyFileSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { renderWebPatch } from '../../../scripts/.build/core/web-patch.js'
@@ -8,6 +9,10 @@ import { makeTempDir, repoRoot } from './tmp.js'
 export function configFixture() {
   const root = makeTempDir("local config-中文-'quote")
   const paths = configPaths(root)
+  for (const name of ['typescript', 'esbuild']) {
+    mkdirSync(join(root, 'node_modules', name), { recursive: true })
+    writeFileSync(join(root, 'node_modules', name, 'package.json'), JSON.stringify({ name, version: '1.0.0-fixture' }))
+  }
   for (const [source, destination] of [
     ['scripts/config/example.json', paths.example],
     ['scripts/config/schema.json', paths.schema],
@@ -32,8 +37,8 @@ export function configFixture() {
   writeFileSync(pnpm, '')
   const options = { pnpmScript: pnpm, browser: 'default' }
   mkdirSync(join(root, 'node_modules/@deepseek-ai/dsh'), { recursive: true })
-  writeFileSync(join(root, 'package.json'), JSON.stringify({ packageManager: 'pnpm@11.28.5', devDependencies: { '@deepseek-ai/dsh': '0.2.1-rc.2' } }))
-  writeFileSync(join(root, 'node_modules/@deepseek-ai/dsh/package.json'), JSON.stringify({ name: '@deepseek-ai/dsh', version: '0.2.1-rc.2', bin: { dsh: './fake-dsh.cjs' } }))
+  writeFileSync(join(root, 'package.json'), JSON.stringify({ packageManager: 'pnpm@11.28.5', devDependencies: { '@deepseek-ai/dsh': workspaceDshVersion } }))
+  writeFileSync(join(root, 'node_modules/@deepseek-ai/dsh/package.json'), JSON.stringify({ name: '@deepseek-ai/dsh', version: workspaceDshVersion, bin: { dsh: './fake-dsh.cjs' } }))
   const env: NodeJS.ProcessEnv = { PATH: '', DSH_HOME: join(root, 'unused-home') }
   return { root, paths, entry, cli, options, env }
 }
@@ -45,6 +50,8 @@ export function developmentPatch(f: ReturnType<typeof configFixture>): string {
   for (const name of ['home', 'store', 'logs', 'bin']) mkdirSync(join(dirname(path), name), { recursive: true })
   writeFileSync(join(dirname(path), 'owner.json'), JSON.stringify({ version: 1, purpose: 'dsh-development', root: realpathSync(f.root), id: randomUUID(), initialized: true, links: {} }))
   for (const name of ['npmrc', 'global.npmrc']) writeFileSync(join(dirname(path), name), '')
+  mkdirSync(join(dirname(path), 'home/profiles/web'), { recursive: true })
+  writeFileSync(join(dirname(path), 'home/profiles/web/package.json'), JSON.stringify({ dependencies: {} }))
   writeFileSync(path, renderWebPatch(readFileSync(f.paths.patchExample, 'utf8'), f.root))
   return path
 }

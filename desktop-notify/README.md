@@ -1,4 +1,4 @@
-# @local/desktop-notify
+# @mbda9091/desktop-notify
 
 在 **桌面应用** 中，当工具申请权限或一轮对话结束时，弹出 Windows 通知并播放提示音。
 
@@ -19,13 +19,13 @@
 | 一轮因错误结束（`turn/end`，`error`） | 对话出错 | 错误信息 |
 | 用户主动停止（`aborted`） | 不通知 | — |
 
-审批通知会延迟 `approvalDelayMs`（默认 300ms）：如果 `approval/decided` 在此之前到达（例如 `approval-allowlist` 自动放行），通知会被取消，不会为一次从未展示的审批打扰你。手动审批仍会在等待期间正常提醒。
+审批通知会延迟 `approvalDelayMs`（默认 300ms）：如果 `approval/decided` 在此之前到达，通知会被取消，不会为一次从未展示的审批打扰你。手动审批仍会在等待期间正常提醒。
 
 通知以 DeepSeek Harness 的身份显示（复用桌面应用的 AppUserModelID + 开始菜单快捷方式）。Toast 不可用时自动退化为托盘气泡提示；提示音独立播放，不依赖 Toast 自身的声音。
 
 子代理（subagent）的回合不会触发通知，只有根会话会；根身份从真实 Agent registry 读取，无法确认时不通知。
 
-触发判断与 `notify-web` 共用 `@local/notify-host`，标题/正文格式化共用 `@local/notify-core`；桌面仍使用固定中文文案。
+触发判断与 `notify-web` 共用 `@mbda9091/notify-host`，标题/正文格式化共用 `@mbda9091/notify-core`；桌面仍使用固定中文文案。
 
 ## 点击通知
 
@@ -56,14 +56,14 @@
 
 ## 构建
 
-Host 入口是 TypeScript，`lib/` 是构建产物、不入库；`build.json` 声明 Host bundle，构建脚本用 `tsc` 生成声明、用 esbuild 内联 `@local/notify-host` 与 `@local/notify-core` 并产出 `lib/index.js`：
+Host 入口是 TypeScript，`lib/` 是构建产物、不入库；`build.json` 声明 Host bundle，构建脚本用 `tsc` 生成声明、用 esbuild 内联 `@mbda9091/notify-host` 与 `@mbda9091/notify-core` 并产出 `lib/index.js`：
 
 ```powershell
 node scripts/bootstrap.mjs build          # 构建
 node scripts/bootstrap.mjs build --check   # 只做类型检查
 ```
 
-插件**没有运行时依赖**；`@local/notify-host` 与 `@local/notify-core` 是 workspace 内的构建期依赖，不会进入 profile。
+插件**没有运行时依赖**；`@mbda9091/notify-host` 与 `@mbda9091/notify-core` 是 workspace 内的构建期依赖，不会进入 profile。
 
 ## 安装
 

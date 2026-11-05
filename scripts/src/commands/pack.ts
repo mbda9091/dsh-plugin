@@ -9,7 +9,7 @@ import type { CommandContext } from '../core/command-context.js'
 import { discoverPlugins } from '../core/plugins.js'
 import type { Plugin } from '../core/plugins.js'
 import { runBuild } from './build.js'
-import { assertCurrentBuild } from '../core/build-record.js'
+import { assertCurrentBuild, toolFingerprint } from '../core/build-record.js'
 
 export function requireBuilt(plugins: readonly Plugin[]): void {
   const missing = plugins.filter(plugin => !existsSync(join(plugin.dir, 'lib/index.js')))
@@ -24,10 +24,10 @@ export function runInherited(command: string, args: readonly string[], cwd: stri
 
 export async function runPack(options: { skipBuild: boolean }, context: CommandContext = loadCommandContext(), onManifest?: (path: string) => void): Promise<number> {
   const release = artifactLock(context.root)
-  try { return await pack(options, context, onManifest) } finally { release() }
+  try { return await packUnlocked(options, context, onManifest) } finally { release() }
 }
 
-async function pack(options: { skipBuild: boolean }, context: CommandContext, onManifest?: (path: string) => void): Promise<number> {
+export async function packUnlocked(options: { skipBuild: boolean }, context: CommandContext, onManifest?: (path: string) => void): Promise<number> {
   const pnpm = configuredPnpm(context)
   if (!options.skipBuild) {
     const code = await runBuild({ check: false }, context)
@@ -52,7 +52,7 @@ async function pack(options: { skipBuild: boolean }, context: CommandContext, on
   }
   if (JSON.stringify(sourceState(context.root)) !== JSON.stringify(source)) throw new Error('source changed during pack')
   assertCurrentBuild(context.root)
-  const manifest = publishManifest(context.root, { version: 1, batch, createdAt: new Date().toISOString(), source,
+  const manifest = publishManifest(context.root, { version: 1, batch, createdAt: new Date().toISOString(), source, fingerprint: toolFingerprint(context.root),
     tools: { node: process.version, pnpm: expectedPnpm(context.root) }, packages })
   console.log(`artifact manifest: ${manifest}`); onManifest?.(manifest)
   for (const file of readdirSync(dist).filter(name => name.endsWith('.tgz')).sort()) console.log(join(dist, file))

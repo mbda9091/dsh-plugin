@@ -7,6 +7,7 @@ import { readPackage, checkPackedSource } from '../../../../scripts/.build/core/
 import { artifactLock, assertConsumed, copyArtifact, loadArtifacts } from '../../../../scripts/.build/core/artifacts.js'
 import { readVerification, validateVerification, verificationPath } from '../../../../scripts/.build/core/artifact-verification.js'
 import { resolveTarget } from '../../../../scripts/.build/core/targets.js'
+import { checkHostCapabilities } from '../../../../scripts/.build/core/host-capability.js'
 
 it('ART-02 malformed archives metadata missing files contamination and same-version replacement fail preflight', () => environmentCase('ART-02', f => {
   for (const mutate of [
@@ -29,18 +30,19 @@ it('ART-02 malformed archives metadata missing files contamination and same-vers
   assert.equal(existsSync(join(f.root, '.local')), false)
 }))
 
-it('ART-03 stale batches dirty source missing corrupt future and exit-only evidence are rejected', () => environmentCase('ART-03', f => {
+it('ART-03 stale batches dirty source missing corrupt future and exit-only evidence are rejected', () => environmentCase('ART-03', async f => {
   const set = artifactFixture(f.root), good = verificationFixture(set), target = resolveTarget({ surface: 'web' })
-  const check = (v: unknown) => validateVerification(set, v, target, '0.2.1-rc.2', ['@local/alpha'])
+  const check = (v: unknown) => validateVerification(set, v, target, '0.2.1-rc.2', ['@mbda9091/alpha'])
   check(good)
+  await assert.rejects(checkHostCapabilities({} as Parameters<typeof checkHostCapabilities>[0], set), /lacks a capability adapter/)
   const missingCapability = structuredClone(good)
   missingCapability.functions.l4!.steps.find(s => s.name === 'host-capabilities')!.detail = '[]'
   assert.throws(() => check(missingCapability), /Host capability/)
   for (const invalid of [null, { exitCode: 0 }, { ...good, version: 2 }, { ...good, contracts: [] }, { ...good, environment: [] },
     { ...good, functions: { l4: { ...good.functions.l4, steps: [] } } }, { ...good, coverage: [] }, { ...good, status: 'failed' }]) assert.throws(() => check(invalid))
-  assert.throws(() => readVerification(set, target, '0.2.1-rc.2', ['@local/alpha']), /ENOENT/)
+  assert.throws(() => readVerification(set, target, '0.2.1-rc.2', ['@mbda9091/alpha']), /ENOENT/)
   const path = verificationPath(set, target.platform); mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, '{broken')
-  assert.throws(() => readVerification(set, target, '0.2.1-rc.2', ['@local/alpha']))
+  assert.throws(() => readVerification(set, target, '0.2.1-rc.2', ['@mbda9091/alpha']))
   writeFileSync(join(f.root, 'uncommitted.ts'), '// changed')
   assert.throws(() => check(good), /source state changed/)
   rmSync(join(f.root, 'uncommitted.ts')); artifactFixture(f.root)
@@ -53,7 +55,7 @@ it('ART-03 stale batches dirty source missing corrupt future and exit-only evide
 it('ART-04 Web evidence cannot cover desktop other platform or another host version', () => environmentCase('ART-04', f => {
   const set = artifactFixture(f.root), good = verificationFixture(set), target = resolveTarget({ surface: 'web' })
   for (const [scope, host] of [[{ ...target, surface: 'desktop' as const }, '0.2.1-rc.2'], [{ ...target, platform: target.platform === 'windows' ? 'mac' as const : 'windows' as const }, '0.2.1-rc.2'], [target, '0.2.2']] as const) {
-    assert.throws(() => validateVerification(set, good, scope, host, ['@local/alpha']), /incompatible|uncovered/)
+    assert.throws(() => validateVerification(set, good, scope, host, ['@mbda9091/alpha']), /incompatible|uncovered/)
   }
 }))
 
@@ -61,7 +63,7 @@ it('ART-05 durable records survive tmp cleanup and consumption detects replaceme
   const set = artifactFixture(f.root), good = verificationFixture(set), target = resolveTarget({ surface: 'web' })
   const path = verificationPath(set, target.platform); mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, JSON.stringify(good))
   rmSync(join(f.root, '.tmp'), { recursive: true })
-  readVerification(set, target, '0.2.1-rc.2', ['@local/alpha'])
+  readVerification(set, target, '0.2.1-rc.2', ['@mbda9091/alpha'])
   const release = artifactLock(f.root)
   try { assert.throws(() => artifactLock(f.root), /locked/) } finally { release() }
   const p = set.manifest.packages[0]!, input = copyArtifact(set, p, join(f.root, '.tmp/input.tgz'))

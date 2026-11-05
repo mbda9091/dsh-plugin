@@ -1,5 +1,7 @@
 # 测试与 Web L5 方案（v0.1）
 
+> 当前范围（2026-11-06）：审批白名单插件、专属探针和 ART-07 已移除；下文涉及它的验收记录仅为历史事实。当前插件为 app-restart、desktop-notify、notify-web，Web L4 的 link/tarball 对象为 notify-web。历史成功不代表本次变更已验收。
+
 > 2026-10-31 环境 M4：L4/L5 已统一全新测试 home/profile 和进程树清理；包管理配置、缓存/store/状态按用户确认沿用系统（最新修正见环境方案 §9.12）；成功保留报告/日志、删除可变数据，失败或 `--keep` 保留现场。`ci` 新顺序为环境 all → 类型检查 → L1–L3 → L4 → L5，核验本次独立报告，缺项/skip/清理或报告写入失败均不通过。ISO-01–06 实现及当前平台证据见[开发环境计划 §9.8](development-environment-plan.md#98-m4-测试隔离与-ci-证据门禁2026-10-31)。这里的环境 M4 与本文历史测试 M4 是不同编号。
 
 > 2026-10-31 环境 M1/M2：已交付独立 `test-env --suite fast/real/all`。M1 `ff461e0` 的 Windows/macOS 配置 fast 均通过，功能 CI 均在过渡 DSH 准备步骤失败；M2 `8478d76` 的 Windows CFG/TOOL、L1–L4 及单独复验 L5 通过，尚无远端运行记录。提交、job 链接、失败及复验证据见[开发环境计划 §9.5](development-environment-plan.md#95-m1m2-提交后-ci-核查与-windows-复验2026-10-31)。当前配置/参数适用范围以[配置 v2](configuration-v2.md)为准；环境 M1/M2 与本文历史测试里程碑分别编号。
@@ -12,12 +14,13 @@
 
 ## 1. 结论摘要
 
+- **开发完成标准（2026-11-05）**：环境由调用方准备，业务代码不绑定个人环境；完成约定功能并在约定平台通过完整 `ci` 门禁即可视为开发完成，无需先部署到日常环境。工具预装、系统包管理配置共享和 L5 的系统 Notification API 替换均是预期边界，不是架构缺口。依赖分工与适用范围见[开发完成标准与依赖职责](configuration-v2.md#开发完成标准与依赖职责2026-11-05)。
 - **L5 先只做 Web**，使用真实 `dsh web` + Playwright；桌面端 L5 延期。
 - **`app-restart`、`desktop-notify` 不适配 Web**，保持 desktop-only；Web L5 已覆盖 fixture 和真实 `notify-web`，后续 Web/UI 插件复用该 harness。
 - **Web profile 由官方 shipped `web` 初始化**，不手工拼配置；已初始化并验证，测试使用独立的 workspace-local `DSH_HOME`。
 - **仓库脚本已统一为 TypeScript 并用 `tsc` 编译**，主入口为 `node scripts/bootstrap.mjs <command>`，不使用 Node 类型擦除。PowerShell 兼容入口已移除；收尾证据见 §7.5。配置第二阶段的行为见 §19.6，前文各阶段记录保留。
 - **测试 runner 不统一**：Host/脚本用 `node:test`，L5 用 Playwright；未来 UI 组件测试计划用 Vitest，尚未引入。`browser-use` 只做探索式验收。
-- **M4 已落地**：L1–L3 在 `test/src/` 下用 `node:test`，当前 251 项用例已在 Windows 本机全部通过，平台专属用例在其他平台按条件跳过。L2 对四个正式插件实际打包、解包、检查内容并导入入口。L4 在一次性 profile 里安装、启动真实 `dsh web` 并断言 loader 输出；失败自动保留现场。
+- **M4 已落地**：L1–L3 在 `test/src/` 下用 `node:test`，当前 251 项用例已在 Windows 本机全部通过，平台专属用例在其他平台按条件跳过。L2 对当前三个正式插件实际打包、解包、检查内容并导入入口。L4 在一次性 profile 里安装、启动真实 `dsh web` 并断言 loader 输出；失败自动保留现场。
 - **M5 已完成**：正式 L5 验证实际 slot/交互、主题/locale 和真实 SSE 通知链路；Windows/macOS 远端 CI 已通过（§19.7），原生系统通知不在其验收范围内。
 - **沙箱优先**：先在 DSH 沙箱内跑；遇到 `EPERM`/进程或浏览器限制，再退到普通终端或 CI，不做 ACL 绕过。
 
@@ -40,7 +43,7 @@
 
 ## 3. 现状
 
-- 仓库现在有四个插件：`app-restart`、`desktop-notify`（`desktop/windows`）、`notify-web`（`web/mac+windows`）与 `approval-allowlist`（`desktop+web/mac+windows`）。本文早先关于 `desktop-notify` 适配 Web 的计划已被 3 包拆分取代：共享内容在 `packages/notify-core`，桌面/Web 分别由 `desktop-notify` 与 `notify-web` 投递。
+- 仓库现在有三个插件：`app-restart`、`desktop-notify`（`desktop/windows`）、`notify-web`（`web/mac+windows`）。本文早先关于 `desktop-notify` 适配 Web 的计划已被 3 包拆分取代：共享内容在 `packages/notify-core`，桌面/Web 分别由 `desktop-notify` 与 `notify-web` 投递。
 - `$DSH_HOME/profiles` 下现在同时有 `desktop` 与 `web`；仓库内另有 `profiles/web/`（patch + 启动脚本），不是插件。
 - 早期执行 `dsh web --help` 时，DSH 尝试创建 `%USERPROFILE%\.dsh\profiles\web`，在 DSH 沙箱下报过：
   `EPERM: operation not permitted, mkdir '%USERPROFILE%\.dsh\profiles\web'`；该 profile 现已由官方模板初始化。
@@ -225,11 +228,11 @@ Web 应用参数（`dsh web --help`）：
   $env:DSH_HOME = Join-Path $PWD '.tmp/dsh-home'
   dsh plugin --profile web add (Join-Path $PWD 'test/fixtures/web-hello')
   ```
-  结果：profile `package.json` 增加 `@local/web-hello` 的 `link:` 依赖，bundles 增加该包。
+  结果：profile `package.json` 增加 `@mbda9091/web-hello` 的 `link:` 依赖，bundles 增加该包。
 - L4 证据：
-  - `dsh --profile web --dump-config` 中出现 `id: web-hello`、`name: '@local/web-hello'`；
+  - `dsh --profile web --dump-config` 中出现 `id: web-hello`、`name: '@mbda9091/web-hello'`；
   - `dsh web` 返回的 HTML boot 数据包含
-    `{"id":"@local/web-hello","url":"plugins/??@local/web-hello/client.js...","immediately":true}`；
+    `{"id":"@mbda9091/web-hello","url":"plugins/??@mbda9091/web-hello/client.js...","immediately":true}`；
   - HTTP 200，说明 server 侧 loader 和 client module 注册都生效。
 - L5 脚本：`test/e2e/web-l5.mjs`
   - 使用 `playwright-core` + 系统 Chrome（不下载浏览器）；
@@ -267,45 +270,11 @@ $env:DSH_E2E_URL = 'http://127.0.0.1:<port>/?token=<token>'
 node test/e2e/web-l5.mjs
 ```
 
-**沙箱结论**：workspace-write 下 Chrome 无法启动（`spawn EPERM` / crashpad/mojo access denied）；`danger-full-access` 下可以启动，所以 L5 需要一次提权审批，或由 `approval-allowlist` 对精确命令加白。
+**沙箱结论**：workspace-write 下 Chrome 无法启动（`spawn EPERM` / crashpad/mojo access denied）；`danger-full-access` 下可以启动，所以 L5 需要一次提权审批。
 
-### 5.6 approval-allowlist（observe 模式已安装）
+### 5.6 审批白名单（已移除）
 
-新增插件 [approval-allowlist](../approval-allowlist/README.md)，用于把特定工具调用的审批加白。
-
-- 不按 `reason` 文本匹配；用 `approval/request.callId` 找到 durable `tool/call`，比较 `name` + 原始 `arguments`。
-- 默认 `mode: observe`：只写审计 JSONL，继续走原审批；`mode: allow` 且精确命中才返回 `allowed-once`。
-- 默认只允许根 agent；`maxUses` 省略或为 `0` 表示无限放行，正安全整数限制次数；其他非法值打印错误日志并跳过该规则，支持 `expiresAt`。
-- 规则格式：
-
-  ```yaml
-  rules:
-    - tool: pwsh
-      arguments:
-        command: 'node test/e2e/web-l5.mjs'
-        workdir: '<repo>'
-      # 省略 maxUses => 无限放行
-  ```
-
-历史验证（2026-10-24）：
-
-- 已验证 `link:` 安装、重启加载、observe 记录和精确 allow 匹配。
-- 插件 bundle 默认 `observe`。个人命令、次数限制和授权策略只保存在本地配置，不在公共文档中记录。
-- 精确匹配成功时的审计日志结构示例：
-
-  ```json
-  {"mode":"allow","decision":"allow","detail":"allowed","matchedRule":0,"tool":"pwsh",...}
-  ```
-
-- 审计日志：`<repo>\.tmp\approval-allowlist.log`。
-
-安全注意：
-
-- `allow` 模式等于把某条命令的审批权交给插件配置；只应由可信用户维护配置。
-- 审计日志包含命令原文，可能含敏感参数。
-- 不要把匹配放宽成 `reason` 子串或通配符。
-- 规则已绑定精确命令和 `sandbox_permissions`，并非“所有 pwsh 都放行”。
-- 无限放行意味着该 `.mjs` 脚本内容也被信任；修改脚本会改变被自动放行的实际行为。
+2026-11-06 删除插件及专属验收；历史设计见 [已撤销方案](external-directory-authorization-plan.md)。当前由宿主处理审批。
 
 ### 5.7 审批通知与 allowlist 的顺序问题
 
@@ -527,7 +496,7 @@ Windows 默认浏览器改用系统 URL handler，新增回归断言 URL 作为�
 Windows / Node `24.19.0` 的独立验收：
 
 - 在 `.tmp/p0-review/source 中文/` 建立不含 PS 入口、个人配置和旧构建产物的源码副本，
-  复用已安装的第三方依赖，`@local/*` 指向副本自身；重新初始化副本配置，从其他 CWD 调用 Node CLI。
+  复用已安装的第三方依赖，`@mbda9091/*` 指向副本自身；重新初始化副本配置，从其他 CWD 调用 Node CLI。
 - `ci` 的 type-check、L1–L3、L4、L5 全部退出 0；**252 tests / 252 pass / 0 fail**。
   L4 覆盖真实安装/加载与 tarball，L5 覆盖 Web 基线、slot、主题/locale 和 SSE 通知。
   汇总位于 `.tmp/p0-review/source 中文/.tmp/ci/run-3RHznU/report.json`。
@@ -616,7 +585,7 @@ P1–P4 的工具/环境隔离、配置 repair/migrate 尚未实现。
 | D14 | 只读/构建脚本迁 TypeScript，`.ps1` 在安装脚本迁完前保留为薄壳；根 `package.json` 同时提供 `build`/`check`/`catalog`/`status` | 2026-10-24 | 已定（M3 落地） |
 | D15 | 插件发现改为 `dsh.bundle` 清单驱动；脚本层共享代码放 `scripts/src/core/`，不叫 `lib/`（`.gitignore` 会吞掉） | 2026-10-24 | 已定（实测修正） |
 | D16 | `catalog` 的表头与错误提示改指 `node scripts/bootstrap.mjs catalog`，与 TS 入口对齐 | 2026-10-24 | 已定（M3 落地） |
-| D17 | L1–L3 测试放 `test/src/`，用 `tsc -p test/tsconfig.json` 编译到 `test/.build`，再跑 `node --test --test-isolation=none --test-concurrency=1`；测试 import 插件的**已构建**入口（`@local/*` → `lib/index.js`），与 DSH 实际加载一致 | 2026-10-24 | 已定（M4 落地） |
+| D17 | L1–L3 测试放 `test/src/`，用 `tsc -p test/tsconfig.json` 编译到 `test/.build`，再跑 `node --test --test-isolation=none --test-concurrency=1`；测试 import 插件的**已构建**入口（`@mbda9091/*` → `lib/index.js`），与 DSH 实际加载一致 | 2026-10-24 | 已定（M4 落地） |
 | D18 | 插件导出纯函数/注册函数供 L1/L3 使用（脚本生成、转义、规则匹配、命令注册、事件订阅），`apply` 行为不变；不引入模块 mock | 2026-10-24 | 已定（M4 落地） |
 | D19 | L4 是单独的慢命令 `l4`（默认不随 `test` 跑）：一次性 `DSH_HOME`、真实 `dsh web`、无浏览器；失败保留日志/报告，成功清理重目录 | 2026-10-24 | 已定（M4 落地） |
 
@@ -663,7 +632,7 @@ M2：
 - [x] 最小 fixture `test/fixtures/web-hello` 创建。
 - [x] fixture 以 `link:` 装进 workspace-local web profile。
 - [x] `--dump-config` 出现 `web-hello` 行。
-- [x] Web HTML boot 数据包含 `@local/web-hello` client module。
+- [x] Web HTML boot 数据包含 `@mbda9091/web-hello` client module。
 - [x] L5 脚本 `test/e2e/web-l5.mjs` 就绪（playwright-core + Chrome + marker/console/screenshot）。
 - [x] 实际跑通 L5：`factory/applied/registered=true`，console/pageerror 为空，截图已生成。
 - [x] `conversation.composer.dock` 的注册、可见 DOM、交互与刷新单次渲染均由 M5 验证（§19）。
@@ -772,7 +741,7 @@ Windows / PowerShell 7 实测矩阵（每组均清除 `DSH_NODE`、`DSH_PROFILE`
 - `node scripts/bootstrap.mjs l4`：`prerequisites` + 七个检查阶段全部 PASS，报告写入
   `.tmp/l4/last-report.json`；关键 detail：
   - `install-link`：两个包均为 `link:` 依赖，bundles 与 `--dump-config` 行一致；
-  - `web-link`：`HTTP 200, boot HTML contains @local/web-hello, no activation warnings`；
+  - `web-link`：`HTTP 200, boot HTML contains @mbda9091/web-hello, no activation warnings`；
   - `web-mismatch`：loader stderr 出现 `entry did not activate` + `target-mismatch` +
     `target mismatch`，服务仍返回 200；
   - `install-tarball`：`local-approval-allowlist-0.1.0.tgz` 安装后 `node_modules` 不是链接；
@@ -799,7 +768,7 @@ Windows / PowerShell 7 实测矩阵（每组均清除 `DSH_NODE`、`DSH_PROFILE`
      `profileContext.startedBundles`；Electron 引擎启动的 web 仍会被判 desktop，已不再作为推荐路径。
 5. **脚本层 `declaration` 改为 true**：测试通过 `scripts/.build/core/*.js` 引用脚本层，
    tsc 需要相邻 `.d.ts`。这些声明只存在于 gitignored 的 `.build/`。
-6. **测试直接 import 已构建的插件入口**（`@local/*` → `lib/index.js`）：L2/L3 因此验证的是
+6. **测试直接 import 已构建的插件入口**（`@mbda9091/*` → `lib/index.js`）：L2/L3 因此验证的是
    DSH 实际加载的产物；`test` 默认先构建，`--skip-build` 仅用于迭代。
 7. **根 `@types/node` 仍靠提升**：与 §7.4 记录一致，L1–L3 也依赖这一点；
    未在本轮重新引入根 devDependency（避免再次卡在 pnpm install）。
@@ -833,7 +802,7 @@ Windows / PowerShell 7 实测矩阵（每组均清除 `DSH_NODE`、`DSH_PROFILE`
   "webStartup": false,
   "webServer": false,
   "profileName": "web",
-  "startedBundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "@local/..."],
+  "startedBundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "@mbda9091/..."],
   "argv": ["...\\node.exe", "...\\@deepseek-ai\\dsh\\lib\\bin.js", "web", "--no-open", ...]
 }
 ```
@@ -980,7 +949,7 @@ M4 本轮三个问题已修复。M5 的正式 L5、CI 和 macOS 真机验证仍�
 
 本轮把 Desktop 与 Web 的触发条件统一到 `packages/notify-host`，Web 改为经过认证的 SSE 通道；测试范围相应扩大：
 
-- 仓库现有 **四个插件**：`app-restart`、`desktop-notify`、`notify-web`、`approval-allowlist`。
+- 仓库现有 **三个插件**：`app-restart`、`desktop-notify`、`notify-web`。
 - **两个构建期共享库**：`packages/notify-core`（文案/locale）、`packages/notify-host`（触发逻辑）；它们不进 CATALOG，也不安装到 profile。
 - L1–L3 当前为 **189 tests / 35 suites / 189 pass / 0 fail**。
 - 新增 `test/src/l3/notify-host.test.ts`：根/子会话、审批延迟与取消、重复 asked、已显示审批撤回、`agent/disposed`、全部 `turn/end` 原因、四个开关。
@@ -1135,20 +1104,36 @@ L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profi
 - macOS 的普通 Node DSH Web 与 Chromium 已有真实 runner 证据；日常 `start.ps1` / 系统默认浏览器和桌面 Electron 的使用体验不由此覆盖。
 - 本次沿用不上传原始日志、截图、trace 的策略；工作流成功是指定提交的证据，后续提交需重新通过各自的检查。
 
+### 19.8 合入前验收核对（2026-11-06）
+
+2026-11-06 合入前核对：`4355362` 的 [Windows/macOS CI 六项全部通过](https://github.com/mbda9091/dsh-plugin/actions/runs/42063036525)。新增版本检查的 `7e6e72c` 本机 macOS 类型检查、L1–L3（226 通过、1 跳过）、fast 28 项与 L4 通过；其 [远端 CI](https://github.com/mbda9091/dsh-plugin/actions/runs/42068198590) Windows 三项通过，macOS 三项在本次核对时尚未全部完成（排队/运行中）。后续提交须以自身检查结果为准。Web 自动化不替代真实 Desktop、原生系统通知及个人日常 profile 验收。
+
+旧提交 `cdbdd14` 的 [Windows 失败记录](https://github.com/mbda9091/dsh-plugin/actions/runs/42058707425) 来自审批授权示例：macOS 风格路径未通过 Windows 绝对路径校验，报 `invalid or duplicate grant`。后续 `4355362` 已删除审批插件和对应测试，并完成双平台回归。
+
+当前环境测试集合为 fast/real/all = 28/14/42 项；日常启动器 DLY 用例及已删除审批插件的专属用例不再纳入。新安装版本检查覆盖 dry-run、实际调用前拒绝和交付入口复核，旧 scope 保留不拦截。命名空间 patch 的真实 Windows 个人环境接入、原生通知和 Desktop 不由这些检查代验。
+
+### 19.9 Windows CFG-04 就绪等待修正（2026-11-06）
+
+`79bd12a` 的 [CI 42070124528](https://github.com/mbda9091/dsh-plugin/actions/runs/42070124528) 五项通过，仅 Windows environment-fast 失败。CFG-04 在启动 PowerShell 文件占用夹具后，5 秒内未出现 ready 文件；尚未执行迁移拒绝及原文件保持断言。原日志未打印夹具 stderr，无法确定是冷启动延迟还是进程错误。
+
+将夹具就绪上限改为 30 秒，监测 spawn error、退出码和退出信号，失败时输出夹具 stdout/stderr；PowerShell 使用 NonInteractive 和终止型错误处理，避免打开文件失败后继续写 ready。真实文件锁、迁移拒绝、原字节保持、pending 清理及进程回收断言全部保留，不增加失败重试或跳过。macOS 本机 fast 回归不执行该 Windows 分支，实际修正效果以新提交的 Windows CI 为准。
+
+`7e6e72c` 的较早运行最终有两个 macOS job 被取消，不能记为完整通过；§19.8 保留核对当时的状态。
+
 ## 20. 当前未完成事项
 
-2026-10-31 日常隔离 S1–S3 新增 Windows `DLY-01/02/03/04/06` 快速用例及 `DLY-05` 真实用例，纳入 `test-env` 和 `ci`。Windows fast/real/all 为 33/16/49 项；其他平台仍为 28/15/43 项，不宣称日常启动器支持 macOS。DLY 覆盖仓库移走、工具漂移、部署中断/恢复、外部归档碰撞/lockfile、真实 link 覆盖、三环境并发及失败清理。报告纳入启动器源码指纹；本轮结果和证据以 [日常隔离方案 §9.2](daily-environment-isolation-plan.md#92-s1s3-实现与回归2026-10-31) 为准。
+历史记录（2026-11-06 已移除日常启动器，当前数量见 §19.8）：2026-10-31 日常隔离 S1–S3 新增 Windows `DLY-01/02/03/04/06` 快速用例及 `DLY-05` 真实用例，纳入 `test-env` 和 `ci`。Windows fast/real/all 为 33/16/49 项；其他平台仍为 28/15/43 项，不宣称日常启动器支持 macOS。DLY 覆盖仓库移走、工具漂移、部署中断/恢复、外部归档碰撞/lockfile、真实 link 覆盖、三环境并发及失败清理。报告纳入启动器源码指纹；本轮结果和证据以 [日常隔离方案 §9.2](daily-environment-isolation-plan.md#92-s1s3-实现与回归2026-10-31) 为准。
 
 基础构建、配置第一/二阶段、L1–L5 已完成。P0 已移除 PowerShell 入口，并通过 Windows 独立验收及迁移提交的 Windows/macOS 远端 CI（§7.5）。以下区分待实现、按需建设和验收边界。
 
 | 事项 | 当前状态与下一步 | 依据 |
 |---|---|---|
 | TS 脚本收尾与 PS 退场 | **已完成**：Node/TS 主入口、帮助/文档/调用方迁移，移除 PS 入口；Windows 本机 252 项测试与真实 L4/L5 通过，迁移提交 `ab745e9` 的 Windows/macOS CI 均通过 | 本文 §7.5、[本机配置方案 §14.10](local-configuration-design.md#1410-powershell-兼容层移除计划) |
-| 环境统一与开发隔离 | **环境 M1–M6 已实现**：固定产物 ART 与正式目标 TGT 纳入 CI，环境 fast/real/all 为 28/15/43 项，真实产物验证复用 L4/L5；平台与桌面覆盖边界见实施记录 | [开发环境方案 §9.11](development-environment-plan.md#911-m6-目标管理与逐包交付2026-10-31) |
+| 环境统一与开发隔离 | **环境 M1–M6 已实现**：固定产物 ART 与正式目标 TGT 纳入 CI，环境 fast/real/all 为 28/14/42 项，真实产物验证复用 L4/L5；平台与桌面覆盖边界见实施记录 | [开发环境方案 §9.11](development-environment-plan.md#911-m6-目标管理与逐包交付2026-10-31) |
 | 本机配置第三阶段 | **维护机制已设计，尚未实现**：保留字段归属、预览、备份、repair/migrate 与故障恢复设计，按 P1 的新配置职责调整字段与迁移；不作为 TS 收尾前置。当前新增命令不可用 | [本机配置方案 §14](local-configuration-design.md#14-第三阶段具体设计修复与格式升级) |
 | M6 / UI 组件测试 | **条件性待建设**：首个真实 React/JSX UI 组件需要时，引入 `src/client.tsx` 构建和 Vitest 组件测试，并复用现有 Playwright L5；不为了完成里程碑而新增插件或迁移全部 Host 测试 | 本文 §8、§10 |
 | 插件场景 UI 徽章/页面 | **可选、暂不实施**：场景元数据、目录、安装过滤、运行时守卫已完成；将来有展示需求时再做插件管理器伴生 UI | [插件场景方案](plugin-targets.md) 阶段 3 |
 | 原生通知与日常使用验收 | **待补人工证据**：独立 Chrome/Edge、macOS 的原生权限弹窗、系统通知、点击聚焦/切会话及多标签页接管；加载即申请权限改动后的原生流程也需复验。已有 Windows Codex 内嵌浏览器证据保持有效，但不推广到其他环境 | [通知方案 §11.11–§11.15](notification-host-design.md#1111-原生浏览器通知验收2026-10-28asiashanghai) |
 | 桌面端 L5 与更深的恢复场景 | **当前延期/未覆盖**：Electron 壳、真实重启、Toast/声音不进现有 Web CI；Host 重启后跨进程恢复待审批、后台冻结/勿扰等场景需要另定需求和验收方案，不能因 CI 通过而视为已覆盖 | 本文 §2、§4、§18；通知方案 §11.11 |
 
-P0 与环境 M1–M6 已实现；下一步补当前实现的两平台 CI 证据，各阶段分别验收。本文 M6 的 UI 组件测试仍按真实 UI 需求安排，与环境 M6 正式目标交付是不同里程碑；`headless` / Linux 当前是保留场景。
+P0 与环境 M1–M6 已实现；当前双平台及后续提交 CI 状态见 §19.8，各阶段分别验收。本文 M6 的 UI 组件测试仍按真实 UI 需求安排，与环境 M6 正式目标交付是不同里程碑；`headless` / Linux 当前是保留场景。

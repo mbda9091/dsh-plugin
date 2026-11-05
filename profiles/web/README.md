@@ -1,19 +1,8 @@
-# 日常、开发与测试 Web
+# 开发与测试 Web
 
-Windows 独立日常入口已实现：先用 `daily-launcher prepare|deploy --target daily --destination <仓库和home之外的绝对目录>` 准备和部署，再按 [启动器说明](../../packages/daily-launcher/README.md) 接入外部 `dshweb`。部署后仓库 `web` 委托它，但仍须编译 bootstrap；只有外部入口可以在仓库不可用时启停。独立状态/日志在外部 `state/<instanceId>`，配置和 release 由 `active.json` 选择。以下仓库命令和 `.local/dsh-daily` 进程记录说明适用于尚未部署的目标。本机入口迁移尚属 S4，不会由普通构建或部署自动改写 shell 函数。
+日常启动由用户负责。将插件安装到已有 profile 并生成配置，见 [指定 profile 安装](../../docs/profile-install.md)。
 
-默认 `node scripts/bootstrap.mjs web`（本机 `dshweb`）启动日常环境，选择 `local.json` 中名为 `daily` 的完整目标，默认监听 `127.0.0.1:3080`。首次明确绑定原来的普通 Node CLI、home 和 Web profile：
-
-```sh
-node scripts/bootstrap.mjs target bind daily --dsh-cli <外部普通Node版CLI> --home <原日常home> --profile web --surface web --platform windows
-node scripts/bootstrap.mjs web
-node scripts/bootstrap.mjs web status
-node scripts/bootstrap.mjs web stop
-```
-
-macOS 使用 `--platform mac`。可传 `web --target NAME` 选择其他完整 Web 目标；缺少绑定、profile 尚未初始化、路径身份变化时停止，不猜测数据目录。日常启动只使用已有 profile/home 配置，不安装开发 link，不应用仓库开发 patch，也不提供 `init/reset`。`status/stop` 仅控制本入口启动且通过随机令牌核对的实例；不会接管旧的独立进程。管理记录和原始日志在 `.local/dsh-daily/<目标名>/`，日常数据保留在绑定的 home。
-
-开发使用 workspace 锁定的普通 Node DSH `0.2.1-rc.2`，固定 profile `web`，可变数据在 `.local/dsh-dev/`。完整字段、目录归属和异常恢复见 [配置 v2](../../docs/configuration-v2.md)。
+开发使用 workspace 锁定的普通 Node DSH `0.2.1-rc.5`，固定 profile `web`，可变数据在 `.local/dsh-dev/`。完整字段、目录归属和异常恢复见 [配置 v2](../../docs/configuration-v2.md)。
 
 ## 准备与使用
 
@@ -27,13 +16,12 @@ node scripts/bootstrap.mjs dev-install
 node scripts/bootstrap.mjs dev-web --no-open
 ```
 
-`dev-web` 显式启动开发环境，默认通过 `--port 0` 分配空闲端口，可显式传 `--port` 覆盖。日常与开发入口都只接受 loopback 地址，前台运行并按偏好打开浏览器；重复启动报告已有实例，端口冲突报错，不杀占用者。
+`dev-web` 显式启动开发环境，默认通过 `--port 0` 分配空闲端口，可显式传 `--port` 覆盖。开发入口只接受 loopback 地址，保留原有生命周期管理。
 
 三种环境分别管理：
 
 | 用途 | 端口 | 数据目录 |
 |---|---|---|
-| 日常使用（`dshweb` / `web`） | 默认固定 `3080` | `daily` 目标绑定的原日常 home，停止后保留 |
 | 开发预览（`dev-web`） | 默认随机空闲端口 | `.local/dsh-dev/home`，停止后保留 |
 | 自动化测试（L4/L5） | 每次通过 `--port 0` 由系统分配空闲端口 | `.tmp/<suite>/run-*/dsh-home`，一次性独立数据 |
 
@@ -71,7 +59,7 @@ node scripts/bootstrap.mjs dev-web reset --yes
 
 ## Windows 上安装依赖时报 `ENOENT scandir ..._tmp_...\node_modules`
 
-本机 dsh `0.2.1-rc.2` 的 HMR 将 `path.relative()` 返回的 Windows 反斜杠路径直接交给 picomatch，默认的 `**/node_modules` / `**/.*` 因此可能不匹配。尤其 profile 在 C 盘、仓库在 D 盘时，依赖和隐藏目录都会被监听。监听器持有子目录句柄，pnpm 的 hoisted 安装移动旧依赖目录时先遇到 `EPERM rename`，随后其合并回退又扫描不存在的临时目录，最终显示 `ENOENT scandir`。
+此前本机 dsh `0.2.1-rc.2` 的 HMR 将 `path.relative()` 返回的 Windows 反斜杠路径直接交给 picomatch，默认的 `**/node_modules` / `**/.*` 因此可能不匹配。尤其 profile 在 C 盘、仓库在 D 盘时，依赖和隐藏目录都会被监听。监听器持有子目录句柄，pnpm 的 hoisted 安装移动旧依赖目录时先遇到 `EPERM rename`，随后其合并回退又扫描不存在的临时目录，最终显示 `ENOENT scandir`。
 
 本目录的 patch 已将代码监听范围收窄为各插件的 `lib/`，同时显式保留默认排除规则，并补充 Windows 反斜杠规则。这里的 `**\\node_modules` 使用 YAML 单引号，两个反斜杠原样传给 picomatch，用于匹配路径中的一个反斜杠；不要改成单个反斜杠。
 

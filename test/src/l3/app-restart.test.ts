@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { Context } from '@deepseek-ai/cordis'
-import { apply, inject, name, registerRestartCommand } from '@local/app-restart'
-import type { CommandDefinition } from '@local/app-restart'
+import { apply, inject, name, registerRestartCommand } from '@mbda9091/app-restart'
+import type { CommandDefinition } from '@mbda9091/app-restart'
 import { withElectron, withPlatform } from '../harness/env.js'
 import { createFakeContext } from '../harness/fake-context.js'
 

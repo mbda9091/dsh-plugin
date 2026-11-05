@@ -39,7 +39,7 @@ it('TGT-02 invalid selection platform version coverage and all fail before targe
   const t = prepareTarget(f), set = targetPackages(f.root); fakeAcceptance(set)
   for (const flags of [{}, { home: t.home }, { target: 'missing' }, { target: 'missing', ...t.fields }]) assert.throws(() => loadCommandContext(flags, f.root, t.env, 'target'))
   const options = installOptions(set.path)
-  for (const change of [{ all: true }, { only: '@local/missing' }, { only: '@local/alpha,@local/alpha' }]) await assert.rejects(runArtifactInstall({ ...options, ...change }, t.context()))
+  for (const change of [{ all: true }, { only: '@mbda9091/missing' }, { only: '@mbda9091/alpha,@mbda9091/alpha' }]) await assert.rejects(runArtifactInstall({ ...options, ...change }, t.context()))
   await assert.rejects(runArtifactInstall(options, { ...t.context(), target: { ...t.context().target!, platform: t.fields.platform === 'windows' ? 'mac' : 'windows' } }), /platform/)
   await assert.rejects(runArtifactInstall(options, { ...t.context(), target: { ...t.context().target!, surface: 'desktop' } }), /surface|compatible/)
   writeFileSync(t.mode, 'version'); await assert.rejects(runArtifactInstall(options, t.context()), /verification/)
@@ -50,7 +50,7 @@ it('TGT-02 invalid selection platform version coverage and all fail before targe
 
 it('TGT-03 previews do not write targets and execution rechecks config bytes and explicit subsets', () => environmentCase('TGT-03', async f => {
   const t = prepareTarget(f), set = targetPackages(f.root); fakeAcceptance(set)
-  const before = readFileSync(f.paths.local), options = { ...installOptions(set.path), only: '@local/alpha' }
+  const before = readFileSync(f.paths.local), options = { ...installOptions(set.path), only: '@mbda9091/alpha' }
   assert.equal(await runArtifactInstall({ ...options, dryRun: true }, t.context()), 0)
   assert.deepEqual(readFileSync(f.paths.local), before); assert.equal(existsSync(t.home), false)
   let report = ''
@@ -69,9 +69,9 @@ it('TGT-03 previews do not write targets and execution rechecks config bytes and
 it('TGT-05 link overwrite reparses without remove and status detects residual source junctions', () => environmentCase('TGT-05', async f => {
   const t = prepareTarget(f), source = join(f.root, 'alpha'); mkdirSync(source); writeFileSync(join(source, 'sentinel'), 'source stays')
   const set = targetPackages(f.root, ['alpha']); fakeAcceptance(set)
-  const profile = join(t.home, 'profiles/web'), installed = join(profile, 'node_modules/@local/alpha')
+  const profile = join(t.home, 'profiles/web'), installed = join(profile, 'node_modules/@mbda9091/alpha')
   mkdirSync(dirname(installed), { recursive: true }); symlinkSync(source, installed, process.platform === 'win32' ? 'junction' : 'dir')
-  writeFileSync(join(profile, 'package.json'), JSON.stringify({ dependencies: { '@local/alpha': 'file:old.tgz' }, dsh: { profile: { bundles: ['@local/alpha'] } } }))
+  writeFileSync(join(profile, 'package.json'), JSON.stringify({ dependencies: { '@mbda9091/alpha': 'file:old.tgz' }, dsh: { profile: { bundles: ['@mbda9091/alpha'] } } }))
   assert.equal(runStatus({ manifest: set.path }, t.context()), 1)
   const before = snapshot(source)
   const stores = (env: NodeJS.ProcessEnv) => Object.fromEntries(Object.entries(env).filter(([key]) => /^(npm|pnpm)_config_store_dir$/i.test(key)))
@@ -101,7 +101,7 @@ it('TGT-06 partial failure warnings loading failure and restart remain separate 
   assert.doesNotMatch(readFileSync(t.trace, 'utf8'), /remove/)
   for (const [mode, code, loaded] of [['warning', 1, 'unconfirmed'], ['restart', 0, 'restart-required'], ['load-fail', 1, 'failed']] as const) {
     writeFileSync(t.mode, mode)
-    assert.equal(await runArtifactInstall({ ...installOptions(set.path), only: '@local/alpha' }, t.context(), p => { report = p }), code)
+    assert.equal(await runArtifactInstall({ ...installOptions(set.path), only: '@mbda9091/alpha' }, t.context(), p => { report = p }), code)
     const p = deliveryReport(report).packages[0]!
     assert.equal(p.status, 'installed'); assert.equal(p.loaded, loaded); assert.equal(p.capability, 'unverified')
     if (mode === 'warning') assert.equal(p.warnings.length, 1)

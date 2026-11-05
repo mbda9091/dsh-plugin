@@ -112,11 +112,18 @@ it('CFG-04 failure injection preserves bytes, rollback failure blocks consumers'
     const before = readFileSync(f.paths.local)
     const ready = join(f.root, 'file-locked')
     const script = join(f.root, 'hold-file.ps1')
-    writeFileSync(script, 'param([string]$Target,[string]$Ready)\n$stream = [System.IO.File]::Open($Target, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)\ntry { [System.IO.File]::WriteAllText($Ready, "ready"); Start-Sleep -Seconds 60 } finally { $stream.Dispose() }\n')
-    const holder = startToFiles('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, f.paths.local, ready], { stdoutPath: join(f.root, 'lock.out'), stderrPath: join(f.root, 'lock.err') })
+    writeFileSync(script, 'param([string]$Target,[string]$Ready)\n$ErrorActionPreference = "Stop"\n$stream = [System.IO.File]::Open($Target, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)\ntry { [System.IO.File]::WriteAllText($Ready, "ready"); Start-Sleep -Seconds 60 } finally { $stream.Dispose() }\n')
+    const holder = startToFiles('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script, f.paths.local, ready], { stdoutPath: join(f.root, 'lock.out'), stderrPath: join(f.root, 'lock.err') })
     try {
-      for (let i = 0; !existsSync(ready) && i < 100; i++) await new Promise(resolve => setTimeout(resolve, 50))
-      assert.ok(existsSync(ready))
+      // Windows runner cold starts can exceed five seconds. This deadline is
+      // only for acquiring the real OS lock; all transaction assertions remain.
+      const deadline = Date.now() + 30_000
+      while (!existsSync(ready) && Date.now() < deadline && !holder.spawnError()
+        && holder.child.exitCode === null && holder.child.signalCode === null) {
+        await new Promise(resolve => setTimeout(resolve, 50))
+      }
+      assert.ok(existsSync(ready) && holder.child.exitCode === null && holder.child.signalCode === null && !holder.spawnError(),
+        `Windows file-lock fixture not ready/alive: exit=${holder.child.exitCode}, signal=${holder.child.signalCode}, spawn=${holder.spawnError()?.message ?? 'none'}\nstdout: ${readFileSync(holder.stdoutPath, 'utf8')}\nstderr: ${readFileSync(holder.stderrPath, 'utf8')}`)
       assert.throws(() => commitConfig(f.root, plan), /EPERM|EACCES|EBUSY/)
       assert.deepEqual(readFileSync(f.paths.local), before)
       assert.equal(existsSync(maintenancePaths(f.root).pending), false)

@@ -13,14 +13,14 @@
  * browser notifications and tab focus there. This package is the Desktop
  * adapter only.
  *
- * @module @local/desktop-notify
+ * @module @mbda9091/desktop-notify
  */
 import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
-import { approvalContent, fallbackTranslate, turnEndContent } from '@local/notify-core'
-import { createNotificationSource } from '@local/notify-host'
+import { approvalContent, fallbackTranslate, turnEndContent } from '@mbda9091/notify-core'
+import { createNotificationSource } from '@mbda9091/notify-host'
 import { assertTarget } from './targets.js'
 
 // Re-exported so the unit tests can exercise the compatibility decision and the
@@ -41,7 +41,7 @@ export interface Config {
   notifyOnApproval?: boolean
   /**
    * How long to wait for an automatic approval decision before showing the
-   * approval notification. An allowlist decision arrives immediately and
+   * approval notification. An immediate decision arrives before the delay and
    * cancels the pending notification. @default 300
    */
   approvalDelayMs?: number

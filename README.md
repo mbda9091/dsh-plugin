@@ -1,6 +1,9 @@
 # dsh-plugin
 
-为 DeepSeek Harness（DSH）编写的自定义插件，提供桌面重启、审批提醒、任务完成通知和精确调用审批白名单。
+`node scripts/bootstrap.mjs` 无子命令时显示帮助。日常启动由用户管理；本仓库提供 `install --target NAME` 安装当前 tarball 并生成命名空间配置，`dev-web` 用于独立开发环境。
+
+
+为 DeepSeek Harness（DSH）编写的自定义插件，提供桌面重启、审批提醒和任务完成通知。
 
 每个插件都是独立的 npm 包和 Cordis bundle，可以按需安装到 DSH profile，单独启停。本仓库保存插件源码、构建脚本和文档，使用前需要安装 DSH 并构建插件。
 
@@ -11,14 +14,15 @@
 | [app-restart](app-restart/README.md) | 在对话中输入 `/restart`，重启桌面应用及 Host | 桌面 | Windows |
 | [desktop-notify](desktop-notify/README.md) | 审批申请、任务完成或出错时弹出系统通知，可播放提示音 | 桌面 | Windows |
 | [notify-web](notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS |
-| [approval-allowlist](approval-allowlist/README.md) | 按工具名和调用参数匹配审批规则，默认只观察、不自动放行 | 桌面、Web | Windows、macOS |
 
-完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断；Windows、macOS 的远端类型检查与 L1–L5 已通过，包含真实 DSH Web 与 Chromium。系统原生通知、桌面 Electron 行为及日常浏览器启动仍需按场景另行验收。
+完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断。2026-11-06 合入前核对：`4355362` 的 [Windows/macOS CI 六项全部通过](https://github.com/mbda9091/dsh-plugin/actions/runs/42063036525)。新增版本检查的 `7e6e72c` 本机 macOS 类型检查、L1–L3（226 通过、1 跳过）、fast 28 项与 L4 通过；其 [远端 CI](https://github.com/mbda9091/dsh-plugin/actions/runs/42068198590) Windows 三项通过，macOS 三项在本次核对时尚未全部完成（排队/运行中）。后续提交须以自身检查结果为准。Web 自动化不替代真实 Desktop、原生系统通知及个人日常 profile 验收。
 
 ## 准备环境
 
-- DeepSeek Harness：当前开发与类型依赖版本为 **`0.2.1-rc.2`**，开发宿主由 workspace 冻结安装，无需全局 DSH；正式桌面应用单独管理。
+- DeepSeek Harness：当前开发与类型依赖版本为 **`0.2.1-rc.5`**，开发宿主由 workspace 冻结安装，无需全局 DSH；正式桌面应用单独管理。
 - Node.js **24**、pnpm **11.28.5**；下面的依赖安装命令要求 pnpm 在 PATH 中可用。
+
+2026-11-05 查询 npm `latest` 得到 `0.2.1-rc.5`，仓库使用该精确版本及锁文件保证可复现安装。宿主、插件类型包和真实环境测试版本同步；未来升级仍先解析 `latest` 再更新精确版本。`pnpm-workspace.yaml` 允许新增 WebSocket 原生依赖构建；可选 Kerberos 模块默认不构建，因为其 node-gyp 在带空格的用户目录下编译失败。普通 Web 与代理功能不依赖它；需要 Negotiate/SPNEGO 代理认证时，须在支持的本机环境单独启用并验证 Kerberos 构建。
 
 统一入口为 `node scripts/bootstrap.mjs <command>`。普通 Node 24 需要在 PATH 中，或使用其绝对路径启动；不通过 `DSH_NODE` 选择运行时。编译器、pnpm 和开发 DSH 使用当前 Node。`config init` 只从 PATH 发现 pnpm 包脚本及系统浏览器，不扫描私有 runtime；无法发现时显式提供 `--pnpm-script <pnpm包>/bin/pnpm.cjs`。例如用 npm 全局安装指定 pnpm 后，包位于 `npm root -g` 输出目录下。准备说明和 v1 迁移见 [配置 v2](docs/configuration-v2.md)。
 
@@ -44,7 +48,7 @@ node scripts/bootstrap.mjs build
 node -p "require('node:path').resolve('desktop-notify')"
 ```
 
-把输出填入插件安装页面。桌面场景可选择 `desktop-notify`、`app-restart` 和 `approval-allowlist`；Web 通知使用单独的 `notify-web`。
+把输出填入插件安装页面。桌面场景可选择 `desktop-notify` 和 `app-restart`；Web 通知使用单独的 `notify-web`。
 
 替换已加载的 Host 代码或安装包后，按宿主提示重启 DSH；更新 Client 代码后刷新页面。`/restart` 会中断正在进行的回合。
 
@@ -63,18 +67,20 @@ node scripts/bootstrap.mjs config init
 node scripts/bootstrap.mjs config check
 
 # 初始化持久开发环境，再构建安装兼容 Web 插件
-node scripts/bootstrap.mjs web init
+node scripts/bootstrap.mjs dev-web init
 node scripts/bootstrap.mjs dev-install
 
-node scripts/bootstrap.mjs web
+node scripts/bootstrap.mjs dev-web
 # 另一个终端查看/停止；停止保留会话和配置
-node scripts/bootstrap.mjs web status
-node scripts/bootstrap.mjs web stop
+node scripts/bootstrap.mjs dev-web status
+node scripts/bootstrap.mjs dev-web stop
 # 默认只预览；添加 --yes 才停止自己的实例并清理开发数据
-node scripts/bootstrap.mjs web reset
+node scripts/bootstrap.mjs dev-web reset
 ```
 
-开发只使用 workspace 锁定的普通 Node DSH。缺依赖时先冻结安装，不接受 `--dsh-cli` 或日常环境变量重定向。`web` 默认监听 `127.0.0.1:3000`，可用 `--port 0` 选择空闲端口；重复启动或端口占用会报错。
+开发只使用 workspace 锁定的普通 Node DSH。缺依赖时先冻结安装，不接受 `--dsh-cli` 或日常环境变量重定向。`dev-web` 默认使用随机空闲端口，可用 `--port 0` 选择空闲端口；重复启动或端口占用会报错。
+
+日常启动入口已移除；安装及配置加载见 [指定 profile 安装](docs/profile-install.md)。开发仍使用 `dev-web`，测试仍使用独立临时 home/profile。
 
 浏览器通知需要允许站点通知权限，并保持标签页打开。完整参数、配置层序和 Windows 排障见 [Web 配置与启动说明](profiles/web/README.md)。
 
@@ -83,13 +89,13 @@ node scripts/bootstrap.mjs web reset
 | 提交到仓库的模板 | 初始化生成的本机文件 | 用途 |
 | --- | --- | --- |
 | `scripts/config/example.json` | `scripts/config/local.json` | 工具路径、浏览器偏好和启动参数 |
-| `profiles/web/cordis.dev.patch.yml` | `.local/dsh-dev/cordis.patch.yml` | `web init` 生成的开发 HMR 配置；不会导入旧个人 patch |
+| `profiles/web/cordis.dev.patch.yml` | `.local/dsh-dev/cordis.patch.yml` | `dev-web init` 生成的开发 HMR 配置；不会导入旧个人 patch |
 
 本机文件已被 Git 忽略。运行时读取本机文件，**不会合并 example**；重复 `init` 不覆盖已有配置。配置格式由 `scripts/config/schema.json` 校验，支持的覆盖顺序为 **命令行参数 → 环境变量 → 本机配置**。
 
 配置机制已接入 Web、构建、打包、安装、状态及测试入口。已有 `version: 1` 配置需显式运行 `config migrate --dry-run` 和 `config migrate`。L4/L5 使用一次性 profile，不加载个人或持久开发 patch。详见 [配置 v2](docs/configuration-v2.md)。
 
-审批白名单默认保持观察模式，需要自行配置具体规则才会自动放行。个人路径、凭据和审批规则应留在本机配置中；带认证参数的启动地址及运行日志也不应提交。
+审批由宿主处理，本仓库不提供自动审批规则。个人路径和凭据应留在本机配置中；带认证参数的启动地址及运行日志也不应提交。
 
 ## 开发与打包
 
@@ -114,7 +120,7 @@ node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches
 node scripts/bootstrap.mjs status --target daily
 ```
 
-开发链接使用仓库构建产物；tarball 安装使用打包副本，可用 `--only @local/包名` 选择子集。交付报告位于 `dist/consumption/run-*/report.json`，分开记录文件、bundle/配置行、加载和能力验证；部分失败不自动回滚或重启。目标管理、精确版本证据、持久输入与重试规则见 [v2 协议](docs/configuration-v2.md#正式目标与交付恢复m6)。切换安装方式使用 add 覆盖与 update，避免手工删除 `link:` 依赖。
+开发链接使用仓库构建产物；tarball 安装使用打包副本，可用 `--only @mbda9091/包名` 选择子集。交付报告位于 `dist/consumption/run-*/report.json`，分开记录文件、bundle/配置行、加载和能力验证；部分失败不自动回滚或重启。目标管理、精确版本证据、持久输入与重试规则见 [v2 协议](docs/configuration-v2.md#正式目标与交付恢复m6)。切换安装方式使用 add 覆盖与 update，避免手工删除 `link:` 依赖。
 
 ## 验证
 
@@ -132,7 +138,7 @@ L1–L3 覆盖逻辑、包契约和集成行为；L4 使用一次性 profile 验
 
 GitHub Actions 在 Windows 和 macOS runner 上先初始化各自的本机配置，再运行同一套检查。测试产物保存在本机或临时 CI runner 的 `.tmp/`，不自动上传日志、截图或 trace。
 
-已确认通过的基线：[`d9f2a12`，2026-10-30 的 Windows/macOS CI](https://github.com/mbda9091/dsh-plugin/actions/runs/41061844806)。验收范围见 [测试方案 §19.7](docs/testing-plan.md#197-远端-ci-验收2026-10-30)；尚未完成的建设见 [§20](docs/testing-plan.md#20-当前未完成事项)。该记录对应指定提交，不代表后续每次运行自动通过。
+当前验收记录见 [测试方案 §19.8](docs/testing-plan.md#198-合入前验收核对2026-11-06)，保留历史基线和失败原因；尚未完成的建设见 [§20](docs/testing-plan.md#20-当前未完成事项)。
 
 ## 文档
 

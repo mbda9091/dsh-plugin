@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { Context } from '@deepseek-ai/cordis'
-import { DEFAULTS, apply, registerSessionNotifications } from '@local/desktop-notify'
-import type { Notify, Options } from '@local/desktop-notify'
+import { DEFAULTS, apply, registerSessionNotifications } from '@mbda9091/desktop-notify'
+import type { Notify, Options } from '@mbda9091/desktop-notify'
 import { createFakeContext } from '../harness/fake-context.js'
 
 const desktopSupported = process.platform === 'win32' || process.platform === 'darwin'

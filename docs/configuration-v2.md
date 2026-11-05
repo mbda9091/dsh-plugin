@@ -1,12 +1,42 @@
 # 本机配置 v2：字段、命令与迁移
 
+`node scripts/bootstrap.mjs` 无子命令时默认执行 `web`，也支持直接传 `--target`、`--port`、`--no-open` 等启动参数；显式 `build`、`test`、`ci` 等命令仍按原用途执行，`--help` 显示总帮助。
+
+
 M1–M6 实现协议（2026-10-31）。对应[环境计划](development-environment-plan.md)。M5 绑定固定产物与验收记录，M6 提供明确目标管理、安装预览和逐包交付报告；实际平台验收范围见计划中的实施记录。
 
-日常独立运行 S1–S3 增加 `daily-launcher prepare|deploy --target NAME --destination <绝对外部目录>` 和 `stable-install --archive-root <绝对外部归档目录>`。独立入口与外部配置 v1 的使用及恢复见 [启动器说明](../packages/daily-launcher/README.md)，实施与验收见 [日常隔离方案](daily-environment-isolation-plan.md)。本机入口切换属于 S4。
+日常启动和启动器部署已移除。外部 tarball 归档能力保留，直接安装与配置见 [安装指南](profile-install.md)。
 
-`prepare` 只在仓库 `dist/daily-launcher` 写候选；`deploy --dry-run` 只读；`deploy` 保留旧 release，原子选择发行件及不可变配置快照，并在仓库 `.local/dsh-daily/<target>/deployment.json` 保存便利入口定位。部署后的 `web` 委托独立入口，但 bootstrap 仍依赖仓库；外部 `bin/dshweb.ps1` / shell 函数才是仓库离线入口。未部署的目标保留原仓库 Web 管理流程。
+`prepare` 只在仓库 `dist/daily-launcher` 写候选；`deploy --dry-run` 只读；`deploy` 保留旧 release，原子选择发行件及不可变配置快照，并在仓库 `.local/dsh-daily/<target>/deployment.json` 保存便利入口定位。仓库 `web` 现为直接启动 DSH 的参数封装，不再读取部署定位记录；外部 `bin/dshweb.ps1` / shell 函数仍是独立启动器的显式入口。
 
-`--archive-root` 保留原有源码/构建/目标/验收门禁，安装前在外部按批次复制原 manifest、所选 tarball 和原成功记录；不同字节拒绝覆盖。安装从外部副本执行 add/update，并检查 manifest spec、lockfile specifier/version/tarball/integrity、实际目录、包内文件哈希及 bundle/row。安装前 spec/真实路径和逐包结果同时写入仓库报告及归档父目录 `receipts/run-*/report.json`；文件安装、加载和能力仍分别记录，归档不产生新的能力证据。归档/receipt 写入失败返回失败，不宣称交付完成；不回滚已安装包。`dev-install` 拒绝该参数，测试/开发清理不回收这些外部来源。
+`stable-install --archive-root` 保留原有源码/构建/目标/验收门禁，安装前在外部按批次复制原 manifest、所选 tarball 和原成功记录；不同字节拒绝覆盖。安装从外部副本执行 add/update，并检查 manifest spec、lockfile specifier/version/tarball/integrity、实际目录、包内文件哈希及 bundle/row。安装前 spec/真实路径和逐包结果同时写入仓库报告及归档父目录 `receipts/run-*/report.json`；文件安装、加载和能力仍分别记录，归档不产生新的能力证据。归档/receipt 写入失败返回失败，不宣称交付完成；不回滚已安装包。`dev-install` 拒绝该参数，测试/开发清理不回收这些外部来源。
+
+## 开发完成标准与依赖职责（2026-11-05）
+
+当前架构支持：业务代码不绑定个人机器的具体路径、日常 DSH 数据或凭据；环境层提供工具和宿主，代码完成约定的功能及自动化测试即可视为开发完成。这里的“不绑定具体依赖”指不把机器配置写入业务实现；软件版本声明和 DSH 服务/API 契约仍是必要依赖。
+
+环境准备完成后，完整开发验收入口为：
+
+```sh
+node scripts/bootstrap.mjs ci
+```
+
+该入口执行环境测试（fast/real）→ 类型检查 → L1–L3 → L4 → L5，失败即停止，并核验报告完整性。按需求约定的平台执行；单独 `test` 只覆盖 L1–L3，不能代替完整门禁。测试须覆盖本次功能与验收要求，通过后即可结束开发，不要求安装到个人日常环境。固定包验收、正式安装和日常使用属于后续独立流程，继续遵守已有产物与目标门禁。
+
+| 阶段 | 依赖 | 管理职责 |
+|---|---|---|
+| 开发与构建 | 普通 Node 24、准确版本 pnpm、TypeScript/esbuild、DSH 类型包；开发调试使用 workspace DSH | 调用方准备工具；`package.json`、`pnpm-lock.yaml` 声明并锁定依赖，冻结安装；工具层校验版本 |
+| 独立测试 L1–L3 | 编译工具、`node:test`、构建产物；打包契约需要 pnpm | 测试入口管理构建、fixture 和执行，不依赖个人日常会话 |
+| 隔离真实集成 L4–L5 | workspace DSH、pnpm、本机端口；L5 另需 Playwright 与 Chrome/Chromium | harness 管理一次性 home/profile、服务、浏览器、安装、报告与清理 |
+| 正式交付与日常运行 | 外部 DSH、明确目标 home/profile、固定插件包和本机配置 | target 与交付流程管理；不作为业务代码完成自动化测试的前置条件 |
+
+机器路径、浏览器选择及正式目标由不入库的 `scripts/config/local.json` 和命令上下文管理。开发数据位于 `.local/dsh-dev`，测试数据位于 `.tmp` 的一次性目录，日常数据位于明确绑定的目标。插件交付包保持零 npm 运行时依赖，共享实现构建期内联；插件仍通过宿主服务、事件和浏览器 API 工作。
+
+以下三点是已确认的预期边界，不属于待解决的架构问题：
+
+- **工具由调用方提前准备。** Node、pnpm、workspace 依赖和浏览器无需由业务代码自动下载或补齐；缺失或版本不符时报错是预期行为。
+- **包管理沿用系统环境。** registry、代理、证书、缓存和 store 共享是既定设计；隔离对象是 DSH 数据、会话、profile 与插件安装关系，无需为每次开发或测试建立独立包管理环境。
+- **系统 Notification 不属于 DSH 实现。** L5 使用真实 DSH、HTTP/SSE 和浏览器执行插件链路，在系统 Notification API 边界替换实现，验证插件的调用、内容和撤回行为即可满足当前 Web 通知开发验收。系统原生弹窗的实际呈现无需作为开发完成门禁。该结论不代表已验证真实窗口聚焦或 Electron 重启；若需求涉及这些行为，另行约定对应测试范围。
 
 ## 字段归属
 
@@ -20,12 +50,13 @@ M1–M6 实现协议（2026-10-31）。对应[环境计划](development-environm
 | `web.openBrowser` / `startupTimeoutMs` | `true` / `30000` | 开发 Web；超时为 1–2147483647 的整数毫秒 |
 | `test.browser` / `browserPath` | `chrome` / 路径或 `null` | 测试偏好；支持 Playwright 管理的 `chromium`，只有 L5/CI 需要浏览器 |
 | `test.timeoutMs` | `120000` | 测试操作超时，取值范围同上 |
-| `targets` | 完整目标对象数组，默认 `[]` | 必填；空数组是合法开发配置；日常 `web` 默认选择名为 `daily` 的目标，安装仍须显式选择 |
+| `targets` | 完整目标对象数组，默认 `[]` | 必填；空数组是合法开发配置；安装必须显式选择目标 |
 | `targets[].name` | 唯一标签 | ASCII 字母或数字开头，后续允许字母、数字、`_`、`-` |
 | `targets[].dshCli` / `home` | 非空路径 | 目标 CLI 和数据根；不从环境变量补齐 |
 | `targets[].profile` | profile 名 | 同 name 字符规则，不允许目录穿越 |
 | `targets[].surface` / `platform` | `desktop` 或 `web` / `windows` 或 `mac` | 必填；目标选择是一组完整字段 |
 | `targets[].binding` | 可选真实路径对象 | `target bind` 保存 cli/engine/entry/home/profile；每次使用重验。手写完整目标也执行路径隔离检查，但没有历史路径身份可比较 |
+| `targets[].patch` | 非空路径 / `null`，默认 `null` | 可选；日常 `web` 启动时作为最后一个 `--patch` 覆盖层应用。相对路径以仓库根解析，允许指向仓库外（如本机模型清单）。文件缺失、不是普通文件时启动失败；`daily-launcher` 部署暂不透传该字段并明确拒绝 |
 | `legacy.dshCli` | 路径或 `null` | 只保留 v1 待核对信息；任何命令都不将其当作宿主或目标 |
 
 所有对象拒绝未知字段。入口要求普通 Node 24；编译器、pnpm、开发 DSH 都由当前 `process.execPath` 执行。开发 DSH 只解析根 `devDependencies` 精确版本对应的 `node_modules/@deepseek-ai/dsh` 的公开 `bin`（当前为 `lib/bin.js`）。缺失或版本不符提示 `pnpm install --frozen-lockfile`，不查询 PATH、不回退到 `legacy.dshCli`。正式目标拒绝 workspace DSH 及其链接别名；Electron 目标保留自己的引擎。
@@ -46,15 +77,11 @@ node scripts/bootstrap.mjs config check
 
 锁定依赖的安装脚本策略见 `pnpm-workspace.yaml`：允许 esbuild、node-pty、koffi 和 DSH spawn-helper 准备；明确拒绝已发布纯 JS 包的非必需脚本。开启 peer 自动解析并锁定，因为公开 DSH 需要这些宿主服务才能启动。插件交付仍不含 DSH、Node 或 workspace 依赖。
 
-`web` 配置字段表示日常与开发的浏览器/启动超时偏好，不包含个人 YAML。开发数据固定为 `.local/dsh-dev/home`、profile `web`；patch 为 `.local/dsh-dev/cordis.patch.yml`。`dev-web init`、首次 `dev-web` 或 `dev-install` 通过锁定 DSH 的公开 `--profile web --dump-config` 初始化，并从独立的 `profiles/web/cordis.dev.patch.yml` 生成开发 patch。重复初始化不覆盖已有设置，不导入个人 patch、模型凭据或审批规则。
+`web` 配置字段表示开发的浏览器/启动超时偏好，不包含个人 YAML。开发数据固定为 `.local/dsh-dev/home`、profile `web`；patch 为 `.local/dsh-dev/cordis.patch.yml`。`dev-web init`、首次 `dev-web` 或 `dev-install` 通过锁定 DSH 的公开 `--profile web --dump-config` 初始化，并从独立的 `profiles/web/cordis.dev.patch.yml` 生成开发 patch。重复初始化不覆盖已有设置，不导入个人 patch、模型凭据或审批规则。
 
-## 日常 Web 默认入口
+## 指定 profile 安装
 
-> 当前边界：以下是已实现的仓库入口协议，`dshweb` 目前仍调用仓库 bootstrap 并现场编译脚本，不能保证仓库不可用时日常仍能启动。本机日常插件去源码 link 也尚未完成。独立启动器、外部固定包来源和迁移计划见[日常环境独立运行方案](daily-environment-isolation-plan.md)；其中拟新增接口尚不可用。
-
-`node scripts/bootstrap.mjs web`（本机 `dshweb`）默认选择已配置的 `daily` Web 目标，监听 `127.0.0.1:3080`。通过 `target bind daily --dsh-cli <外部普通Node版CLI> --home <原日常home> --profile web --surface web --platform windows` 明确绑定；macOS 使用 `--platform mac`。可用 `web --target NAME` 选择其他完整 Web 目标。启动重验目标身份，拒绝 Electron、workspace DSH、未初始化 profile、开发/测试路径重叠以及继承变量重定向；缺少 daily 绑定直接失败，不创建另一套空历史。
-
-日常启动不构建/安装插件，不应用仓库开发 patch，不迁移/复制历史或凭据；宿主正常使用已有 profile/home 层配置。`web status/stop` 通过自己的受认证控制接口管理本入口持有的子进程，停止保留数据；`web init/reset` 明确拒绝。管理记录/日志/pnpm shim 仅写 `.local/dsh-daily/<目标名>/`，数据仍在目标 home。不同 Node 引擎路径会触发绑定身份检查，使用正常终端的 Node 执行 bind 和 web；不自动重绑。开发、测试仍使用 workspace DSH。
+日常 `web` 和 `daily-launcher` 已移除，无参数调用显示帮助。新增 `install`（含 `--dry-run`）先验证目标 DSH 精确匹配根 `package.json` 声明版本，实际交付前再次核验；版本不符或无法读取时停止。旧 `@local/` 包及引用由用户手动清理，命令不拦截。`install` 优先复用当前匹配产物，仅在必要时编译/打包，不跑完整功能验收；输出 `<profile>/mbda9091/cordis.patch.yml`，不修改根 patch、不启动用户宿主。详见 [安装指南](profile-install.md)。`targets[].patch` 保留旧配置读取兼容，新安装不加载它。
 
 ## 持久开发环境（M3）
 
@@ -89,11 +116,11 @@ node scripts/bootstrap.mjs dev-web reset --yes
 | `config check` | 校验磁盘 v2/事务状态，输出工具诊断；不接受覆盖、不要求 DSH/pnpm 已安装 | 不使用运行时覆盖 |
 | `config migrate [--dry-run]` | 只读取磁盘旧值；不依赖 DSH/pnpm，不启动工具探测 | 不使用运行时覆盖 |
 | `build`、`pack`、`test` | 工具上下文；`--pnpm-script` | `DSH_PNPM` |
-| `web [start]/status/stop` | 日常目标上下文；默认 `daily`，可传 `--target NAME`；start 支持浏览器、超时、loopback `--host`、`--port`，默认 3080；无 init/reset | `DSH_PNPM`；不继承 DSH 目的地变量 |
 | `dev-web [start]` | 开发上下文；`--open/--no-open`、`--browser`、`--browser-path`、`--startup-timeout`、loopback `--host`、`--port`，默认随机端口 | `DSH_PNPM`；无浏览器变量覆盖 |
 | `dev-web init/status/stop/reset` | 开发上下文；仅 reset 接受 `--yes`；status 同时显示开发插件安装状态 | `DSH_PNPM` 仅 init 需要 |
 | `dev-install` | 开发上下文；只安装开发 home；`--pnpm-script`、`--dry-run`、`--skip-build`、`--all` | `DSH_PNPM` |
 | `l4`、`l5`、`ci`、`verify-artifacts` | 测试上下文；L4/L5 可传 `--manifest`，verify-artifacts 必传且支持 `--check`；`--pnpm-script`、`--test-browser`、`--test-browser-path`、`--timeout`、`--keep` | `DSH_PNPM`、`DSH_E2E_BROWSER`、`CHROME_PATH` |
+| `install` | 显式目标上下文，仅本机 Web；支持 `--only`、`--rebuild`、`--dry-run`、`--archive-root`；目标 DSH 版本精确匹配根声明 | 仅 `DSH_PNPM`；不从环境变量拼目标 |
 | `stable-install`、`status` | 目标上下文；`--target NAME`，或完整的 `--dsh-cli PATH --home DIR --profile NAME --surface desktop\|web --platform windows\|mac`，两种方式互斥 | 仅 `DSH_PNPM`；不从环境变量拼目标 |
 | `test-env --suite fast` | 无本机配置依赖；可用 `--keep`、`--only ID,ID` | 不从个人配置获得被测值 |
 | `test-env --suite real\|all` | 无本机配置依赖；显式 `--pnpm-script PATH`，可用 `--keep`、`--only ID,ID`；ART 浏览器用例接受 `--test-browser`/`--test-browser-path`；TOOL-04 需网络、Git 和 tar | 不从个人配置获得被测值；子进程独立 DSH home；包管理设置继承，冷安装/污染场景显式使用模拟设置 |
@@ -101,7 +128,7 @@ node scripts/bootstrap.mjs dev-web reset --yes
 
 `DSH_CLI`、`DSH_HOME`、`DSH_PROFILE`、`DSH_PROFILE_DIR`、`DSH_WEB_URL` 不再重定向上述命令。子进程清理这些变量和 Electron 标志，再由用途上下文填入选定地址。旧变量本身不会触发错误；不适用的显式目标参数会报错。`l4 --home` 仅代表新的仓库 `.tmp` 测试目录，不是正式目标 home。`--` 不能绕过 Web 参数校验。
 
-`stable-install` 必须传 `--manifest`，核验 M5 记录、包哈希及实际目标宿主版本，再执行 add/update；不能用 `--all` 绕过范围门禁。`--only @local/a,@local/b` 选择清单子集，未知、重复或不兼容包在安装前拒绝。`status --manifest PATH` 可只读核对已安装包内容和 bundle；不要求该清单仍为最新构建。
+`stable-install` 必须传 `--manifest`，核验 M5 记录、包哈希及实际目标宿主版本，再执行 add/update；不能用 `--all` 绕过范围门禁。`--only @mbda9091/a,@mbda9091/b` 选择清单子集，未知、重复或不兼容包在安装前拒绝。`status --manifest PATH` 可只读核对已安装包内容和 bundle；不要求该清单仍为最新构建。
 
 ## 显式迁移与恢复
 
@@ -168,7 +195,7 @@ node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches
 
 验收先预检**全部**清单文件，拒绝缺文件、错误 targets、逃逸/重复路径、链接、DSH/workspace 运行时依赖、本机配置与依赖目录。当前包契约要求零运行时依赖，接受 pnpm 生成的普通 USTAR 文件/目录；其他 tar 扩展明确失败。Host 在两个新 Node 进程中导入（含/不含 preserve-symlinks）。产物 L4/L5 不重建或重打包插件；L5 仍编译浏览器测试并安装专用 web-hello 测试驱动，它不是被测交付包。
 
-安装从独立快照消费已校验字节，前后复核快照、原包、清单、源码状态和 current 批次。核对 profile bundle 登记、tarball spec、真实安装路径与完整文件清单/字节；正常 pnpm store 链接允许，回到源码 junction 或包内额外文件拒绝。L4 验证启用的 loader 行、HTTP、Client 注册及适用 SSE，并执行 `host-capabilities`。当前 Host-only 适配器为 approval-allowlist：从实际安装的固定包入口验证默认 observe、精确匹配、不同工具/参数、次数限制、root scope 和审计日志。未知 Host-only 包没有适配器即失败；记录逐包哈希、适配器版本和完整检查列表，缺失旧证据不能用于交付。该契约与 L3 复用，不使用源码包替代 tarball。L5 当前有 notify-web 的真实通知/交互/主题/locale adapter，新增 Client 插件没有 adapter 时失败，不套用通用成功。
+安装从独立快照消费已校验字节，前后复核快照、原包、清单、源码状态和 current 批次。核对 profile bundle 登记、tarball spec、真实安装路径与完整文件清单/字节；正常 pnpm store 链接允许，回到源码 junction 或包内额外文件拒绝。L4 验证启用的 loader 行、HTTP、Client 注册及适用 SSE，并执行 `host-capabilities`。当前 Web 仅有 notify-web，没有 Host-only 适配器。未知 Host-only 包没有适配器即失败；记录逐包哈希、适配器版本和完整检查列表，缺失旧证据不能用于交付。能力证据必须来自固定 tarball，不使用源码包替代。L5 当前有 notify-web 的真实通知/交互/主题/locale adapter，新增 Client 插件没有 adapter 时失败，不套用通用成功。
 
 `dist/verification/<UUID>/web-<platform>.json` 为 version=1 本机流程记录，内嵌 L4/L5 逐步报告与 browser results，不只存 `.tmp` 路径。环境初始化/安装/清理证据与功能结果分别列出；完整用例、安装哈希、起止时间、平台、工具链和宿主版本逐项校验。`status: passed` **仅指当前 Web 平台**；各包其他 surface/platform 均列为 `uncovered`。桌面包通过静态契约不等于桌面能力通过。日志、截图、trace 留在 `.tmp`，清理它们不会删除唯一的验收凭据。重新验收先写失败状态，失败不会继续保留上一次成功。
 
@@ -182,8 +209,8 @@ node scripts/bootstrap.mjs target bind daily --dsh-cli <外部CLI> --home <独�
 node scripts/bootstrap.mjs target bind daily --dsh-cli <外部CLI> --home <独立home> --profile web --surface web --platform windows
 node scripts/bootstrap.mjs target list
 node scripts/bootstrap.mjs target show daily
-node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<UUID>/manifest.json --only @local/notify-web --dry-run
-node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<UUID>/manifest.json --only @local/notify-web
+node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<UUID>/manifest.json --only @mbda9091/notify-web --dry-run
+node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<UUID>/manifest.json --only @mbda9091/notify-web
 node scripts/bootstrap.mjs status --target daily --manifest dist/batches/<UUID>/manifest.json
 node scripts/bootstrap.mjs target unbind daily --dry-run
 ```

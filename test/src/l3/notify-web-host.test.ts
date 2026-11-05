@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { Context } from '@deepseek-ai/cordis'
-import { apply } from '@local/notify-web'
+import { apply } from '@mbda9091/notify-web'
 
 /**
  * L3: the Web Host notification broker.
