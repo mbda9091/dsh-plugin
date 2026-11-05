@@ -14,6 +14,7 @@ import { runDirectArtifactInstall } from './install-artifacts.js'
 import { packageDefaults, planProfilePatch } from '../core/profile-patch.js'
 import type { Defaults } from '../core/profile-patch.js'
 import { plainPath } from '../core/daily-contract.js'
+import { checkInstallHost } from '../core/install-host.js'
 import { archiveLocation } from '../core/daily-archive.js'
 
 export interface ProfileInstallOptions { only?: string | undefined; rebuild: boolean; dryRun: boolean; archiveRoot?: string | undefined }
@@ -23,17 +24,11 @@ export async function runProfileInstall(options: ProfileInstallOptions, context:
   if (target.surface !== 'web') throw new Error('install supports Web only; Windows Desktop is out of scope')
   const manifestPath = join(directory, 'package.json')
   if (!existsSync(manifestPath)) throw new Error('install requires an existing profile package.json; prepare the profile yourself')
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
   const plugins = discoverPlugins(context.root), names = options.only?.split(',')
   if (names && (!names.length || new Set(names).size !== names.length || names.some(n => !plugins.some(p => p.packageName === n)))) throw new Error('--only requires unique known plugin package names')
   const selected = plugins.filter(p => names ? names.includes(p.packageName) : isTargetCompatible(p, resolveTarget(target)))
   if (!selected.length || selected.some(p => !isTargetCompatible(p, resolveTarget(target)))) throw new Error('no compatible plugins or incompatible --only selection')
-  for (const plugin of selected) {
-    const old = `@local/${plugin.dirName}`
-    if (manifest.dependencies?.[old] || manifest.dsh?.profile?.bundles?.includes(old)) throw new Error(`legacy plugin conflict: ${old}; migrate it with the host before installing ${plugin.packageName}`)
-  }
-  const rootPatch = join(directory, 'cordis.patch.yml')
-  if (existsSync(rootPatch) && selected.some(p => new RegExp(`@local/${p.dirName}(?![a-z0-9-])`).test(readFileSync(rootPatch, 'utf8')))) throw new Error('legacy @local reference for a selected plugin in root patch; migrate it before installation')
+  await checkInstallHost(context)
   configuredPnpm(context)
   if (options.archiveRoot && !isAbsolute(options.archiveRoot)) throw new Error('--archive-root must be absolute')
   const archiveRoot = resolve(options.archiveRoot ?? join(homedir(), '.local/share/dsh-plugin/releases'))

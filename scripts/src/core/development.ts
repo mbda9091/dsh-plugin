@@ -126,11 +126,7 @@ export function initializeDevelopment(context: CommandContext): Owner {
     writeFileSync(p.owner, JSON.stringify(owner, null, 2), { flag: 'wx' })
   }
   validateDevelopmentTree(context)
-  if (owner.initialized) {
-    const manifest = JSON.parse(readFileSync(join(p.profile, 'package.json'), 'utf8'))
-    if (Object.keys(manifest.dependencies ?? {}).some(name => name.startsWith('@local/')) || (manifest.dsh?.profile?.bundles ?? []).some((name: string) => name.startsWith('@local/'))) throw new Error('legacy @local development plugins; use dev-web reset --yes then dev-install to recreate explicitly')
-    return owner
-  }
+  if (owner.initialized) return owner
   if (existsSync(p.runtime)) throw new Error('development instance exists; stop it before initialization')
   for (const dir of [p.home, p.logs, p.bin]) mkdirSync(dir, { recursive: true })
   if (!existsSync(p.patch)) writeFileSync(p.patch, renderWebPatch(readFileSync(join(context.root, 'profiles/web/cordis.dev.patch.yml'), 'utf8'), context.root), { flag: 'wx' })

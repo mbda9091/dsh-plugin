@@ -1,3 +1,4 @@
+import { assertInstallHostVersion } from '../core/install-host.js'
 import { commitProfilePatch, planProfilePatch, packageDefaults } from '../core/profile-patch.js'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { basename, delimiter, dirname, isAbsolute, join, resolve } from 'node:path'
@@ -113,6 +114,7 @@ async function deliver(options: InstallOptions, context: CommandContext, direct:
       verbatim: runner.verbatim, timeoutMs: 30_000, stdoutPath: join(scratch, 'version.out'), stderrPath: join(scratch, 'version.err') })
     const host = /\b\d+\.\d+\.\d+(?:-[\w.-]+)?\b/.exec(version.stdout.trim())?.[0]
     if (version.status !== 0 || !host) throw new Error('cannot determine selected target DSH version')
+    if (direct) assertInstallHostVersion(context.root, host)
     const evidence = direct ? undefined : readVerification(set, target, host, selected.map(p => p.name))
     const patchPlan = direct ? planProfilePatch(directory, selected.map(p => packageDefaults(set.packages.get(p.name)!))) : undefined
     const packages: DeliveryPackage[] = set.manifest.packages.map(p => ({ name: p.name, sha256: p.sha256, selected: selected.includes(p),
