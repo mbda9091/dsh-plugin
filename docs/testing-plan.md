@@ -1112,6 +1112,14 @@ L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profi
 
 当前环境测试集合为 fast/real/all = 28/14/42 项；日常启动器 DLY 用例及已删除审批插件的专属用例不再纳入。新安装版本检查覆盖 dry-run、实际调用前拒绝和交付入口复核，旧 scope 保留不拦截。命名空间 patch 的真实 Windows 个人环境接入、原生通知和 Desktop 不由这些检查代验。
 
+### 19.9 Windows CFG-04 就绪等待修正（2026-11-06）
+
+`79bd12a` 的 [CI 42070124528](https://github.com/mbda9091/dsh-plugin/actions/runs/42070124528) 五项通过，仅 Windows environment-fast 失败。CFG-04 在启动 PowerShell 文件占用夹具后，5 秒内未出现 ready 文件；尚未执行迁移拒绝及原文件保持断言。原日志未打印夹具 stderr，无法确定是冷启动延迟还是进程错误。
+
+将夹具就绪上限改为 30 秒，监测 spawn error、退出码和退出信号，失败时输出夹具 stdout/stderr；PowerShell 使用 NonInteractive 和终止型错误处理，避免打开文件失败后继续写 ready。真实文件锁、迁移拒绝、原字节保持、pending 清理及进程回收断言全部保留，不增加失败重试或跳过。macOS 本机 fast 回归不执行该 Windows 分支，实际修正效果以新提交的 Windows CI 为准。
+
+`7e6e72c` 的较早运行最终有两个 macOS job 被取消，不能记为完整通过；§19.8 保留核对当时的状态。
+
 ## 20. 当前未完成事项
 
 历史记录（2026-11-06 已移除日常启动器，当前数量见 §19.8）：2026-10-31 日常隔离 S1–S3 新增 Windows `DLY-01/02/03/04/06` 快速用例及 `DLY-05` 真实用例，纳入 `test-env` 和 `ci`。Windows fast/real/all 为 33/16/49 项；其他平台仍为 28/15/43 项，不宣称日常启动器支持 macOS。DLY 覆盖仓库移走、工具漂移、部署中断/恢复、外部归档碰撞/lockfile、真实 link 覆盖、三环境并发及失败清理。报告纳入启动器源码指纹；本轮结果和证据以 [日常隔离方案 §9.2](daily-environment-isolation-plan.md#92-s1s3-实现与回归2026-10-31) 为准。
