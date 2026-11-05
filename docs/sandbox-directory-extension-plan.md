@@ -4,7 +4,7 @@
 > 更新日期：2026-11-04（Asia/Shanghai）。
 > 当前结论：实现收敛为「只追加可写目录」；文档按模板记录。尚未实现。
 > 验收基线：无（本轮未提交代码）。
-> 关联文档：[方案模板](plan-template.md)、[dsh 概念](dsh-concepts.md)、[审批白名单](../approval-allowlist/README.md)（独立能力，本方案不涉及）。
+> 关联文档：[方案模板](plan-template.md)、[dsh 概念](dsh-concepts.md)。
 
 ## 1. 结论摘要
 
@@ -36,7 +36,7 @@
 
 - 适用对象：本仓库插件；`dsh` Host 的沙箱包装层。
 - 环境范围：**macOS + Web**（`surfaces: ["web"]`、`platforms: ["mac"]`），dsh `0.2.1-rc.2`。
-- 与其他方案的分工：`approval-allowlist` 继续负责审批代答，本插件不读取也不修改它的配置。
+- 审批由宿主处理；本方案不提供审批代答或持久授权规则。
 - 完成定义：A1–A4 全部通过。
 
 ## 3. 现状与问题
@@ -115,7 +115,7 @@ export interface Config {
 
 ### 4.4 兼容、迁移与回退
 
-- 兼容：不改审批、不改会话模式、不与 `approval-allowlist` 交互。
+- 兼容：不改审批、不改会话模式、不提供自动审批。
 - 迁移：安装后在 profile 加配置即可；无需改动其他插件。
 - 回退：删除配置项（重启/HMR 生效）或禁用插件行，立即回到原生沙箱。
 - 隔离：无持久数据；不写 profile 以外的配置。

@@ -194,7 +194,7 @@ node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches
 
 验收先预检**全部**清单文件，拒绝缺文件、错误 targets、逃逸/重复路径、链接、DSH/workspace 运行时依赖、本机配置与依赖目录。当前包契约要求零运行时依赖，接受 pnpm 生成的普通 USTAR 文件/目录；其他 tar 扩展明确失败。Host 在两个新 Node 进程中导入（含/不含 preserve-symlinks）。产物 L4/L5 不重建或重打包插件；L5 仍编译浏览器测试并安装专用 web-hello 测试驱动，它不是被测交付包。
 
-安装从独立快照消费已校验字节，前后复核快照、原包、清单、源码状态和 current 批次。核对 profile bundle 登记、tarball spec、真实安装路径与完整文件清单/字节；正常 pnpm store 链接允许，回到源码 junction 或包内额外文件拒绝。L4 验证启用的 loader 行、HTTP、Client 注册及适用 SSE，并执行 `host-capabilities`。当前 Host-only 适配器为 approval-allowlist：从实际安装的固定包入口验证默认 observe、精确匹配、不同工具/参数、次数限制、root scope 和审计日志。未知 Host-only 包没有适配器即失败；记录逐包哈希、适配器版本和完整检查列表，缺失旧证据不能用于交付。该契约与 L3 复用，不使用源码包替代 tarball。L5 当前有 notify-web 的真实通知/交互/主题/locale adapter，新增 Client 插件没有 adapter 时失败，不套用通用成功。
+安装从独立快照消费已校验字节，前后复核快照、原包、清单、源码状态和 current 批次。核对 profile bundle 登记、tarball spec、真实安装路径与完整文件清单/字节；正常 pnpm store 链接允许，回到源码 junction 或包内额外文件拒绝。L4 验证启用的 loader 行、HTTP、Client 注册及适用 SSE，并执行 `host-capabilities`。当前 Web 仅有 notify-web，没有 Host-only 适配器。未知 Host-only 包没有适配器即失败；记录逐包哈希、适配器版本和完整检查列表，缺失旧证据不能用于交付。能力证据必须来自固定 tarball，不使用源码包替代。L5 当前有 notify-web 的真实通知/交互/主题/locale adapter，新增 Client 插件没有 adapter 时失败，不套用通用成功。
 
 `dist/verification/<UUID>/web-<platform>.json` 为 version=1 本机流程记录，内嵌 L4/L5 逐步报告与 browser results，不只存 `.tmp` 路径。环境初始化/安装/清理证据与功能结果分别列出；完整用例、安装哈希、起止时间、平台、工具链和宿主版本逐项校验。`status: passed` **仅指当前 Web 平台**；各包其他 surface/platform 均列为 `uncovered`。桌面包通过静态契约不等于桌面能力通过。日志、截图、trace 留在 `.tmp`，清理它们不会删除唯一的验收凭据。重新验收先写失败状态，失败不会继续保留上一次成功。
 

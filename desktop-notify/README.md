@@ -19,7 +19,7 @@
 | 一轮因错误结束（`turn/end`，`error`） | 对话出错 | 错误信息 |
 | 用户主动停止（`aborted`） | 不通知 | — |
 
-审批通知会延迟 `approvalDelayMs`（默认 300ms）：如果 `approval/decided` 在此之前到达（例如 `approval-allowlist` 自动放行），通知会被取消，不会为一次从未展示的审批打扰你。手动审批仍会在等待期间正常提醒。
+审批通知会延迟 `approvalDelayMs`（默认 300ms）：如果 `approval/decided` 在此之前到达，通知会被取消，不会为一次从未展示的审批打扰你。手动审批仍会在等待期间正常提醒。
 
 通知以 DeepSeek Harness 的身份显示（复用桌面应用的 AppUserModelID + 开始菜单快捷方式）。Toast 不可用时自动退化为托盘气泡提示；提示音独立播放，不依赖 Toast 自身的声音。
 

@@ -1,6 +1,0 @@
-{
-  "meta": {
-    "title": "Approval Allowlist",
-    "description": "[Web · macOS] Allow specific tool calls by exact arguments; observe-only by default."
-  }
-}

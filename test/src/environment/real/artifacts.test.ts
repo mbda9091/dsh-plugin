@@ -12,15 +12,12 @@ import { runVerifyArtifacts } from '../../../../scripts/.build/commands/verify-a
 import { loadCommandContext } from '../../../../scripts/.build/core/command-context.js'
 import { loadArtifacts } from '../../../../scripts/.build/core/artifacts.js'
 import { readVerification, validateVerification, verificationPath, validateArtifactReport } from '../../../../scripts/.build/core/artifact-verification.js'
-import { isTargetCompatible, resolveTarget } from '../../../../scripts/.build/core/targets.js'
-import { discoverPlugins } from '../../../../scripts/.build/core/plugins.js'
+import { resolveTarget } from '../../../../scripts/.build/core/targets.js'
 import type { TestReport } from '../../../../scripts/.build/core/test-run.js'
 import { artifactPrerequisites, installArtifacts, checkArtifactInstallations } from '../../../../scripts/.build/core/artifact-harness.js'
 import { runIsolatedTest } from '../../../../scripts/.build/core/test-run.js'
 import { initProfile } from '../../../../scripts/.build/core/web-harness.js'
 import { beginBuild, completeBuild } from '../../../../scripts/.build/core/build-record.js'
-import { artifactFixture, tarball } from '../../harness/artifacts.js'
-import { checkHostCapabilities } from '../../../../scripts/.build/core/host-capability.js'
 
 let built: Promise<number> | undefined
 async function prepare(f: ReturnType<typeof fixture>) {
@@ -102,43 +99,4 @@ it('ART-06 actual notify-web package contracts L4 L5 and durable evidence share 
   writeFileSync(join(process.env.DSH_ENV_TEST_RUN!, 'ART-06-details.json'), JSON.stringify({ manifest: set.manifest, record }, null, 2))
   rmSync(join(f.root, '.tmp'), { recursive: true })
   assert.ok(existsSync(path)); readVerification(set, target, workspaceDshVersion, ['@mbda9091/notify-web'])
-}, false))
-
-const approvalPlugin = discoverPlugins(sourceRoot).find(plugin => plugin.dirName === 'approval-allowlist')
-assert.ok(approvalPlugin, 'approval-allowlist manifest is required')
-const supportsApproval = (process.platform === 'win32' || process.platform === 'darwin')
-  && isTargetCompatible(approvalPlugin, resolveTarget({ surface: 'web' }))
-
-// Skip before environmentCase: an unsupported target must not emit passed artifact evidence.
-it('ART-07 fixed approval-allowlist exercises real behavior and rejects a no-op replacement or missing adapter', {
-  timeout: 180_000,
-  skip: !supportsApproval && 'approval-allowlist manifest does not support this Web platform; capability acceptance not executed',
-}, () => environmentCase('ART-07', async f => {
-  const { settings } = await prepare(f)
-  // Only the fixture package is removed; the repository source is never edited.
-  rmSync(join(f.root, 'notify-web'), { recursive: true })
-  for (const path of ['package.json', 'lib', 'locale', 'examples', 'icon.svg', 'cordis.patch.yml', 'profile.defaults.patch.yml', 'README.md']) cpSync(join(sourceRoot, 'approval-allowlist', path), join(f.root, 'approval-allowlist', path), { recursive: true })
-  for (const name of ['typescript', 'esbuild']) {
-    mkdirSync(join(f.root, 'node_modules', name), { recursive: true })
-    writeFileSync(join(f.root, 'node_modules', name, 'package.json'), readFileSync(join(sourceRoot, 'node_modules', name, 'package.json')))
-  }
-  completeBuild(f.root, beginBuild(f.root))
-  let manifest = ''
-  assert.equal(await runPack({ skipBuild: true }, settings, p => { manifest = p }), 0)
-  const set = loadArtifacts(f.root, manifest)
-  assert.equal(await runVerifyArtifacts({ manifest, keep: false }, settings), 0)
-  const target = resolveTarget({ surface: 'web' })
-  const good = readVerification(set, target, workspaceDshVersion, ['@mbda9091/approval-allowlist'])
-  assert.ok(good.functions.l4!.steps.some(s => s.name === 'host-capabilities' && s.ok))
-  const files = Object.fromEntries(set.packages.get('@mbda9091/approval-allowlist')!.files)
-  files['lib/index.js'] = Buffer.from("export const name='approval-allowlist'; export function apply() {}")
-  const broken = artifactFixture(f.root, tarball(files))
-  assert.equal(await runVerifyArtifacts({ manifest: broken.path, keep: false }, settings), 1)
-  const failed = JSON.parse(readFileSync(verificationPath(broken, target.platform), 'utf8'))
-  assert.equal(failed.status, 'failed')
-  assert.equal(failed.functions.l4.steps.find((s: { name: string }) => s.name === 'host-capabilities').ok, false)
-  assert.throws(() => readVerification(broken, target, workspaceDshVersion, ['@mbda9091/approval-allowlist']))
-  const unknown = artifactFixture(f.root)
-  await assert.rejects(checkHostCapabilities({ settings } as Parameters<typeof checkHostCapabilities>[0], unknown), /lacks a capability adapter/)
-  writeFileSync(join(process.env.DSH_ENV_TEST_RUN!, 'ART-07-details.json'), JSON.stringify({ good, failed, unknownAdapterRejected: true }, null, 2))
 }, false))

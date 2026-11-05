@@ -6,7 +6,6 @@ import { runBuild } from './commands/build.js'
 import { runCatalog } from './commands/catalog.js'
 import { runCheckTargets } from './commands/check-targets.js'
 import { runL4 } from './commands/l4.js'
-import { runApprovalHostProbe } from './commands/approval-host-probe.js'
 import { runL5 } from './commands/l5.js'
 import { runStatus } from './commands/status.js'
 import { runTest } from './commands/test.js'
@@ -46,7 +45,6 @@ No command: show help. Daily launch is managed by the user.
   test [--only l1,l2,l3] [--skip-build] Run L1-L3
   l4 [--keep] [--home <new .tmp dir>] [--skip-tarball | --manifest PATH]
   l5 [--keep] [--manifest PATH]        Run the isolated Web/browser harness
-  approval-host-probe [--manifest PATH] [--keep] Real Web/macOS approvals; optional fixed artifact (no LLM)
   ci [--keep]                         Run environment all, type-check, L1-L3, L4 and L5 (fail-fast)
   check-targets                       Validate plugin metadata (no local config needed)
   catalog [--check] [--output <path>]  Generate/check CATALOG.md (no local config needed)
@@ -144,11 +142,6 @@ export async function main(argv: string[]): Promise<number> {
           ...TOOL_OPTIONS, only: { type: 'string' }, 'skip-build': { type: 'boolean', default: false },
         } })
         return await runTest({ kinds: values.only === undefined ? [] : [values.only], build: !values['skip-build'] }, settings(values))
-      }
-      case 'approval-host-probe': {
-        const { values } = parseArgs({ args: rest, options: { ...TEST_OPTIONS, keep: { type: 'boolean', default: false }, manifest: { type: 'string' } } })
-        const context = settings(values, 'test')
-        return await runApprovalHostProbe({ keep: values.keep, timeoutMs: context.config.test.timeoutMs, manifest: values.manifest }, context)
       }
       case 'ci':
       case 'l4':

@@ -1,14 +1,11 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { readFileSync } from 'node:fs'
 import { evaluateTarget as evaluateAppRestart } from '@mbda9091/app-restart'
-import { evaluateTarget as evaluateAllowlist } from '@mbda9091/approval-allowlist'
 import { evaluateTarget as evaluateNotify } from '@mbda9091/desktop-notify'
 import { evaluateTarget as evaluateWebNotify } from '@mbda9091/notify-web'
 
 const DESKTOP_WINDOWS = { surfaces: ['desktop'], platforms: ['windows'] }
 const WEB_UNIVERSAL = { surfaces: ['web'], platforms: ['mac', 'windows'] }
-const APPROVAL_TARGETS = JSON.parse(readFileSync(new URL('../../../approval-allowlist/package.json', import.meta.url), 'utf8')).dsh.targets as { surfaces: string[]; platforms: string[] }
 
 describe('L1 plugin target guards', () => {
   it('accepts a desktop plugin on desktop/windows', () => {
@@ -29,7 +26,7 @@ describe('L1 plugin target guards', () => {
   })
 
   it('rejects the headless surface for every packaged plugin', () => {
-    for (const evaluate of [evaluateAppRestart, evaluateNotify, evaluateAllowlist, evaluateWebNotify]) {
+    for (const evaluate of [evaluateAppRestart, evaluateNotify, evaluateWebNotify]) {
       const problem = evaluate(
         { surfaces: ['desktop', 'web'], platforms: ['windows', 'mac'] },
         { surface: 'headless', platform: 'windows' },
@@ -47,17 +44,4 @@ describe('L1 plugin target guards', () => {
     assert.match(problem, /declared surfaces=web/)
   })
 
-  it('approval M4 declares and accepts only Web/macOS', () => {
-    assert.deepEqual(APPROVAL_TARGETS, { surfaces: ['web'], platforms: ['mac'] })
-    assert.equal(evaluateAllowlist(APPROVAL_TARGETS, { surface: 'web', platform: 'mac' }), undefined)
-  })
-
-  it('approval rejects every deferred M5 platform before activation', () => {
-    for (const environment of [
-      { surface: 'desktop', platform: 'windows' },
-      { surface: 'desktop', platform: 'mac' },
-      { surface: 'web', platform: 'windows' },
-      { surface: 'web', platform: 'linux' },
-    ]) assert.match(evaluateAllowlist(APPROVAL_TARGETS, environment) ?? '', /target mismatch/)
-  })
 })

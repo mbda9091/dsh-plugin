@@ -3,7 +3,7 @@
 `node scripts/bootstrap.mjs` 无子命令时显示帮助。日常启动由用户管理；本仓库提供 `install --target NAME` 安装当前 tarball 并生成命名空间配置，`dev-web` 用于独立开发环境。
 
 
-为 DeepSeek Harness（DSH）编写的自定义插件，提供桌面重启、审批提醒、任务完成通知和精确调用审批白名单。
+为 DeepSeek Harness（DSH）编写的自定义插件，提供桌面重启、审批提醒和任务完成通知。
 
 每个插件都是独立的 npm 包和 Cordis bundle，可以按需安装到 DSH profile，单独启停。本仓库保存插件源码、构建脚本和文档，使用前需要安装 DSH 并构建插件。
 
@@ -14,7 +14,6 @@
 | [app-restart](app-restart/README.md) | 在对话中输入 `/restart`，重启桌面应用及 Host | 桌面 | Windows |
 | [desktop-notify](desktop-notify/README.md) | 审批申请、任务完成或出错时弹出系统通知，可播放提示音 | 桌面 | Windows |
 | [notify-web](notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS |
-| [approval-allowlist](approval-allowlist/README.md) | 按工具名和调用参数匹配审批规则，默认只观察、不自动放行 | 桌面、Web | Windows、macOS |
 
 完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断；历史 Windows、macOS 远端类型检查与 L1–L5 结果保留。2026-11-05 升级至 DSH `0.2.1-rc.5` 后，本机 macOS / Node 24.16.0 已通过类型检查、L1–L3（276 通过、2 项平台跳过）、L4 与 L5；43 项环境测试中 42 项首轮通过，干净安装 TOOL-04 在关闭可选 Kerberos 构建后单项复验通过，首次完整 CI 失败记录保留。本轮未执行 Windows 和桌面 Electron 验收，系统原生通知及真实桌面重启仍需按场景另行验证。
 
@@ -49,7 +48,7 @@ node scripts/bootstrap.mjs build
 node -p "require('node:path').resolve('desktop-notify')"
 ```
 
-把输出填入插件安装页面。桌面场景可选择 `desktop-notify`、`app-restart` 和 `approval-allowlist`；Web 通知使用单独的 `notify-web`。
+把输出填入插件安装页面。桌面场景可选择 `desktop-notify` 和 `app-restart`；Web 通知使用单独的 `notify-web`。
 
 替换已加载的 Host 代码或安装包后，按宿主提示重启 DSH；更新 Client 代码后刷新页面。`/restart` 会中断正在进行的回合。
 
@@ -96,7 +95,7 @@ node scripts/bootstrap.mjs dev-web reset
 
 配置机制已接入 Web、构建、打包、安装、状态及测试入口。已有 `version: 1` 配置需显式运行 `config migrate --dry-run` 和 `config migrate`。L4/L5 使用一次性 profile，不加载个人或持久开发 patch。详见 [配置 v2](docs/configuration-v2.md)。
 
-审批白名单默认保持观察模式，需要自行配置具体规则才会自动放行。个人路径、凭据和审批规则应留在本机配置中；带认证参数的启动地址及运行日志也不应提交。
+审批由宿主处理，本仓库不提供自动审批规则。个人路径和凭据应留在本机配置中；带认证参数的启动地址及运行日志也不应提交。
 
 ## 开发与打包
 

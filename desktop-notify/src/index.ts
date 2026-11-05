@@ -41,7 +41,7 @@ export interface Config {
   notifyOnApproval?: boolean
   /**
    * How long to wait for an automatic approval decision before showing the
-   * approval notification. An allowlist decision arrives immediately and
+   * approval notification. An immediate decision arrives before the delay and
    * cancels the pending notification. @default 300
    */
   approvalDelayMs?: number

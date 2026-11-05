@@ -33,3 +33,5 @@ tarball 默认归档到 `~/.local/share/dsh-plugin/releases`；可用 `--archive
 `stable-install --manifest ...` 继续用于严格交付，要求已有匹配的验收记录，不自动生成此配置。完整验收仍通过 `pack`、`verify-artifacts`、`stable-install` 完成。
 
 自有包名前缀改为 `@mbda9091/`。若目标仍安装同名 `@local/` 插件或根 patch 引用旧包名，直接安装预检会拒绝；先通过宿主支持方式处理旧包和个人引用后重试，避免两个 scope 插入同一 loader ID。旧开发环境需要显式 `dev-web reset --yes` 后重新 `dev-install`，不会自动删除开发数据。
+
+默认配置追加会核对已有行的解析值，保留 YAML 块文本尾部换行；无法无损追加时拒绝写入。2026-11-06 已移除审批白名单插件，当前 Web 安装只选择 notify-web。旧 profile 中的插件与授权文件不自动清理，移除说明见 [已撤销方案](external-directory-authorization-plan.md)。

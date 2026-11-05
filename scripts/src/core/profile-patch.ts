@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { isDeepStrictEqual } from 'node:util'
 import { isSeq, parseDocument, stringify } from 'yaml'
 import { isRecord } from './json.js'
 import { plainPath } from './daily-contract.js'
@@ -48,9 +49,11 @@ export function mergeDefaults(before: string | null, defaults: readonly Defaults
     // Insert before the document-end marker, preserving every existing byte.
     const endMarker = /^\.\.\.(?:[ \t]*(?:#.*)?)?\r?$/m.exec(original)
     const at = endMarker?.index ?? original.length
-    text = original.slice(0, at) + '\n' + stringify(append) + original.slice(at)
+    const prefix = original.slice(0, at)
+    text = prefix + (prefix.endsWith('\n') ? '' : '\n') + stringify(append) + original.slice(at)
   }
-  parse(text)
+  const mergedRows: unknown[] = parse(text).toJS()
+  if (!isDeepStrictEqual(mergedRows, [...rows, ...append])) throw new Error('cannot append defaults without changing existing patch values')
   return { text, added, preserved }
 }
 export function planProfilePatch(profile: string, defaults: readonly Defaults[]) {

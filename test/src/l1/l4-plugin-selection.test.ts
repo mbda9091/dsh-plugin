@@ -16,10 +16,10 @@ function manifest(root: string, id: string, platforms: string[], surfaces = ['we
 }
 
 describe('L1 L4 non-manifest plugin selection', () => {
-  it('keeps approval smoke coverage on mac and selects notify-web on Windows', () => {
+  it('selects notify-web for link and tarball smoke coverage on both platforms', () => {
     const mac = selectL4Plugins(repoRoot, { surface: 'web', platform: 'mac' })
-    assert.deepEqual(mac.links.map(plugin => plugin.dirName), ['approval-allowlist', 'notify-web'])
-    assert.equal(mac.tarball.packageName, '@mbda9091/approval-allowlist')
+    assert.deepEqual(mac.links.map(plugin => plugin.dirName), ['notify-web'])
+    assert.equal(mac.tarball.packageName, '@mbda9091/notify-web')
     const windows = selectL4Plugins(repoRoot, { surface: 'web', platform: 'windows' })
     assert.deepEqual(windows.links.map(plugin => plugin.dirName), ['notify-web'])
     assert.equal(windows.tarball.packageName, '@mbda9091/notify-web')
@@ -31,24 +31,22 @@ describe('L1 L4 non-manifest plugin selection', () => {
     }
   })
 
-  it('follows discovered targets and package identity rather than hardcoded approval platforms', () => {
+  it('follows discovered targets and package identity', () => {
     const root = makeTempDir('l4-target-selection')
     try {
-      manifest(root, 'approval-allowlist', ['windows'])
       manifest(root, 'notify-web', ['mac', 'windows'])
       const windows = selectL4Plugins(root, { surface: 'web', platform: 'windows' })
-      assert.equal(windows.tarball.packageName, '@fixture/approval-allowlist')
-      assert.equal(windows.tarball.dir, join(root, 'approval-allowlist'))
+      assert.equal(windows.tarball.packageName, '@fixture/notify-web')
+      assert.equal(windows.tarball.dir, join(root, 'notify-web'))
       assert.equal(selectL4Plugins(root, { surface: 'web', platform: 'mac' }).tarball.packageName, '@fixture/notify-web')
-      manifest(root, 'approval-allowlist', ['windows'], ['desktop'])
-      assert.deepEqual(selectL4Plugins(root, { surface: 'web', platform: 'windows' }).links.map(plugin => plugin.dirName), ['notify-web'])
+      manifest(root, 'notify-web', ['windows'], ['desktop'])
+      assert.throws(() => selectL4Plugins(root, { surface: 'web', platform: 'windows' }), /requires notify-web support/)
     } finally { removeDir(root) }
   })
 
   it('fails explicitly when the notify-web SSE smoke target is unsupported', () => {
     const root = makeTempDir('l4-notify-target')
     try {
-      manifest(root, 'approval-allowlist', ['mac'])
       manifest(root, 'notify-web', ['mac'])
       assert.throws(() => selectL4Plugins(root, { surface: 'web', platform: 'windows' }), /requires notify-web support for web\/windows/)
     } finally { removeDir(root) }

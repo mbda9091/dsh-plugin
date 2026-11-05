@@ -7,6 +7,7 @@ import { readPackage, checkPackedSource } from '../../../../scripts/.build/core/
 import { artifactLock, assertConsumed, copyArtifact, loadArtifacts } from '../../../../scripts/.build/core/artifacts.js'
 import { readVerification, validateVerification, verificationPath } from '../../../../scripts/.build/core/artifact-verification.js'
 import { resolveTarget } from '../../../../scripts/.build/core/targets.js'
+import { checkHostCapabilities } from '../../../../scripts/.build/core/host-capability.js'
 
 it('ART-02 malformed archives metadata missing files contamination and same-version replacement fail preflight', () => environmentCase('ART-02', f => {
   for (const mutate of [
@@ -29,10 +30,11 @@ it('ART-02 malformed archives metadata missing files contamination and same-vers
   assert.equal(existsSync(join(f.root, '.local')), false)
 }))
 
-it('ART-03 stale batches dirty source missing corrupt future and exit-only evidence are rejected', () => environmentCase('ART-03', f => {
+it('ART-03 stale batches dirty source missing corrupt future and exit-only evidence are rejected', () => environmentCase('ART-03', async f => {
   const set = artifactFixture(f.root), good = verificationFixture(set), target = resolveTarget({ surface: 'web' })
   const check = (v: unknown) => validateVerification(set, v, target, '0.2.1-rc.2', ['@mbda9091/alpha'])
   check(good)
+  await assert.rejects(checkHostCapabilities({} as Parameters<typeof checkHostCapabilities>[0], set), /lacks a capability adapter/)
   const missingCapability = structuredClone(good)
   missingCapability.functions.l4!.steps.find(s => s.name === 'host-capabilities')!.detail = '[]'
   assert.throws(() => check(missingCapability), /Host capability/)

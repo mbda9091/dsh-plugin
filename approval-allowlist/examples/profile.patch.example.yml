@@ -1,9 +1,0 @@
-# Merge only this row through the host configuration workflow; do not replace a whole profile.
-# Back up the existing profile patch first. Start observe-only; no grant file is auto-created.
-- id: approval-allowlist
-  config:
-    mode: observe
-    rootOnly: true
-    grantsFile: ./approval-allowlist/grants.json
-    log: true
-    logArguments: false

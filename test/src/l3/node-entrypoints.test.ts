@@ -52,7 +52,7 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     assert.match(run(['dev-web', '--help']).stdout, /OS-assigned port/)
     const before = [f.paths.local].map(path => readFileSync(path, 'utf8'))
     run(init)
-    for (const name of ['app-restart', 'approval-allowlist', 'desktop-notify', 'notify-web']) mkdirSync(join(f.root, name, 'lib'), { recursive: true })
+    for (const name of ['app-restart', 'desktop-notify', 'notify-web']) mkdirSync(join(f.root, name, 'lib'), { recursive: true })
     run(['config', 'check'])
     mkdirSync(join(f.root, 'alpha/lib'), { recursive: true })
     writeFileSync(join(f.root, 'alpha/lib/index.js'), '')

@@ -1,9 +1,0 @@
-- id: approval-allowlist
-  name: '@mbda9091/approval-allowlist'
-  config:
-    mode: observe
-    rootOnly: true
-    rules: []
-    grantsFile: ./approval-allowlist/grants.json
-    log: true
-    logArguments: false

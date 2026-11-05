@@ -2,11 +2,29 @@ import assert from 'node:assert/strict'
 import { it } from 'node:test'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { parse } from 'yaml'
 import { mergeDefaults, planProfilePatch, commitProfilePatch } from '../../../scripts/.build/core/profile-patch.js'
 import { makeTempDir, removeDir } from '../harness/tmp.js'
 const defaults = [{ name: '@mbda9091/notify-web', rows: [{ id: 'notify-web', name: '@mbda9091/notify-web', config: { notifyOnApproval: true } }] }]
+it('L3 namespace append preserves block scalar values and document boundaries', () => {
+  for (const scalar of ['|+', '>+', '|', '|-', '>-']) {
+    for (const newline of ['\n', '\r\n']) {
+      for (const end of ['', '...\n']) {
+        const before = `- id: alpha\n  config:\n    text: ${scalar}\n      hello\n\n${end}`.replaceAll('\n', newline)
+        const next = mergeDefaults(before, defaults)
+        assert.deepEqual(parse(next.text).slice(0, 1), parse(before), `${scalar}, ${JSON.stringify(newline)}, ${end}`)
+        assert.deepEqual(parse(next.text)[1], defaults[0]!.rows[0])
+        assert.equal(mergeDefaults(next.text, defaults).text, next.text)
+      }
+    }
+  }
+  const before = '- id: alpha\n  config: { enabled: false }'
+  assert.deepEqual(parse(mergeDefaults(before, defaults).text)[0], parse(before)[0])
+  const unterminated = '- id: alpha\n  config:\n    text: |+\n      hello'
+  assert.deepEqual(parse(mergeDefaults(unterminated, defaults).text)[0], parse(unterminated)[0])
+})
 it('L3 namespace patch preserves !!js, comments and disabled rows byte-for-byte on append and repeat', () => {
-  const before = `# header\r\n- id: approval-allowlist # identity\r\n  name: '@mbda9091/approval-allowlist'\r\n  disabled: !!js 'process.env.TEST === "yes"' # preserve\r\n  config:\r\n    mode: observe # user's choice\r\n# end comment\r\n`
+  const before = `# header\r\n- id: alpha # identity\r\n  name: '@mbda9091/alpha'\r\n  disabled: !!js 'process.env.TEST === "yes"' # preserve\r\n  config:\r\n    mode: observe # user's choice\r\n# end comment\r\n`
   const next = mergeDefaults(before, defaults)
   assert.ok(next.text.startsWith(before))
   assert.deepEqual(next.added, ['@mbda9091/notify-web'])
@@ -39,14 +57,10 @@ it('L3 namespace patch keeps root untouched, backs up only changed namespace fil
   } finally { removeDir(root) }
 })
 
-it('L3 shipped notify defaults match runtime defaults and approval starts observe-only', async () => {
+it('L3 shipped notify defaults match runtime defaults', async () => {
   const { repoRoot } = await import('../harness/tmp.js')
   const { parse } = await import('yaml')
   const { DEFAULTS } = await import('../../../notify-web/lib/index.js')
   const rows = parse(readFileSync(join(repoRoot, 'notify-web/profile.defaults.patch.yml'), 'utf8'))
   assert.deepEqual(rows[0].config, DEFAULTS)
-  const approval = parse(readFileSync(join(repoRoot, 'approval-allowlist/profile.defaults.patch.yml'), 'utf8'))
-  assert.equal(approval[0].config.mode, 'observe')
-  assert.deepEqual(approval[0].config.rules, [])
-  assert.equal(approval[0].config.logArguments, false)
 })

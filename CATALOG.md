@@ -7,7 +7,6 @@
 | --- | --- | --- | --- | --- |
 | 重启应用 | `@mbda9091/app-restart` | 桌面 | Windows | 新增 /restart 命令，自动重启 DeepSeek Harness 桌面应用。 |
 | 桌面通知 | `@mbda9091/desktop-notify` | 桌面 | Windows | 权限申请或回合结束时弹出 Windows 通知并播放提示音。 |
-| 审批白名单 | `@mbda9091/approval-allowlist` | Web | macOS | 按精确工具调用参数为指定命令加白审批，默认只观察不自动放行。 |
 | 浏览器通知 | `@mbda9091/notify-web` | Web | 通用平台 | 权限申请和回合结束时发送浏览器系统通知，点击可定位标签页并切换到对应会话。 |
 
 ## 组合规则

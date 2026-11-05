@@ -1,5 +1,7 @@
 # 测试与 Web L5 方案（v0.1）
 
+> 当前范围（2026-11-06）：审批白名单插件、专属探针和 ART-07 已移除；下文涉及它的验收记录仅为历史事实。当前插件为 app-restart、desktop-notify、notify-web，Web L4 的 link/tarball 对象为 notify-web。历史成功不代表本次变更已验收。
+
 > 2026-10-31 环境 M4：L4/L5 已统一全新测试 home/profile 和进程树清理；包管理配置、缓存/store/状态按用户确认沿用系统（最新修正见环境方案 §9.12）；成功保留报告/日志、删除可变数据，失败或 `--keep` 保留现场。`ci` 新顺序为环境 all → 类型检查 → L1–L3 → L4 → L5，核验本次独立报告，缺项/skip/清理或报告写入失败均不通过。ISO-01–06 实现及当前平台证据见[开发环境计划 §9.8](development-environment-plan.md#98-m4-测试隔离与-ci-证据门禁2026-10-31)。这里的环境 M4 与本文历史测试 M4 是不同编号。
 
 > 2026-10-31 环境 M1/M2：已交付独立 `test-env --suite fast/real/all`。M1 `ff461e0` 的 Windows/macOS 配置 fast 均通过，功能 CI 均在过渡 DSH 准备步骤失败；M2 `8478d76` 的 Windows CFG/TOOL、L1–L4 及单独复验 L5 通过，尚无远端运行记录。提交、job 链接、失败及复验证据见[开发环境计划 §9.5](development-environment-plan.md#95-m1m2-提交后-ci-核查与-windows-复验2026-10-31)。当前配置/参数适用范围以[配置 v2](configuration-v2.md)为准；环境 M1/M2 与本文历史测试里程碑分别编号。
@@ -18,7 +20,7 @@
 - **Web profile 由官方 shipped `web` 初始化**，不手工拼配置；已初始化并验证，测试使用独立的 workspace-local `DSH_HOME`。
 - **仓库脚本已统一为 TypeScript 并用 `tsc` 编译**，主入口为 `node scripts/bootstrap.mjs <command>`，不使用 Node 类型擦除。PowerShell 兼容入口已移除；收尾证据见 §7.5。配置第二阶段的行为见 §19.6，前文各阶段记录保留。
 - **测试 runner 不统一**：Host/脚本用 `node:test`，L5 用 Playwright；未来 UI 组件测试计划用 Vitest，尚未引入。`browser-use` 只做探索式验收。
-- **M4 已落地**：L1–L3 在 `test/src/` 下用 `node:test`，当前 251 项用例已在 Windows 本机全部通过，平台专属用例在其他平台按条件跳过。L2 对四个正式插件实际打包、解包、检查内容并导入入口。L4 在一次性 profile 里安装、启动真实 `dsh web` 并断言 loader 输出；失败自动保留现场。
+- **M4 已落地**：L1–L3 在 `test/src/` 下用 `node:test`，当前 251 项用例已在 Windows 本机全部通过，平台专属用例在其他平台按条件跳过。L2 对当前三个正式插件实际打包、解包、检查内容并导入入口。L4 在一次性 profile 里安装、启动真实 `dsh web` 并断言 loader 输出；失败自动保留现场。
 - **M5 已完成**：正式 L5 验证实际 slot/交互、主题/locale 和真实 SSE 通知链路；Windows/macOS 远端 CI 已通过（§19.7），原生系统通知不在其验收范围内。
 - **沙箱优先**：先在 DSH 沙箱内跑；遇到 `EPERM`/进程或浏览器限制，再退到普通终端或 CI，不做 ACL 绕过。
 
@@ -41,7 +43,7 @@
 
 ## 3. 现状
 
-- 仓库现在有四个插件：`app-restart`、`desktop-notify`（`desktop/windows`）、`notify-web`（`web/mac+windows`）与 `approval-allowlist`（`desktop+web/mac+windows`）。本文早先关于 `desktop-notify` 适配 Web 的计划已被 3 包拆分取代：共享内容在 `packages/notify-core`，桌面/Web 分别由 `desktop-notify` 与 `notify-web` 投递。
+- 仓库现在有三个插件：`app-restart`、`desktop-notify`（`desktop/windows`）、`notify-web`（`web/mac+windows`）。本文早先关于 `desktop-notify` 适配 Web 的计划已被 3 包拆分取代：共享内容在 `packages/notify-core`，桌面/Web 分别由 `desktop-notify` 与 `notify-web` 投递。
 - `$DSH_HOME/profiles` 下现在同时有 `desktop` 与 `web`；仓库内另有 `profiles/web/`（patch + 启动脚本），不是插件。
 - 早期执行 `dsh web --help` 时，DSH 尝试创建 `%USERPROFILE%\.dsh\profiles\web`，在 DSH 沙箱下报过：
   `EPERM: operation not permitted, mkdir '%USERPROFILE%\.dsh\profiles\web'`；该 profile 现已由官方模板初始化。
@@ -268,45 +270,11 @@ $env:DSH_E2E_URL = 'http://127.0.0.1:<port>/?token=<token>'
 node test/e2e/web-l5.mjs
 ```
 
-**沙箱结论**：workspace-write 下 Chrome 无法启动（`spawn EPERM` / crashpad/mojo access denied）；`danger-full-access` 下可以启动，所以 L5 需要一次提权审批，或由 `approval-allowlist` 对精确命令加白。
+**沙箱结论**：workspace-write 下 Chrome 无法启动（`spawn EPERM` / crashpad/mojo access denied）；`danger-full-access` 下可以启动，所以 L5 需要一次提权审批。
 
-### 5.6 approval-allowlist（observe 模式已安装）
+### 5.6 审批白名单（已移除）
 
-新增插件 [approval-allowlist](../approval-allowlist/README.md)，用于把特定工具调用的审批加白。
-
-- 不按 `reason` 文本匹配；用 `approval/request.callId` 找到 durable `tool/call`，比较 `name` + 原始 `arguments`。
-- 默认 `mode: observe`：只写审计 JSONL，继续走原审批；`mode: allow` 且精确命中才返回 `allowed-once`。
-- 默认只允许根 agent；`maxUses` 省略或为 `0` 表示无限放行，正安全整数限制次数；其他非法值打印错误日志并跳过该规则，支持 `expiresAt`。
-- 规则格式：
-
-  ```yaml
-  rules:
-    - tool: pwsh
-      arguments:
-        command: 'node test/e2e/web-l5.mjs'
-        workdir: '<repo>'
-      # 省略 maxUses => 无限放行
-  ```
-
-历史验证（2026-10-24）：
-
-- 已验证 `link:` 安装、重启加载、observe 记录和精确 allow 匹配。
-- 插件 bundle 默认 `observe`。个人命令、次数限制和授权策略只保存在本地配置，不在公共文档中记录。
-- 精确匹配成功时的审计日志结构示例：
-
-  ```json
-  {"mode":"allow","decision":"allow","detail":"allowed","matchedRule":0,"tool":"pwsh",...}
-  ```
-
-- 审计日志：`<repo>\.tmp\approval-allowlist.log`。
-
-安全注意：
-
-- `allow` 模式等于把某条命令的审批权交给插件配置；只应由可信用户维护配置。
-- 审计日志包含命令原文，可能含敏感参数。
-- 不要把匹配放宽成 `reason` 子串或通配符。
-- 规则已绑定精确命令和 `sandbox_permissions`，并非“所有 pwsh 都放行”。
-- 无限放行意味着该 `.mjs` 脚本内容也被信任；修改脚本会改变被自动放行的实际行为。
+2026-11-06 删除插件及专属验收；历史设计见 [已撤销方案](external-directory-authorization-plan.md)。当前由宿主处理审批。
 
 ### 5.7 审批通知与 allowlist 的顺序问题
 
@@ -981,7 +949,7 @@ M4 本轮三个问题已修复。M5 的正式 L5、CI 和 macOS 真机验证仍�
 
 本轮把 Desktop 与 Web 的触发条件统一到 `packages/notify-host`，Web 改为经过认证的 SSE 通道；测试范围相应扩大：
 
-- 仓库现有 **四个插件**：`app-restart`、`desktop-notify`、`notify-web`、`approval-allowlist`。
+- 仓库现有 **三个插件**：`app-restart`、`desktop-notify`、`notify-web`。
 - **两个构建期共享库**：`packages/notify-core`（文案/locale）、`packages/notify-host`（触发逻辑）；它们不进 CATALOG，也不安装到 profile。
 - L1–L3 当前为 **189 tests / 35 suites / 189 pass / 0 fail**。
 - 新增 `test/src/l3/notify-host.test.ts`：根/子会话、审批延迟与取消、重复 asked、已显示审批撤回、`agent/disposed`、全部 `turn/end` 原因、四个开关。

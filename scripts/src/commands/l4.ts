@@ -54,7 +54,7 @@ const WEB_PROFILE = 'web'
 /** Smoke-test candidates, filtered by their manifests rather than a second target matrix. */
 export function selectL4Plugins(root: string = repoRoot, target: Target = resolveTarget({ surface: 'web' })): { links: Plugin[]; tarball: Plugin } {
   const plugins = discoverPlugins(root)
-  const links = ['approval-allowlist', 'notify-web'].flatMap(id => {
+  const links = ['notify-web'].flatMap(id => {
     const plugin = plugins.find(plugin => plugin.dirName === id)
     if (!plugin) throw new Error(`L4 smoke plugin manifest is missing: ${id}`)
     return isTargetCompatible(plugin, target) ? [plugin] : []

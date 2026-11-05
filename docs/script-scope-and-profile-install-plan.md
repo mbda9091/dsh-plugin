@@ -2,7 +2,7 @@
 
 > 状态：代码已实现；macOS 主要验证通过，完整平台验收未完成。
 > 更新日期：2026-11-05（Asia/Shanghai）。
-> 当前结论：删除仓库负责的日常启动入口；确定新增独立的直接安装命令 `install`，负责当前插件打包、安装到指定 profile、生成默认配置，不执行完整功能验收。`stable-install` 继续独立承担已验收产物的严格安装。新增安装能力仅覆盖 macOS/Windows Web，不适配 Windows Desktop；保留 YAML 的 !!js 与复杂注释处理要求。开发与测试流程保持不变。本轮仅完成方案，未修改实现。
+> 当前结论：删除仓库负责的日常启动入口；确定新增独立的直接安装命令 `install`，负责当前插件打包、安装到指定 profile、生成默认配置，不执行完整功能验收。`stable-install` 继续独立承担已验收产物的严格安装。新增安装能力仅覆盖 macOS/Windows Web，不适配 Windows Desktop；保留 YAML 的 !!js 与复杂注释处理要求。开发与测试流程保持不变。实现与验证结果见第 8、9 节。
 > 验收基线：源码 `10e42df0ac08360cc6d31177795d40dd33b30639`；调研开始时 Git 工作区干净；本轮实现与验证结果见第 8、9 节。
 > 关联文档：[模板](plan-template.md)、[配置协议](configuration-v2.md)、[开发环境方案](development-environment-plan.md)、[插件概念](dsh-concepts.md)、[平台声明](plugin-targets.md)。本文实施后替代关联文档中的日常启动职责描述，不替代开发、测试和严格产物交付约定。
 
@@ -110,7 +110,6 @@
 
 | 插件 | 拟提供的默认 patch |
 |---|---|
-| `approval-allowlist` | `mode: observe`、`rootOnly: true`、`rules: []`、`grantsFile: ./approval-allowlist/grants.json`、`log: true`、`logArguments: false`；不创建 grants 文件；日志路径沿用运行时默认值 |
 | `notify-web` | 当前 `DEFAULTS` 的通知开关、300ms 审批延迟、SSE 心跳、重放窗口和队列上限；不自动申请浏览器通知权限 |
 | `desktop-notify` | Desktop 专属，本轮不新增默认文件；原 bundle 默认值、代码与测试保留 |
 | `app-restart` | Desktop 专属，本轮不新增默认文件；代码与测试保留 |
@@ -133,7 +132,7 @@
 
 #### 包名与目录命名
 
-- 四个对外插件包统一改为 `@mbda9091/app-restart`、`@mbda9091/approval-allowlist`、`@mbda9091/desktop-notify`、`@mbda9091/notify-web`。
+- 当前三个对外插件包为 `@mbda9091/app-restart`、`@mbda9091/desktop-notify`、`@mbda9091/notify-web`。
 - profile 下目录使用 `mbda9091`，不带 `@`。npm scope 与文件目录分别按各自约定命名。
 - loader 行 `id` 和源码目录仍使用 `notify-web` 等短名；行的 `name`、包清单、类型引用、测试、示例和目录文档同步更新 scope。
 - 仓库内部 `@local/notify-core`、`@local/notify-host` 等私有共享包也同步改为 `@mbda9091/`，避免保留两套自有命名；它们仍为构建期依赖，不作为插件安装或生成默认配置。
@@ -244,7 +243,7 @@ node scripts/bootstrap.mjs install --target my-web --dry-run
 - `profiles/web` 中开发模板和其他非日常功能需要的文件保留；只删除明确属于日常启动的说明与调用路径。
 - 文档同步更新根 README、AGENTS、Web README、配置协议与开发环境方案中的当前描述；历史实施记录保留并注明由本方案替代。补齐目标登记和新安装的最短步骤。
 - 测试删除或替换被移除的日常入口专属场景；保留共享归档、路径隔离、目标检查与开发测试场景。更新测试 ID/结果数量契约，禁止通过跳过来伪造原 CI 全通过。
-- scope 改名覆盖四个插件及内部共享包的声明、import、bundle loader name、模板、脚本硬编码、测试 fixture、CATALOG 与锁文件；源码目录与 loader ID 保持不变。旧批次的包名、哈希和报告仍按历史事实保留，新 scope 必须重新构建验证。
+- scope 改名覆盖当前三个插件及内部共享包的声明、import、bundle loader name、模板、脚本硬编码、测试 fixture、CATALOG 与锁文件；源码目录与 loader ID 保持不变。旧批次的包名、哈希和报告仍按历史事实保留，新 scope 必须重新构建验证。
 - 已有目标如果仍安装对应 `@local/*` 插件，或根 patch 中对同 ID 使用旧 `name`，新安装命令预检失败并列出迁移原因，不能直接并存注册。由用户通过宿主支持方式处理旧包及个人引用后重试；本轮不自动卸载、搬迁或改写根 patch。既有开发环境也须检测旧 scope，提示使用原有 reset/init/dev-install 流程重建；不会静默清空。
 - 配置恢复可使用本次备份；包回退继续使用明确的旧批次与既有交付入口，不新增自动回退。用户独立日常启动不依赖本仓库版本回退。
 
@@ -372,6 +371,13 @@ node scripts/bootstrap.mjs install --target my-web --dry-run
 - real 全套已结束：11 通过、4 失败。ART-04-real / ART-06 因首轮未提供测试浏览器路径失败，补充 Chrome 路径后两项均通过。TGT-04 / TGT-05-real 仍超时；未确认根因，不通过放宽超时掩盖。TGT-06-real 的部分失败交付与 TOOL-04 冷启动冻结安装通过。
 - 证据：fast .tmp/environment-tests/run-PgwClU/report.json；real 首轮 run-21sl5z/report.json、浏览器重试 run-fvfd12/report.json（同一 environment-tests 目录）；L4 .tmp/l4/run-K7nsCF/report.json；L5 .tmp/l5/run-hfSVYe/report.json；直接安装 dist/consumption/run-4LA0dg/report.json 和 run-JAmpXz/report.json。这些生成目录可清理，关键结果另存任务根目录验收记录。
 - Windows Web 缺少当前实机环境，未执行；不将 macOS 结果视作 Windows 通过。使用步骤见 [指定 profile 安装](profile-install.md)。
+
+### 9.7 CR 修正与审批插件移除（2026-11-06）
+
+- YAML 追加只在缺少行结束符时补换行，追加后校验原行解析值完整保留。保留 `|+` / `>+` 的尾部换行语义；无法无损追加时拒绝写入。增加 CRLF、文档结束标记、无末尾换行和重复追加回归。
+- 移除审批插件及专属 CLI、持久授权、管理工具、模板、探针与测试；当前默认 Web 安装仅选择 notify-web。L4 link/tarball 测试统一使用 notify-web，通用缺能力适配器拒绝机制保留。
+- 历史验收记录保留，不能替代本次改动验证。用户已有 profile 和授权文件未修改。
+- 本次 macOS 验证：build --check 通过；L1–L3 226 通过、1 平台跳过；fast 28 项通过（.tmp/environment-tests/run-2pkLkD/report.json）；L4 通过（.tmp/l4/run-poel4q/report.json）；L5 默认 fixture 通过（.tmp/l5/run-TwiySH/report.json）。Windows 与完整 real/CI 未重跑。
 
 ## 10. 当前未完成事项与下一步
 
