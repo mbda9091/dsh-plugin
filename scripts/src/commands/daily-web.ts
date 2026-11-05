@@ -87,7 +87,7 @@ export async function runDailyWeb(args: readonly string[], root = repoRoot, env:
     control = await createWebProcessControl(scope, () => { requestedStop = true; void stop().catch(() => {}) })
     const childEnv = commandEnv(context)
     childEnv.PATH = `${bin}${delimiter}${childEnv.PATH ?? ''}`
-    started = startToFiles(runner.command, runner.build(['web', '--no-open', '--host', host, '--port', String(port)]), {
+    started = startToFiles(runner.command, runner.build(['--profile', target.profile, '--no-open', '--host', host, '--port', String(port)]), {
       cwd: target.home, env: { ...childEnv, ...runner.env }, verbatim: runner.verbatim,
       stdoutPath: join(logs, 'web.out.log'), stderrPath: join(logs, 'web.err.log'),
     })

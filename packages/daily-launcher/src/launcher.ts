@@ -59,7 +59,7 @@ export async function run(root: string, configPath: string, args: string[], inhe
     env.PATH = `${join(state, 'bin')}${delimiter}${env.PATH ?? env.Path ?? ''}`
     if (Object.hasOwn(env, 'Path')) delete env.Path
     control = await createWebProcessControl(scope, () => { requested = true; void stop().catch(() => {}) })
-    started = startToFiles(c.host.node, [c.host.entry, 'web', '--no-open', '--host', host, '--port', String(port)], {
+    started = startToFiles(c.host.node, [c.host.entry, '--profile', c.target.profile, '--no-open', '--host', host, '--port', String(port)], {
       cwd: c.target.home, env, ownProcessTree: true, stdoutPath: join(state, 'logs/web.out'), stderrPath: join(state, 'logs/web.err'),
     })
     control.update(started.child.pid)

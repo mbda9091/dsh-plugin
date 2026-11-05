@@ -11,12 +11,12 @@ import { removeDir } from '../harness/tmp.js'
 function dailyFixture() {
   const f = configFixture()
   initializeConfig(f.options, f.root, f.env)
-  const home = join(f.root, 'daily-home'), profile = join(home, 'profiles/web')
+  const home = join(f.root, 'daily-home'), profile = join(home, 'profiles/macos-web')
   mkdirSync(profile, { recursive: true })
   writeFileSync(join(profile, 'package.json'), '{"private":true}')
   writeFileSync(join(home, 'history-sentinel'), 'existing daily data')
   const disk = JSON.parse(readFileSync(f.paths.local, 'utf8'))
-  disk.targets = [{ name: 'daily', dshCli: f.cli, home, profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : 'mac' }]
+  disk.targets = [{ name: 'daily', dshCli: f.cli, home, profile: 'macos-web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : 'mac' }]
   writeFileSync(f.paths.local, JSON.stringify(disk))
   return { ...f, home, profile }
 }
@@ -31,7 +31,7 @@ it('L3 daily Web selects the bound external target despite poisoned DSH variable
       ...process.env, ...f.env, DSH_CLI: 'wrong-cli', DSH_PROFILE: 'desktop', DSH_PROFILE_DIR: 'wrong-profile', TEST_CAPTURE: capture,
     }), 7)
     assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')), {
-      args: ['web', '--no-open', '--host', '127.0.0.1', '--port', '0'], home: f.home, profile: f.profile, cwd: f.home,
+      args: ['--profile', 'macos-web', '--no-open', '--host', '127.0.0.1', '--port', '0'], home: f.home, profile: f.profile, cwd: f.home,
     })
     assert.equal(readFileSync(join(f.profile, 'package.json'), 'utf8'), before)
     assert.equal(readFileSync(join(f.home, 'history-sentinel'), 'utf8'), 'existing daily data')

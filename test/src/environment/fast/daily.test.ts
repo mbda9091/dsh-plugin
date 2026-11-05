@@ -14,13 +14,13 @@ import { verificationPath } from '../../../../scripts/.build/core/artifact-verif
 import { checkDeliveryLock } from '../../../../scripts/.build/commands/install-artifacts.js'
 
 it('DLY-01 deployed launcher starts stops and restarts without repository or pnpm management dependency', { timeout: 90000 }, () => environmentCase('DLY-01', async f => {
-  const d = dailyFixture(f.root)
+  const d = dailyFixture(f.root, 'macos-web')
   d.config.web.browserPath = join(d.host, 'missing-browser.exe')
   publishDaily(d.candidate, d.external, d.config)
   renameSync(d.repo, d.repo + '-offline')
   const child = await d.start({ ...process.env, DSH_HOME: 'wrong', DSH_PROFILE_DIR: 'wrong', DSH_PATCH: 'wrong', ELECTRON_RUN_AS_NODE: '1', npm_config_registry: 'https://example.invalid', pnpm_config_store_dir: 'shared-store' })
   try {
-    assert.deepEqual(JSON.parse(readFileSync(d.capture, 'utf8')), { cwd: d.home, home: d.home, profile: d.config.target.directory, registry: 'https://example.invalid', store: 'shared-store' })
+    assert.deepEqual(JSON.parse(readFileSync(d.capture, 'utf8')), { args: ['--profile', 'macos-web', '--no-open', '--host', '127.0.0.1', '--port', '0'], cwd: d.home, home: d.home, profile: d.config.target.directory, registry: 'https://example.invalid', store: 'shared-store' })
     renameSync(d.pnpm, d.pnpm + '-missing')
     assert.equal((await d.command(['status'])).status, 0)
   } finally { await d.stop(child) }
