@@ -13,6 +13,22 @@ node scripts/bootstrap.mjs web stop
 
 macOS 使用 `--platform mac`。可传 `web --target NAME` 选择其他完整 Web 目标；缺少绑定、profile 尚未初始化、路径身份变化时停止，不猜测数据目录。日常启动只使用已有 profile/home 配置，不安装开发 link，不应用仓库开发 patch，也不提供 `init/reset`。`status/stop` 仅控制本入口启动且通过随机令牌核对的实例；不会接管旧的独立进程。管理记录和原始日志在 `.local/dsh-daily/<目标名>/`，日常数据保留在绑定的 home。
 
+目标可选 `patch` 字段：`web` 启动时把它作为最后一个 `--patch` 覆盖层传给宿主（层序 bundle → profile → home → `--patch`），用于本机模型清单、端点这类不随仓库分发的配置。相对路径按仓库根解析，允许指向仓库外；路径缺失或不是普通文件时在启动前失败，不会退化成"没有 patch"。
+
+```json
+{
+  "name": "macos-web",
+  "dshCli": "<外部普通Node版CLI>",
+  "home": "<本机home>",
+  "profile": "macos-web",
+  "surface": "web",
+  "platform": "mac",
+  "patch": "<模型清单patch的绝对路径>"
+}
+```
+
+该字段只存在于本机 `scripts/config/local.json`，不入库；`target bind` 重绑时保留。`daily-launcher prepare|deploy` 目前不透传该字段，目标配置了 `patch` 会直接报错，避免部署后静默丢配置。
+
 开发使用 workspace 锁定的普通 Node DSH `0.2.1-rc.2`，固定 profile `web`，可变数据在 `.local/dsh-dev/`。完整字段、目录归属和异常恢复见 [配置 v2](../../docs/configuration-v2.md)。
 
 ## 准备与使用

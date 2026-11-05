@@ -98,6 +98,7 @@ export async function runDailyLauncher(args: string[], root = repoRoot, env = pr
     isolation: { forbiddenRoots: [realpathSync(root), join(realpathSync(root), '.local/dsh-dev'), join(realpathSync(root), '.tmp')] },
   }
   validateDailyLocation(destination, config); validateDailyTools(config)
+  if (target.patch) throw new Error('daily-launcher deployment does not forward targets[].patch yet; use the repository web entry or clear the field')
   if (!existsSync(join(config.target.directory, 'package.json'))) throw new Error('daily requires an existing initialized profile')
   console.log(json({ action, destination, before, after: config, files: ['bin/', 'releases/', 'config/', 'active.json', 'receipts/'], dryRun: !!values['dry-run'] }))
   if (values['dry-run']) return 0

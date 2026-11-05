@@ -21,7 +21,7 @@ function dailyFixture() {
   return { ...f, home, profile }
 }
 
-it('L3 daily Web selects the bound external target despite poisoned DSH variables; it never creates development data or applies a patch', async () => {
+it('L3 daily Web selects the bound external target despite poisoned DSH variables; it never creates development data or applies an unconfigured patch', async () => {
   const f = dailyFixture()
   try {
     const capture = join(f.root, 'capture.json')
@@ -37,6 +37,33 @@ it('L3 daily Web selects the bound external target despite poisoned DSH variable
     assert.equal(readFileSync(join(f.home, 'history-sentinel'), 'utf8'), 'existing daily data')
     assert.equal(existsSync(join(f.root, '.local/dsh-dev')), false)
     assert.equal(existsSync(join(f.root, '.local/dsh-daily/daily/runtime.json')), false)
+  } finally { removeDir(f.root) }
+})
+
+it('L3 daily Web forwards targets[].patch as one overlay and resolves it against the repository root', async () => {
+  const f = dailyFixture()
+  try {
+    writeFileSync(join(f.root, 'model-providers.patch.yml'), '- id: llm-pi-ai\n  config: {}\n')
+    const capture = join(f.root, 'capture.json')
+    writeFileSync(f.entry, `const fs=require('node:fs'); fs.writeFileSync(process.env.TEST_CAPTURE, JSON.stringify({args:process.argv.slice(2)})); ${fakeWebServer(7)}`)
+    const disk = JSON.parse(readFileSync(f.paths.local, 'utf8'))
+    disk.targets[0].patch = 'model-providers.patch.yml'
+    writeFileSync(f.paths.local, JSON.stringify(disk))
+    assert.equal(await runDailyWeb(['--no-open', '--port', '0'], f.root, { ...process.env, ...f.env, TEST_CAPTURE: capture }), 7)
+    assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')).args, [
+      '--profile', 'macos-web', '--patch', join(f.root, 'model-providers.patch.yml'), '--no-open', '--host', '127.0.0.1', '--port', '0',
+    ])
+  } finally { removeDir(f.root) }
+})
+
+it('L3 daily Web fails closed when the configured target patch is missing', async () => {
+  const f = dailyFixture()
+  try {
+    const disk = JSON.parse(readFileSync(f.paths.local, 'utf8'))
+    disk.targets[0].patch = join(f.root, 'absent.patch.yml')
+    writeFileSync(f.paths.local, JSON.stringify(disk))
+    await assert.rejects(runDailyWeb(['--no-open', '--port', '0'], f.root, { ...process.env, ...f.env }), /targets\[\]\.patch: file does not exist/)
+    assert.equal(existsSync(join(f.root, '.local/dsh-daily')), false)
   } finally { removeDir(f.root) }
 })
 

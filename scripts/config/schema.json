@@ -144,6 +144,14 @@
             "type": "string",
             "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_-]*$"
           },
+          "patch": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "\\S",
+            "description": "Optional --patch overlay applied by daily Web after the profile layer; absolute or repository-relative. null or absent means no overlay."
+          },
           "surface": {
             "enum": [
               "desktop",

@@ -26,6 +26,7 @@ M1–M6 实现协议（2026-10-31）。对应[环境计划](development-environm
 | `targets[].profile` | profile 名 | 同 name 字符规则，不允许目录穿越 |
 | `targets[].surface` / `platform` | `desktop` 或 `web` / `windows` 或 `mac` | 必填；目标选择是一组完整字段 |
 | `targets[].binding` | 可选真实路径对象 | `target bind` 保存 cli/engine/entry/home/profile；每次使用重验。手写完整目标也执行路径隔离检查，但没有历史路径身份可比较 |
+| `targets[].patch` | 非空路径 / `null`，默认 `null` | 可选；日常 `web` 启动时作为最后一个 `--patch` 覆盖层应用。相对路径以仓库根解析，允许指向仓库外（如本机模型清单）。文件缺失、不是普通文件时启动失败；`daily-launcher` 部署暂不透传该字段并明确拒绝 |
 | `legacy.dshCli` | 路径或 `null` | 只保留 v1 待核对信息；任何命令都不将其当作宿主或目标 |
 
 所有对象拒绝未知字段。入口要求普通 Node 24；编译器、pnpm、开发 DSH 都由当前 `process.execPath` 执行。开发 DSH 只解析根 `devDependencies` 精确版本对应的 `node_modules/@deepseek-ai/dsh` 的公开 `bin`（当前为 `lib/bin.js`）。缺失或版本不符提示 `pnpm install --frozen-lockfile`，不查询 PATH、不回退到 `legacy.dshCli`。正式目标拒绝 workspace DSH 及其链接别名；Electron 目标保留自己的引擎。
@@ -54,7 +55,7 @@ node scripts/bootstrap.mjs config check
 
 `node scripts/bootstrap.mjs web`（本机 `dshweb`）默认选择已配置的 `daily` Web 目标，监听 `127.0.0.1:3080`。通过 `target bind daily --dsh-cli <外部普通Node版CLI> --home <原日常home> --profile web --surface web --platform windows` 明确绑定；macOS 使用 `--platform mac`。可用 `web --target NAME` 选择其他完整 Web 目标。启动重验目标身份，拒绝 Electron、workspace DSH、未初始化 profile、开发/测试路径重叠以及继承变量重定向；缺少 daily 绑定直接失败，不创建另一套空历史。
 
-日常启动不构建/安装插件，不应用仓库开发 patch，不迁移/复制历史或凭据；宿主正常使用已有 profile/home 层配置。`web status/stop` 通过自己的受认证控制接口管理本入口持有的子进程，停止保留数据；`web init/reset` 明确拒绝。管理记录/日志/pnpm shim 仅写 `.local/dsh-daily/<目标名>/`，数据仍在目标 home。不同 Node 引擎路径会触发绑定身份检查，使用正常终端的 Node 执行 bind 和 web；不自动重绑。开发、测试仍使用 workspace DSH。
+日常启动不构建/安装插件，不应用仓库开发 patch，不迁移/复制历史或凭据；宿主正常使用已有 profile/home 层配置。目标显式配置 `targets[].patch` 时，`web` 把该路径作为最后一个 `--patch` 覆盖层传给宿主（层序 bundle → profile → home → `--patch`），用于模型清单、端点等本机配置；未配置时不加载任何额外 YAML，文件缺失则启动前失败。`web status/stop` 通过自己的受认证控制接口管理本入口持有的子进程，停止保留数据；`web init/reset` 明确拒绝。管理记录/日志/pnpm shim 仅写 `.local/dsh-daily/<目标名>/`，数据仍在目标 home。不同 Node 引擎路径会触发绑定身份检查，使用正常终端的 Node 执行 bind 和 web；不自动重绑。开发、测试仍使用 workspace DSH。
 
 ## 持久开发环境（M3）
 
@@ -89,7 +90,7 @@ node scripts/bootstrap.mjs dev-web reset --yes
 | `config check` | 校验磁盘 v2/事务状态，输出工具诊断；不接受覆盖、不要求 DSH/pnpm 已安装 | 不使用运行时覆盖 |
 | `config migrate [--dry-run]` | 只读取磁盘旧值；不依赖 DSH/pnpm，不启动工具探测 | 不使用运行时覆盖 |
 | `build`、`pack`、`test` | 工具上下文；`--pnpm-script` | `DSH_PNPM` |
-| `web [start]/status/stop` | 日常目标上下文；默认 `daily`，可传 `--target NAME`；start 支持浏览器、超时、loopback `--host`、`--port`，默认 3080；无 init/reset | `DSH_PNPM`；不继承 DSH 目的地变量 |
+| `web [start]/status/stop` | 日常目标上下文；默认 `daily`，可传 `--target NAME`；start 支持浏览器、超时、loopback `--host`、`--port`，默认 3080；应用目标 `targets[].patch`；无 init/reset | `DSH_PNPM`；不继承 DSH 目的地变量 |
 | `dev-web [start]` | 开发上下文；`--open/--no-open`、`--browser`、`--browser-path`、`--startup-timeout`、loopback `--host`、`--port`，默认随机端口 | `DSH_PNPM`；无浏览器变量覆盖 |
 | `dev-web init/status/stop/reset` | 开发上下文；仅 reset 接受 `--yes`；status 同时显示开发插件安装状态 | `DSH_PNPM` 仅 init 需要 |
 | `dev-install` | 开发上下文；只安装开发 home；`--pnpm-script`、`--dry-run`、`--skip-build`、`--all` | `DSH_PNPM` |

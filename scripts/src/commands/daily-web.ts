@@ -10,6 +10,7 @@ import { checkDevelopmentPort } from '../core/development-process.js'
 import { createWebProcessControl, stopWebProcess, webProcessStatus } from '../core/web-process.js'
 import { startToFiles, stopChild, waitForHttp, waitForServerUrl } from '../core/exec.js'
 import { redactLaunchTokens } from '../core/web-harness.js'
+import { requireFile } from '../core/config-tools.js'
 import { openBrowser, webArguments } from './web.js'
 
 /** Daily data is selected by an explicit configured target, never inherited
@@ -54,6 +55,10 @@ export async function runDailyWeb(args: readonly string[], root = repoRoot, env:
   if (target.surface !== 'web') throw new Error('daily Web requires a Web target with a plain-Node CLI')
   // Refuse typo/new destinations instead of silently creating an empty history.
   if (!existsSync(join(profile, 'package.json'))) throw new Error('daily Web requires an existing initialized profile; check the bound target home/profile')
+  // Only an explicitly configured target overlay may extend the profile layer;
+  // its absence must never be silently replaced by an empty file. status/stop
+  // stay usable when that file was moved, so validate it only before starting.
+  const patch = target.patch ?? null
   const directory = join(root, '.local/dsh-daily', name)
   const runtime = join(directory, 'runtime.json')
   const logs = join(directory, 'logs'), bin = join(directory, 'bin'), lock = join(directory, 'operation.lock')
@@ -63,10 +68,11 @@ export async function runDailyWeb(args: readonly string[], root = repoRoot, env:
   }
   validate()
   const scope = { runtime, owner: digest(JSON.stringify({ root: realpathSync(root), name, identity })), validate }
-  console.log(`daily target: ${name}; home: ${target.home}; profile: ${target.profile}; CLI: ${target.dshCli}`)
+  console.log(`daily target: ${name}; home: ${target.home}; profile: ${target.profile}; CLI: ${target.dshCli}; patch: ${patch ?? 'none'}`)
   if (action === 'status') { console.log(`daily: ${await webProcessStatus(scope)}`); return 0 }
   if (action === 'stop') { await stopWebProcess(scope); console.log('daily stopped; data retained'); return 0 }
   const pnpm = configuredPnpm(context)
+  if (patch !== null) requireFile(patch, 'targets[].patch')
   mkdirSync(directory, { recursive: true })
   try { writeFileSync(lock, JSON.stringify({ pid: process.pid }), { flag: 'wx' }) }
   catch { throw new Error(`daily Web operation locked: ${lock}; inspect before manual recovery`) }
@@ -87,7 +93,7 @@ export async function runDailyWeb(args: readonly string[], root = repoRoot, env:
     control = await createWebProcessControl(scope, () => { requestedStop = true; void stop().catch(() => {}) })
     const childEnv = commandEnv(context)
     childEnv.PATH = `${bin}${delimiter}${childEnv.PATH ?? ''}`
-    started = startToFiles(runner.command, runner.build(['--profile', target.profile, '--no-open', '--host', host, '--port', String(port)]), {
+    started = startToFiles(runner.command, runner.build(['--profile', target.profile, ...(patch === null ? [] : ['--patch', patch]), '--no-open', '--host', host, '--port', String(port)]), {
       cwd: target.home, env: { ...childEnv, ...runner.env }, verbatim: runner.verbatim,
       stdoutPath: join(logs, 'web.out.log'), stderrPath: join(logs, 'web.err.log'),
     })
