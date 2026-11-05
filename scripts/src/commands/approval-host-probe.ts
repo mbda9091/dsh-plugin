@@ -12,7 +12,7 @@ import { artifactLock, assertArtifactsUnchanged, assertConsumed, loadArtifacts }
 import { artifactPrerequisites, installArtifactPackages } from '../core/artifact-harness.js'
 import { checkInstalledPackage } from '../core/artifact-package.js'
 
-const APPROVAL_PACKAGE = '@local/approval-allowlist'
+const APPROVAL_PACKAGE = '@mbda9091/approval-allowlist'
 
 export interface ApprovalProbeArtifactBinding {
   manifestPath: string; manifestSha256: string; batch: string; sourceSha256: string

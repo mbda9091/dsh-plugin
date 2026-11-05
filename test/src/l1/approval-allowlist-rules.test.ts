@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { matchesSubset, normalizeRule, ruleMismatch } from '@local/approval-allowlist'
-import type { Rule, ToolCallEvent } from '@local/approval-allowlist'
+import { matchesSubset, normalizeRule, ruleMismatch } from '@mbda9091/approval-allowlist'
+import type { Rule, ToolCallEvent } from '@mbda9091/approval-allowlist'
 
 /** Build the slice of `tool/call` that the matcher reads. */
 function toolCall(name: string, args: unknown): ToolCallEvent {

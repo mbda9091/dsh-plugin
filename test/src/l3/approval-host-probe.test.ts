@@ -16,11 +16,11 @@ import { makeTempDir, removeDir, repoRoot } from '../harness/tmp.js'
 
 function approvalFiles(surface = 'web', platform = 'mac') {
   const { files, manifest } = packageFixture()
-  manifest.name = '@local/approval-allowlist'
+  manifest.name = '@mbda9091/approval-allowlist'
   manifest.dsh.targets = { surfaces: [surface], platforms: [platform] }
   files['package.json'] = JSON.stringify(manifest)
   files['lib/index.js'] = "export const name='approval-allowlist'; export function apply() {}"
-  files['cordis.patch.yml'] = "- insert:\n    - id: approval-allowlist\n      name: '@local/approval-allowlist'\n"
+  files['cordis.patch.yml'] = "- insert:\n    - id: approval-allowlist\n      name: '@mbda9091/approval-allowlist'\n"
   files['locale/en.json'] = JSON.stringify({ meta: { title: 'Approval', description: `[${surface === 'web' ? 'Web' : 'Desktop'} · ${platform === 'mac' ? 'macOS' : 'Windows'}] Test` } })
   files['locale/zh.json'] = JSON.stringify({ meta: { title: '审批', description: `【${surface === 'web' ? 'Web' : '桌面'} · ${platform === 'mac' ? 'macOS' : 'Windows'}】测试` } })
   return files
@@ -45,7 +45,7 @@ it('L3 approval probe preserves full manifest identity and rejects wrong/missing
     const { set, item } = loadApprovalProbeArtifacts(root, path)
     assert.equal(set.manifest.packages.length, 2)
     assert.equal(set.hash, digest(readFileSync(path)))
-    assert.equal(item.name, '@local/approval-allowlist')
+    assert.equal(item.name, '@mbda9091/approval-allowlist')
     assert.throws(() => loadApprovalProbeArtifacts(root, join(dirname(path), 'missing.json')), /ENOENT/)
     const valid = readFileSync(path)
     writeFileSync(path, '{broken')
@@ -54,13 +54,13 @@ it('L3 approval probe preserves full manifest identity and rejects wrong/missing
     assert.throws(() => loadApprovalProbeArtifacts(root, path), /invalid\/future/)
     writeFileSync(path, valid)
     writeFileSync(join(dirname(path), 'alpha.tgz'), 'tampered unselected package')
-    assert.throws(() => loadApprovalProbeArtifacts(root, path), /artifact hash changed: @local\/alpha/)
+    assert.throws(() => loadApprovalProbeArtifacts(root, path), /artifact hash changed: @mbda9091\/alpha/)
     const fresh = manifestFixture(root)
     const approval = loadApprovalProbeArtifacts(root, fresh)
     writeFileSync(join(dirname(fresh), approval.item.path), 'tampered approval package')
     assert.throws(() => loadApprovalProbeArtifacts(root, fresh), /artifact hash changed/)
     const missing = manifestFixture(root, packageFixture().files)
-    assert.throws(() => loadApprovalProbeArtifacts(root, missing), /must contain @local\/approval-allowlist/)
+    assert.throws(() => loadApprovalProbeArtifacts(root, missing), /must contain @mbda9091\/approval-allowlist/)
     assert.equal(existsSync(join(root, '.local')), false)
   } finally { removeDir(root) }
 })
@@ -113,9 +113,9 @@ it('L3 approval fixed install selects only the declared package and rejects chan
     mkdirSync(runDir, { recursive: true })
     const context = { settings, runner: configuredDsh(settings, true), runDir, home: join(runDir, 'home'), logDir: join(runDir, 'logs'), options: { timeoutMs: 10000 } }
     const incompatible = loadArtifacts(f.root, manifestFixture(f.root, approvalFiles('web', 'windows')))
-    await assert.rejects(installArtifactPackages(context, incompatible, ['@local/approval-allowlist']), /missing or incompatible/)
+    await assert.rejects(installArtifactPackages(context, incompatible, ['@mbda9091/approval-allowlist']), /missing or incompatible/)
     const path = manifestFixture(f.root, approvalFiles(), true), { set, pkg } = loadApprovalProbeArtifacts(f.root, path)
-    await assert.rejects(installArtifactPackages(context, set, ['@local/unknown']), /missing or incompatible/)
+    await assert.rejects(installArtifactPackages(context, set, ['@mbda9091/unknown']), /missing or incompatible/)
     await assert.rejects(installArtifactPackages(context, set, []), /nonempty and unique/)
     await assert.rejects(installArtifactPackages(context, set, [pkg.name, pkg.name]), /nonempty and unique/)
     assert.equal(existsSync(trace), false)
@@ -128,7 +128,7 @@ it('L3 approval fixed install selects only the declared package and rejects chan
     writeFileSync(join(actual, 'lib/index.js'), '// replaced installed bytes')
     assert.throws(() => checkInstalledPackage(pkg, profile, f.root), /installed package content differs/)
     const source = join(f.root, 'approval-allowlist'), linkedProfile = join(runDir, 'linked-profile')
-    mkdirSync(source, { recursive: true }); mkdirSync(join(linkedProfile, 'node_modules/@local'), { recursive: true })
+    mkdirSync(source, { recursive: true }); mkdirSync(join(linkedProfile, 'node_modules/@mbda9091'), { recursive: true })
     symlinkSync(source, join(linkedProfile, 'node_modules', pkg.name), 'dir')
     assert.throws(() => checkInstalledPackage(pkg, linkedProfile, f.root), /resolves to repository source/)
   } finally { removeDir(f.root) }

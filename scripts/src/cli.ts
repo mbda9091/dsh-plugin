@@ -1,3 +1,4 @@
+import { runProfileInstall } from './commands/profile-install.js'
 import { parseArgs } from 'node:util'
 import { errorMessage } from './core/json.js'
 import { loadCommandContext } from './core/command-context.js'
@@ -13,8 +14,6 @@ import { runCi } from './commands/ci.js'
 import { runConfig } from './commands/config.js'
 import { runTestEnv } from './commands/test-env.js'
 import { runWeb } from './commands/web.js'
-import { runDailyWeb } from './commands/daily-web.js'
-import { runDailyLauncher } from './commands/daily-launcher.js'
 import { runPack } from './commands/pack.js'
 import { runInstall } from './commands/install.js'
 import { runTarget } from './commands/target.js'
@@ -29,19 +28,19 @@ const TARGET_OPTIONS = { target: { type: 'string' }, 'dsh-cli': { type: 'string'
 
 const USAGE = `Usage: node scripts/bootstrap.mjs [command] [options]
 
-Default command: web (also when only startup options are supplied).
+No command: show help. Daily launch is managed by the user.
+
+  install --target NAME [--only @mbda9091/name,...] [--rebuild] [--dry-run]  Install current tarballs and generate profile/mbda9091/cordis.patch.yml
 
   config init [--dry-run] | check | migrate [--dry-run]   Manage v2 disk configuration
   test-env --suite fast|real|all [--only ID,ID] [--keep] [--pnpm-script PATH]  CFG/TOOL/DEV/ISO/ART/TGT tests (per-case deadlines; no --timeout)
-  web [--target NAME] [--port PORT] [--open|--no-open] Foreground DSH (macos-web, 3080, no-open)
-  daily-launcher prepare|deploy --target NAME --destination PATH [--dry-run] Independent Windows launcher
   dev-web [init|start|status|stop|reset] Managed development Web (random port); reset previews
   build [--check]                     Build/type-check plugins
   pack [--skip-build]                 Build immutable batch; --skip-build requires matching source/output record
   verify-artifacts --manifest PATH [--check] [--keep]   Verify fixed tarballs; durable Web evidence
   dev-install [--skip-build]          Initialize development profile, build/install/verify links
   target discover|list|show NAME|bind NAME|unbind NAME   Manage explicit formal targets
-  stable-install --manifest PATH [--only @local/name,...] [--archive-root PATH] Install verified compatible tarballs
+  stable-install --manifest PATH [--only @mbda9091/name,...] [--archive-root PATH] Install verified compatible tarballs
     [--profile <name>] [--surface desktop|web] [--platform windows|mac] [--dry-run]
   status --target <name>             Read an explicitly selected target
   test [--only l1,l2,l3] [--skip-build] Run L1-L3
@@ -61,15 +60,23 @@ Runtime commands read local.json, then supported environment variables, then fla
 L4/L5 always create disposable profiles and never load the personal Web patch.`
 
 export async function main(argv: string[]): Promise<number> {
-  const defaultWeb = argv[0] === undefined || (argv[0].startsWith('-') && !['--help', '-h'].includes(argv[0]))
-  const command = defaultWeb ? 'web' : argv[0]!
-  const rest = defaultWeb ? argv : argv.slice(1)
+  const command = argv[0] ?? 'help'
+  const rest = argv.slice(1)
   if (['help', '--help', '-h'].includes(command) || (!['web', 'dev-web'].includes(command) && rest.includes('--help'))) {
     console.log(USAGE)
     return 0
   }
   try {
     switch (command) {
+      case 'web':
+      case 'daily-launcher': throw new Error('daily launch entry removed; manage daily DSH yourself; use dev-web for development')
+      case 'install': {
+        const { values } = parseArgs({ args: rest, options: { ...TOOL_OPTIONS, ...TARGET_OPTIONS,
+          only: { type: 'string' }, rebuild: { type: 'boolean', default: false },
+          'dry-run': { type: 'boolean', default: false }, 'archive-root': { type: 'string' },
+        } })
+        return await runProfileInstall({ only: values.only, rebuild: values.rebuild, dryRun: values['dry-run'], archiveRoot: values['archive-root'] }, settings(values, 'target'))
+      }
       case 'target': {
         const { values, positionals } = parseArgs({ args: rest, allowPositionals: true, options: {
           'dsh-cli': TARGET_OPTIONS['dsh-cli'], home: TARGET_OPTIONS.home, profile: TARGET_OPTIONS.profile,
@@ -98,8 +105,6 @@ export async function main(argv: string[]): Promise<number> {
           testTimeoutMs: parseTimeout(values['test-timeout']),
         })
       }
-      case 'web': return await runDailyWeb(rest)
-      case 'daily-launcher': return await runDailyLauncher(rest)
       case 'dev-web': return await runWeb(rest)
       case 'build': {
         const { values } = parseArgs({ args: rest, options: { ...TOOL_OPTIONS, check: { type: 'boolean', default: false } } })

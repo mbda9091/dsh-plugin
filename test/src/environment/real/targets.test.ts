@@ -59,7 +59,7 @@ it('TGT-04 independent real Node host receives accepted bytes with only selected
   assert.equal(delivery.packages[0]!.row, 'configured'); assert.equal(delivery.packages[0]!.loaded, 'unconfirmed')
   assertUnchangedOutsideProfile(homeBefore, snapshot(t.home)); assert.deepEqual(snapshot(t.host), hostBefore)
   assert.deepEqual(snapshot(join(f.root, '.local/dsh-dev')), developmentBefore)
-  await serveAndCheck(t.harness, 'manual-test-start', async (_url, stderr) => { assert.doesNotMatch(stderr, /did not activate|@local\//); return 'isolated target HTTP ready, no activation failure' })
+  await serveAndCheck(t.harness, 'manual-test-start', async (_url, stderr) => { assert.doesNotMatch(stderr, /did not activate|@mbda9091\//); return 'isolated target HTTP ready, no activation failure' })
   writeFileSync(join(process.env.DSH_ENV_TEST_RUN!, 'TGT-04-details.json'), JSON.stringify({ delivery, separateCli: t.harness.runner.source, selectedProfileOnly: true, hostUnchanged: true, developmentUnchanged: true, explicitTestStart: true }, null, 2))
 }, false))
 
@@ -69,7 +69,7 @@ it('TGT-05-real real add overwrites link and old tarball and update removes resi
   for (const [file, content] of pkg.files) { const path = join(source, file); mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, content) }
   const before = snapshot(source)
   await runDsh(t.harness, 'install-old-link', ['plugin', '--profile', 'web', 'add', source], t.home)
-  assert.equal(realpathSync(join(t.home, 'profiles/web/node_modules/@local/alpha')), realpathSync(source))
+  assert.equal(realpathSync(join(t.home, 'profiles/web/node_modules/@mbda9091/alpha')), realpathSync(source))
   let report = ''
   assert.equal(await runArtifactInstall(installOptions(t.set.path), t.context, p => { report = p }), 0)
   assert.notEqual(deliveryReport(report).packages[0]!.actual, realpathSync(source)); assert.deepEqual(snapshot(source), before)

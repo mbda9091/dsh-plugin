@@ -6,7 +6,7 @@
  * Connection `/api` bridge. The browser Client is the only consumer; the
  * operating system notification and tab focus remain the page's job.
  *
- * @module @local/notify-web
+ * @module @mbda9091/notify-web
  */
 import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
@@ -15,7 +15,7 @@ import {
   type ApprovalShowUpdate,
   type NotificationUpdate,
   type TriggerOptions,
-} from '@local/notify-host'
+} from '@mbda9091/notify-host'
 import { assertTarget } from './targets.js'
 
 // Re-exported so the unit tests can exercise target detection.

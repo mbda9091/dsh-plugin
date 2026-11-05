@@ -1,4 +1,4 @@
-# @local/notify-host
+# @mbda9091/notify-host
 
 `desktop-notify` 与 `notify-web` 共用的 Host 通知触发逻辑：
 

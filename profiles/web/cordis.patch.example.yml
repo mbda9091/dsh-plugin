@@ -16,7 +16,7 @@
       - '**\\node_modules'
       - '**\\.*'
 
-# Install @local/notify-web via the plugin manager before starting with this row.
+# Install @mbda9091/notify-web via the plugin manager before starting with this row.
 # To run without it, remove this row from your local patch.
 - id: notify-web
   config:

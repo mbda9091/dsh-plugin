@@ -5,7 +5,7 @@
  * without a live approval waterfall: exact tool name, subset of parsed
  * arguments, optional usage limit, optional expiry.
  *
- * @module @local/approval-allowlist/rules
+ * @module @mbda9091/approval-allowlist/rules
  */
 import { isDeepStrictEqual } from 'node:util'
 import type { SessionEvent } from '@deepseek-ai/dsh-session'

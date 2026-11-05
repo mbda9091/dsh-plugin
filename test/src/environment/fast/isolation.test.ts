@@ -42,7 +42,6 @@ it('ISO-02 unsafe homes rejected and independent processes own distinct homes st
 }))
 
 it('ISO-04 fast CLI works with broken disk config no plugin lib browser or real host', () => environmentCase('ISO-04', f => {
-  cpSync(join(sourceRoot, 'packages/daily-launcher/src'), join(f.root, 'packages/daily-launcher/src'), { recursive: true })
   for (const path of ['scripts/src', 'scripts/bootstrap.mjs', 'scripts/tsconfig.json', 'test/src/environment', 'test/src/harness', 'test/tsconfig.environment.json', 'test/tsconfig.json', 'tsconfig.base.json', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'profiles/web/cordis.dev.patch.yml', '.gitignore']) {
     cpSync(join(sourceRoot, path), join(f.root, path), { recursive: true })
   }

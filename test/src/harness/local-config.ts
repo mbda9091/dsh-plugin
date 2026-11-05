@@ -9,6 +9,10 @@ import { makeTempDir, repoRoot } from './tmp.js'
 export function configFixture() {
   const root = makeTempDir("local config-中文-'quote")
   const paths = configPaths(root)
+  for (const name of ['typescript', 'esbuild']) {
+    mkdirSync(join(root, 'node_modules', name), { recursive: true })
+    writeFileSync(join(root, 'node_modules', name, 'package.json'), JSON.stringify({ name, version: '1.0.0-fixture' }))
+  }
   for (const [source, destination] of [
     ['scripts/config/example.json', paths.example],
     ['scripts/config/schema.json', paths.schema],
@@ -46,6 +50,8 @@ export function developmentPatch(f: ReturnType<typeof configFixture>): string {
   for (const name of ['home', 'store', 'logs', 'bin']) mkdirSync(join(dirname(path), name), { recursive: true })
   writeFileSync(join(dirname(path), 'owner.json'), JSON.stringify({ version: 1, purpose: 'dsh-development', root: realpathSync(f.root), id: randomUUID(), initialized: true, links: {} }))
   for (const name of ['npmrc', 'global.npmrc']) writeFileSync(join(dirname(path), name), '')
+  mkdirSync(join(dirname(path), 'home/profiles/web'), { recursive: true })
+  writeFileSync(join(dirname(path), 'home/profiles/web/package.json'), JSON.stringify({ dependencies: {} }))
   writeFileSync(path, renderWebPatch(readFileSync(f.paths.patchExample, 'utf8'), f.root))
   return path
 }

@@ -1,6 +1,6 @@
 - insert:
     - id: desktop-notify
-      name: '@local/desktop-notify'
+      name: '@mbda9091/desktop-notify'
       config:
         notifyOnApproval: true
         notifyOnTurnEnd: true

@@ -226,11 +226,11 @@ Web 应用参数（`dsh web --help`）：
   $env:DSH_HOME = Join-Path $PWD '.tmp/dsh-home'
   dsh plugin --profile web add (Join-Path $PWD 'test/fixtures/web-hello')
   ```
-  结果：profile `package.json` 增加 `@local/web-hello` 的 `link:` 依赖，bundles 增加该包。
+  结果：profile `package.json` 增加 `@mbda9091/web-hello` 的 `link:` 依赖，bundles 增加该包。
 - L4 证据：
-  - `dsh --profile web --dump-config` 中出现 `id: web-hello`、`name: '@local/web-hello'`；
+  - `dsh --profile web --dump-config` 中出现 `id: web-hello`、`name: '@mbda9091/web-hello'`；
   - `dsh web` 返回的 HTML boot 数据包含
-    `{"id":"@local/web-hello","url":"plugins/??@local/web-hello/client.js...","immediately":true}`；
+    `{"id":"@mbda9091/web-hello","url":"plugins/??@mbda9091/web-hello/client.js...","immediately":true}`；
   - HTTP 200，说明 server 侧 loader 和 client module 注册都生效。
 - L5 脚本：`test/e2e/web-l5.mjs`
   - 使用 `playwright-core` + 系统 Chrome（不下载浏览器）；
@@ -528,7 +528,7 @@ Windows 默认浏览器改用系统 URL handler，新增回归断言 URL 作为�
 Windows / Node `24.19.0` 的独立验收：
 
 - 在 `.tmp/p0-review/source 中文/` 建立不含 PS 入口、个人配置和旧构建产物的源码副本，
-  复用已安装的第三方依赖，`@local/*` 指向副本自身；重新初始化副本配置，从其他 CWD 调用 Node CLI。
+  复用已安装的第三方依赖，`@mbda9091/*` 指向副本自身；重新初始化副本配置，从其他 CWD 调用 Node CLI。
 - `ci` 的 type-check、L1–L3、L4、L5 全部退出 0；**252 tests / 252 pass / 0 fail**。
   L4 覆盖真实安装/加载与 tarball，L5 覆盖 Web 基线、slot、主题/locale 和 SSE 通知。
   汇总位于 `.tmp/p0-review/source 中文/.tmp/ci/run-3RHznU/report.json`。
@@ -617,7 +617,7 @@ P1–P4 的工具/环境隔离、配置 repair/migrate 尚未实现。
 | D14 | 只读/构建脚本迁 TypeScript，`.ps1` 在安装脚本迁完前保留为薄壳；根 `package.json` 同时提供 `build`/`check`/`catalog`/`status` | 2026-10-24 | 已定（M3 落地） |
 | D15 | 插件发现改为 `dsh.bundle` 清单驱动；脚本层共享代码放 `scripts/src/core/`，不叫 `lib/`（`.gitignore` 会吞掉） | 2026-10-24 | 已定（实测修正） |
 | D16 | `catalog` 的表头与错误提示改指 `node scripts/bootstrap.mjs catalog`，与 TS 入口对齐 | 2026-10-24 | 已定（M3 落地） |
-| D17 | L1–L3 测试放 `test/src/`，用 `tsc -p test/tsconfig.json` 编译到 `test/.build`，再跑 `node --test --test-isolation=none --test-concurrency=1`；测试 import 插件的**已构建**入口（`@local/*` → `lib/index.js`），与 DSH 实际加载一致 | 2026-10-24 | 已定（M4 落地） |
+| D17 | L1–L3 测试放 `test/src/`，用 `tsc -p test/tsconfig.json` 编译到 `test/.build`，再跑 `node --test --test-isolation=none --test-concurrency=1`；测试 import 插件的**已构建**入口（`@mbda9091/*` → `lib/index.js`），与 DSH 实际加载一致 | 2026-10-24 | 已定（M4 落地） |
 | D18 | 插件导出纯函数/注册函数供 L1/L3 使用（脚本生成、转义、规则匹配、命令注册、事件订阅），`apply` 行为不变；不引入模块 mock | 2026-10-24 | 已定（M4 落地） |
 | D19 | L4 是单独的慢命令 `l4`（默认不随 `test` 跑）：一次性 `DSH_HOME`、真实 `dsh web`、无浏览器；失败保留日志/报告，成功清理重目录 | 2026-10-24 | 已定（M4 落地） |
 
@@ -664,7 +664,7 @@ M2：
 - [x] 最小 fixture `test/fixtures/web-hello` 创建。
 - [x] fixture 以 `link:` 装进 workspace-local web profile。
 - [x] `--dump-config` 出现 `web-hello` 行。
-- [x] Web HTML boot 数据包含 `@local/web-hello` client module。
+- [x] Web HTML boot 数据包含 `@mbda9091/web-hello` client module。
 - [x] L5 脚本 `test/e2e/web-l5.mjs` 就绪（playwright-core + Chrome + marker/console/screenshot）。
 - [x] 实际跑通 L5：`factory/applied/registered=true`，console/pageerror 为空，截图已生成。
 - [x] `conversation.composer.dock` 的注册、可见 DOM、交互与刷新单次渲染均由 M5 验证（§19）。
@@ -773,7 +773,7 @@ Windows / PowerShell 7 实测矩阵（每组均清除 `DSH_NODE`、`DSH_PROFILE`
 - `node scripts/bootstrap.mjs l4`：`prerequisites` + 七个检查阶段全部 PASS，报告写入
   `.tmp/l4/last-report.json`；关键 detail：
   - `install-link`：两个包均为 `link:` 依赖，bundles 与 `--dump-config` 行一致；
-  - `web-link`：`HTTP 200, boot HTML contains @local/web-hello, no activation warnings`；
+  - `web-link`：`HTTP 200, boot HTML contains @mbda9091/web-hello, no activation warnings`；
   - `web-mismatch`：loader stderr 出现 `entry did not activate` + `target-mismatch` +
     `target mismatch`，服务仍返回 200；
   - `install-tarball`：`local-approval-allowlist-0.1.0.tgz` 安装后 `node_modules` 不是链接；
@@ -800,7 +800,7 @@ Windows / PowerShell 7 实测矩阵（每组均清除 `DSH_NODE`、`DSH_PROFILE`
      `profileContext.startedBundles`；Electron 引擎启动的 web 仍会被判 desktop，已不再作为推荐路径。
 5. **脚本层 `declaration` 改为 true**：测试通过 `scripts/.build/core/*.js` 引用脚本层，
    tsc 需要相邻 `.d.ts`。这些声明只存在于 gitignored 的 `.build/`。
-6. **测试直接 import 已构建的插件入口**（`@local/*` → `lib/index.js`）：L2/L3 因此验证的是
+6. **测试直接 import 已构建的插件入口**（`@mbda9091/*` → `lib/index.js`）：L2/L3 因此验证的是
    DSH 实际加载的产物；`test` 默认先构建，`--skip-build` 仅用于迭代。
 7. **根 `@types/node` 仍靠提升**：与 §7.4 记录一致，L1–L3 也依赖这一点；
    未在本轮重新引入根 devDependency（避免再次卡在 pnpm install）。
@@ -834,7 +834,7 @@ Windows / PowerShell 7 实测矩阵（每组均清除 `DSH_NODE`、`DSH_PROFILE`
   "webStartup": false,
   "webServer": false,
   "profileName": "web",
-  "startedBundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "@local/..."],
+  "startedBundles": ["@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "@mbda9091/..."],
   "argv": ["...\\node.exe", "...\\@deepseek-ai\\dsh\\lib\\bin.js", "web", "--no-open", ...]
 }
 ```

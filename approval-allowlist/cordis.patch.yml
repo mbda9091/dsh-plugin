@@ -3,4 +3,4 @@
 # row; the built-in default is observe-only.
 - insert:
     - id: approval-allowlist
-      name: '@local/approval-allowlist'
+      name: '@mbda9091/approval-allowlist'

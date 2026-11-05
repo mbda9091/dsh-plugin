@@ -228,13 +228,13 @@ describe('L1 scripts/core: plugin discovery basics', () => {
       mkdirSync(withBundle, { recursive: true })
       writeFileSync(
         join(withBundle, 'package.json'),
-        JSON.stringify({ name: '@local/b-plugin', version: '1.0.0', dsh: { bundle: { patch: './cordis.patch.yml' }, targets: { surfaces: ['web'], platforms: ['windows'] } } }),
+        JSON.stringify({ name: '@mbda9091/b-plugin', version: '1.0.0', dsh: { bundle: { patch: './cordis.patch.yml' }, targets: { surfaces: ['web'], platforms: ['windows'] } } }),
         'utf8',
       )
 
       const withoutBundle = join(repo, 'a-tool')
       mkdirSync(withoutBundle, { recursive: true })
-      writeFileSync(join(withoutBundle, 'package.json'), JSON.stringify({ name: '@local/a-tool' }), 'utf8')
+      writeFileSync(join(withoutBundle, 'package.json'), JSON.stringify({ name: '@mbda9091/a-tool' }), 'utf8')
 
       const skipped = ['node_modules', 'dist', '.hidden']
       for (const name of skipped) {
@@ -262,7 +262,7 @@ describe('L1 scripts/core: plugin discovery basics', () => {
     const plugins = discoverPlugins(repoRoot)
     assert.deepEqual(plugins.map((plugin) => plugin.dirName), ['app-restart', 'approval-allowlist', 'desktop-notify', 'notify-web'])
     for (const plugin of plugins) {
-      assert.equal(plugin.packageName, `@local/${plugin.dirName}`)
+      assert.equal(plugin.packageName, `@mbda9091/${plugin.dirName}`)
       assert.equal(plugin.dir, join(repoRoot, plugin.dirName))
       assert.ok(plugin.surfaces.length > 0)
       assert.ok(plugin.platforms.length > 0)

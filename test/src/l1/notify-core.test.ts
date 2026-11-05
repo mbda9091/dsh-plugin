@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { approvalContent, clip, fallbackTranslate, turnEndContent } from '@local/notify-core'
+import { approvalContent, clip, fallbackTranslate, turnEndContent } from '@mbda9091/notify-core'
 
 const zh = fallbackTranslate('zh')
 const en = fallbackTranslate('en')

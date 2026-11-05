@@ -4,7 +4,13 @@ import { join, relative } from 'node:path'
 import { sourceState } from './artifacts.js'
 import type { SourceState } from './artifacts.js'
 import { digest, safeConfigPath } from './config-transaction.js'
+import { expectedPnpm } from './toolchain.js'
 import { discoverPlugins } from './plugins.js'
+
+export function toolFingerprint(root: string) {
+  const version = (name: string) => JSON.parse(readFileSync(join(root, 'node_modules', name, 'package.json'), 'utf8')).version as string
+  return { node: process.version, platform: process.platform, arch: process.arch, pnpm: expectedPnpm(root), typescript: version('typescript'), esbuild: version('esbuild') }
+}
 
 function outputs(root: string): Record<string, string> {
   const files: Record<string, string> = {}
@@ -32,14 +38,14 @@ export function beginBuild(root: string): SourceState {
 export function completeBuild(root: string, source: SourceState): void {
   if (!source.build || JSON.stringify(sourceState(root)) !== JSON.stringify(source)) throw new Error('source changed during build; rebuild before packing')
   const path = join(root, 'dist/build-record.json'); safeConfigPath(root, path)
-  writeFileSync(path, JSON.stringify({ version: 1, source, outputs: outputs(root) }, null, 2) + '\n')
+  writeFileSync(path, JSON.stringify({ version: 1, source, fingerprint: toolFingerprint(root), outputs: outputs(root) }, null, 2) + '\n')
 }
 
 export function assertCurrentBuild(root: string): void {
   const path = join(root, 'dist/build-record.json'); safeConfigPath(root, path)
   if (!existsSync(path)) throw new Error('missing successful build record; run build before pack --skip-build')
   const record = JSON.parse(readFileSync(path, 'utf8'))
-  if (record.version !== 1 || !record.source?.build || JSON.stringify(record.source) !== JSON.stringify(sourceState(root))
+  if (JSON.stringify(record.fingerprint) !== JSON.stringify(toolFingerprint(root)) || record.version !== 1 || !record.source?.build || JSON.stringify(record.source) !== JSON.stringify(sourceState(root))
     || JSON.stringify(record.outputs) !== JSON.stringify(outputs(root))) {
     throw new Error('stale build: source or outputs changed, or build did not finish; run build before packing')
   }

@@ -1,3 +1,4 @@
+import { commitProfilePatch, planProfilePatch, packageDefaults } from '../core/profile-patch.js'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import { basename, delimiter, dirname, isAbsolute, join, resolve } from 'node:path'
 import { createHash } from 'node:crypto'
@@ -44,6 +45,7 @@ export interface DeliveryReport {
   status: 'installing' | 'installed' | 'needs-attention' | 'failed'; target: ReturnType<typeof inspectTarget>['target']
   identity: ReturnType<typeof inspectTarget>['identity']; host: string; packages: DeliveryPackage[]; error?: string
   packageConfiguration: 'system'
+  configuration?: { status: string; path: string; added: string[]; preserved: string[]; backup?: string | null }
 }
 
 /** CLI output is diagnostics, never positive evidence of runtime activation. */
@@ -61,7 +63,7 @@ export function checkDeliveryRow(output: string, name: string): void {
   const visit = (value: unknown) => {
     if (Array.isArray(value)) value.forEach(visit)
     else if (isRecord(value)) {
-      if (value.id === name.slice(7)) rows.push(value)
+      if (value.id === name.split('/').at(-1)!) rows.push(value)
       if (Array.isArray(value.group)) visit(value.group)
     }
   }
@@ -71,6 +73,14 @@ export function checkDeliveryRow(output: string, name: string): void {
 
 /** Preflight all selected packages before the first target write. Never repack. */
 export async function runArtifactInstall(options: InstallOptions, context: CommandContext, onReport?: (path: string) => void): Promise<number> {
+  return deliver(options, context, false, onReport)
+}
+
+/** Separate direct entry; the stable public command never bypasses verification. */
+export async function runDirectArtifactInstall(options: InstallOptions, context: CommandContext): Promise<number> {
+  return deliver(options, context, true)
+}
+async function deliver(options: InstallOptions, context: CommandContext, direct: boolean, onReport?: (path: string) => void): Promise<number> {
   if (context.purpose !== 'target' || !options.manifest) throw new Error('stable-install requires an explicit target and --manifest; run pack then verify-artifacts')
   if (options.all) throw new Error('--all cannot bypass artifact target coverage')
   const configPath = join(context.root, 'scripts/config/local.json')
@@ -103,7 +113,8 @@ export async function runArtifactInstall(options: InstallOptions, context: Comma
       verbatim: runner.verbatim, timeoutMs: 30_000, stdoutPath: join(scratch, 'version.out'), stderrPath: join(scratch, 'version.err') })
     const host = /\b\d+\.\d+\.\d+(?:-[\w.-]+)?\b/.exec(version.stdout.trim())?.[0]
     if (version.status !== 0 || !host) throw new Error('cannot determine selected target DSH version')
-    const evidence = readVerification(set, target, host, selected.map(p => p.name))
+    const evidence = direct ? undefined : readVerification(set, target, host, selected.map(p => p.name))
+    const patchPlan = direct ? planProfilePatch(directory, selected.map(p => packageDefaults(set.packages.get(p.name)!))) : undefined
     const packages: DeliveryPackage[] = set.manifest.packages.map(p => ({ name: p.name, sha256: p.sha256, selected: selected.includes(p),
       reason: selected.includes(p) ? 'selected' : isTargetCompatible(p, target) ? 'not selected by --only' : 'incompatible surface/platform',
       status: selected.includes(p) ? 'not-attempted' : 'skipped', stage: 'preflight', bundle: 'unconfirmed', row: 'unconfirmed', loaded: 'unconfirmed', capability: 'unverified', warnings: [] }))
@@ -114,11 +125,12 @@ export async function runArtifactInstall(options: InstallOptions, context: Comma
       p.before = { spec: typeof beforeManifest.dependencies?.[p.name] === 'string' ? redactLaunchTokens(beforeManifest.dependencies[p.name]) : null, actual }
     }
     console.log(JSON.stringify({ target: initial.target, identity: initial.identity, host, manifest: set.path, manifestSha256: set.hash,
-      coverage: evidence.coverage.filter(c => selected.some(p => p.name === c.name)),
+      coverage: evidence?.coverage.filter(c => selected.some(p => p.name === c.name)) ?? [],
       packages: packages.map(p => ({ ...p, path: join(dirname(set.path), set.manifest.packages.find(a => a.name === p.name)!.path), operations: p.selected ? ['dsh plugin add', 'pnpm update', 'verify spec/path/content/bundle'] : [] })),
       inputsAndLogs: scratch, archiveRoot, persistentReceipts: archiveRoot ? join(dirname(archiveRoot), 'receipts') : undefined, packageConfiguration: 'system', dryRun: options.dryRun }, null, 2))
     if (options.dryRun) return 0
     const report: DeliveryReport = { version: 1, batch: set.manifest.batch, manifestSha256: set.hash, startedAt: new Date().toISOString(), status: 'installing', target: initial.target, identity: initial.identity, host, packageConfiguration: 'system', packages }
+    if (patchPlan) report.configuration = { status: 'pending', path: patchPlan.path, added: patchPlan.added, preserved: patchPlan.preserved }
     const reportPath = join(scratch, 'report.json'), candidate = join(scratch, 'report.next.json')
     const save = () => {
       safeConfigPath(context.root, reportPath); writeFileSync(candidate, JSON.stringify(report, null, 2) + '\n'); renameSync(candidate, reportPath)
@@ -128,7 +140,7 @@ export async function runArtifactInstall(options: InstallOptions, context: Comma
       if ((existsSync(configPath) ? digest(readFileSync(configPath)) : null) !== configHash) throw new Error('configuration changed during delivery; preview again')
       const next = inspectTarget(context)
       if (JSON.stringify(next.identity) !== JSON.stringify(initial.identity)) throw new Error('target real paths changed during delivery')
-      assertArtifactsUnchanged(set); readVerification(set, target, host, selected.map(p => p.name))
+      assertArtifactsUnchanged(set); if (!direct) readVerification(set, target, host, selected.map(p => p.name))
       if (archiveRoot) {
         archiveLocation(context.root, initial.target.home, archiveRoot)
         for (const p of packages) if (p.selected && p.archive) { plainPath(p.archive); if (digest(readFileSync(p.archive)) !== p.sha256) throw new Error('external archive changed during delivery') }
@@ -165,7 +177,7 @@ export async function runArtifactInstall(options: InstallOptions, context: Comma
         if (!spec.startsWith('file:') || resolve(directory, spec.slice(5)) !== active.archive) throw new Error(`dependency spec does not reference delivered snapshot: ${p.name}`)
         if (archiveRoot) checkDeliveryLock(directory, p.name, active.archive!)
         active.bundle = 'registered'; active.status = 'installed'; active.stage = 'complete'; save()
-        if (target.surface === 'web') {
+        if (!direct && target.surface === 'web') {
           const composed = await execute('rows', runner.command, runner.build(['--profile', initial.target.profile, '--dump-config']), scratch)
           try { checkDeliveryRow(composed.stdout, p.name); active.row = 'configured' }
           catch (error) { active.row = 'failed'; throw error }
@@ -174,6 +186,10 @@ export async function runArtifactInstall(options: InstallOptions, context: Comma
         if (active.loaded === 'failed') throw new Error(`host reported loading failure: ${p.name}`)
       }
       recheck()
+      if (patchPlan) {
+        report.configuration!.backup = commitProfilePatch(patchPlan)
+        report.configuration!.status = 'generated; explicit user loading required'
+      }
       report.status = packages.some(p => p.warnings.length || p.loaded === 'failed') ? 'needs-attention' : 'installed'
     } catch (error) {
       const message = redactLaunchTokens(error instanceof Error ? error.message : 'delivery failed')

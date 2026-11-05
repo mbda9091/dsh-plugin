@@ -8,7 +8,7 @@ import type { PackageContent } from './artifact-package.js'
 
 export interface SourceState { commit: string | null; dirty: string; sha256: string; files: Record<string, string>; build: string | null }
 export interface Artifact { path: string; name: string; version: string; sha256: string; surfaces: string[]; platforms: string[]; client: boolean; files: Record<string, string> }
-export interface ArtifactManifest { version: 1; batch: string; createdAt: string; source: SourceState; tools: { node: string; pnpm: string }; packages: Artifact[] }
+export interface ArtifactManifest { version: 1; batch: string; createdAt: string; source: SourceState; fingerprint?: Record<string, string>; tools: { node: string; pnpm: string }; packages: Artifact[] }
 export interface ArtifactSet { root: string; path: string; hash: string; manifest: ArtifactManifest; packages: Map<string, PackageContent> }
 const json = (value: unknown) => JSON.stringify(value, null, 2) + '\n'
 

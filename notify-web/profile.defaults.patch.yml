@@ -1,0 +1,11 @@
+- id: notify-web
+  name: '@mbda9091/notify-web'
+  config:
+    notifyOnApproval: true
+    approvalDelayMs: 300
+    notifyOnTurnEnd: true
+    notifyOnTurnError: true
+    heartbeatMs: 15000
+    replayWindowMs: 120000
+    maxReplayEntries: 256
+    maxQueuedUpdates: 256

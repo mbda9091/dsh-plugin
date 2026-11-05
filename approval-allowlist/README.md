@@ -1,4 +1,4 @@
-# @local/approval-allowlist
+# @mbda9091/approval-allowlist
 
 按**精确工具调用参数**免除重复审批。默认 `observe`，不会自动放行；不修改 DSH 的 sandbox policy，不新增目录读写权限。
 
@@ -105,7 +105,7 @@ node scripts/bootstrap.mjs verify-artifacts --manifest dist/batches/<batch>/mani
 正式安装需用户显式选择已绑定目标，并且宿主版本与成功证据一致：
 
 ```text
-node scripts/bootstrap.mjs stable-install --target <mac-web-target> --manifest dist/batches/<batch>/manifest.json --only @local/approval-allowlist --dry-run
+node scripts/bootstrap.mjs stable-install --target <mac-web-target> --manifest dist/batches/<batch>/manifest.json --only @mbda9091/approval-allowlist --dry-run
 # 确认预览与目标后，再移除 --dry-run 执行。不要以开发宿主或旧版本证据替代目标验证。
 ```
 

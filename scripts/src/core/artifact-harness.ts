@@ -12,7 +12,7 @@ export function webArtifacts(set: ArtifactSet) {
 }
 export function artifactPrerequisites(context: WebHarness, set: ArtifactSet): string {
   assertArtifactsUnchanged(set); ensurePnpmShim(context)
-  for (const item of set.manifest.packages) checkPackageImports(set.packages.get(item.name)!, join(context.runDir, 'contracts', item.name.slice(7)))
+  for (const item of set.manifest.packages) checkPackageImports(set.packages.get(item.name)!, join(context.runDir, 'contracts', item.name.split('/').at(-1)!))
   return `package contracts/imports passed; manifest SHA-256 ${set.hash}`
 }
 export async function installArtifacts(context: WebHarness, set: ArtifactSet): Promise<string> {
@@ -33,7 +33,7 @@ export async function installArtifactPackages(context: WebHarness, set: Artifact
   const evidence = []
   for (const item of selected) {
     const archive = copyArtifact(set, item, join(context.runDir, 'inputs', item.path))
-    await runDsh(context, `install-${item.name.slice(7)}`, ['plugin', '--profile', 'web', 'add', archive], context.home)
+    await runDsh(context, `install-${item.name.split('/').at(-1)!}`, ['plugin', '--profile', 'web', 'add', archive], context.home)
     assertConsumed(set, item, archive)
     const actual = checkInstalledPackage(set.packages.get(item.name)!, join(context.home, 'profiles/web'), set.root)
     evidence.push({ name: item.name, sha256: item.sha256, actual })

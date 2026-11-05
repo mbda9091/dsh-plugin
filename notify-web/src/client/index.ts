@@ -1,5 +1,5 @@
 /**
- * Browser entry for `@local/notify-web`.
+ * Browser entry for `@mbda9091/notify-web`.
  *
  * The Host owns all trigger decisions and publishes serializable updates on an
  * authenticated SSE route. This page consumes that stream, formats copy with the
@@ -17,9 +17,9 @@ import {
   turnEndContent,
   zh,
   en,
-} from '@local/notify-core'
-import type { NotificationContent, Translate, TurnEndReason } from '@local/notify-core'
-import type { ApprovalShowUpdate, NotificationUpdate } from '@local/notify-host'
+} from '@mbda9091/notify-core'
+import type { NotificationContent, Translate, TurnEndReason } from '@mbda9091/notify-core'
+import type { ApprovalShowUpdate, NotificationUpdate } from '@mbda9091/notify-host'
 
 /** Client locale namespace owned by this plugin. */
 const NS = 'notify-web'
@@ -595,7 +595,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
 }
 
 window.__ModuleLoader__.load({
-  id: '@local/notify-web',
+  id: '@mbda9091/notify-web',
   factory(_require: (name: string) => unknown): DshClientPlugin {
     return {
       inject: ['uiWorkspace', 'locale'],

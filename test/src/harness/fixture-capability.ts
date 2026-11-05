@@ -15,7 +15,7 @@ export const checkFixtureCapabilities: HostCapabilityCheck = async (context, set
     const module = await import(pathToFileURL(join(actual, pkg.entry)).href)
     let handler: (() => string) | undefined
     module.apply({ on: (event: string, callback: () => string) => { assert.equal(event, 'fixture/check'); handler = callback } })
-    assert.ok(handler); assert.equal(handler(), item.name.slice(7))
+    assert.ok(handler); assert.equal(handler(), item.name.split('/').at(-1)!)
     evidence.push({ name: item.name, sha256: item.sha256, adapter: 'fixture-v1', checks: ['registration', 'response'], status: 'passed' })
   }
   return JSON.stringify(evidence)

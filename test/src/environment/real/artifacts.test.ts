@@ -1,6 +1,6 @@
 import { workspaceDshVersion } from '../../harness/dsh-version.js'
 import assert from 'node:assert/strict'
-import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { environmentCase, environmentTest as it, sourceRoot } from '../../harness/environment.js'
 import type { fixture } from '../../harness/environment.js'
@@ -29,12 +29,16 @@ async function prepare(f: ReturnType<typeof fixture>) {
   config.tools.pnpmScript = process.env.DSH_ENV_TEST_PNPM
   built ??= runBuild({ check: false }, { root: sourceRoot, config, env: { ...process.env }, purpose: 'test' })
   assert.equal(await built, 0)
-  for (const path of ['package.json', 'lib', 'locale', 'icon.svg', 'cordis.patch.yml', 'README.md']) cpSync(join(sourceRoot, 'notify-web', path), join(f.root, 'notify-web', path), { recursive: true })
+  for (const path of ['package.json', 'lib', 'locale', 'icon.svg', 'cordis.patch.yml', 'profile.defaults.patch.yml', 'README.md']) cpSync(join(sourceRoot, 'notify-web', path), join(f.root, 'notify-web', path), { recursive: true })
   f.config.test.browser = process.env.DSH_ENV_TEST_BROWSER || process.env.DSH_E2E_BROWSER || 'chrome'
   f.config.test.browserPath = process.env.DSH_ENV_TEST_BROWSER_PATH || process.env.CHROME_PATH || null
   f.config.test.timeoutMs = 120_000; f.write()
   const settings = loadCommandContext({}, f.root, { ...process.env, DSH_PNPM: process.env.DSH_ENV_TEST_PNPM }, 'test')
   // These inputs were compiled above, then copied into a separate fixture.
+  for (const name of ['typescript', 'esbuild']) {
+    mkdirSync(join(f.root, 'node_modules', name), { recursive: true })
+    writeFileSync(join(f.root, 'node_modules', name, 'package.json'), readFileSync(join(sourceRoot, 'node_modules', name, 'package.json')))
+  }
   completeBuild(f.root, beginBuild(f.root))
   let manifest = ''
   assert.equal(await runPack({ skipBuild: true }, settings, path => { manifest = path }), 0)
@@ -62,8 +66,8 @@ it('ART-02-real replaced same-version bytes fail before any profile creation', {
 it('ART-04-real real Web acceptance explicitly refuses desktop other platform and untested host', { timeout: 360_000 }, () => environmentCase('ART-04-real', async f => {
   const { settings, set, manifest } = await prepare(f)
   assert.equal(await runVerifyArtifacts({ manifest, keep: false }, settings), 0)
-  const target = resolveTarget({ surface: 'web' }), record = readVerification(set, target, workspaceDshVersion, ['@local/notify-web'])
-  for (const [scope, host] of [[{ ...target, surface: 'desktop' as const }, workspaceDshVersion], [{ ...target, platform: target.platform === 'windows' ? 'mac' as const : 'windows' as const }, workspaceDshVersion], [target, '0.2.2']] as const) assert.throws(() => validateVerification(set, record, scope, host, ['@local/notify-web']))
+  const target = resolveTarget({ surface: 'web' }), record = readVerification(set, target, workspaceDshVersion, ['@mbda9091/notify-web'])
+  for (const [scope, host] of [[{ ...target, surface: 'desktop' as const }, workspaceDshVersion], [{ ...target, platform: target.platform === 'windows' ? 'mac' as const : 'windows' as const }, workspaceDshVersion], [target, '0.2.2']] as const) assert.throws(() => validateVerification(set, record, scope, host, ['@mbda9091/notify-web']))
 }, false))
 
 it('ART-05-real competing packs serialize unique batches and replacement during real consumption fails', { timeout: 240_000 }, () => environmentCase('ART-05-real', async f => {
@@ -92,12 +96,12 @@ it('ART-06 actual notify-web package contracts L4 L5 and durable evidence share 
   const { settings, set, manifest } = await prepare(f)
   assert.equal(await runVerifyArtifacts({ manifest, keep: false }, settings), 0)
   const target = resolveTarget({ surface: 'web' }), path = verificationPath(set, target.platform)
-  const record = readVerification(set, target, workspaceDshVersion, ['@local/notify-web'])
+  const record = readVerification(set, target, workspaceDshVersion, ['@mbda9091/notify-web'])
   assert.equal(record.functions.l4?.ok, true); assert.equal(record.functions.l5?.ok, true)
   assert.equal(record.environment.length, 2)
   writeFileSync(join(process.env.DSH_ENV_TEST_RUN!, 'ART-06-details.json'), JSON.stringify({ manifest: set.manifest, record }, null, 2))
   rmSync(join(f.root, '.tmp'), { recursive: true })
-  assert.ok(existsSync(path)); readVerification(set, target, workspaceDshVersion, ['@local/notify-web'])
+  assert.ok(existsSync(path)); readVerification(set, target, workspaceDshVersion, ['@mbda9091/notify-web'])
 }, false))
 
 const approvalPlugin = discoverPlugins(sourceRoot).find(plugin => plugin.dirName === 'approval-allowlist')
@@ -113,23 +117,27 @@ it('ART-07 fixed approval-allowlist exercises real behavior and rejects a no-op 
   const { settings } = await prepare(f)
   // Only the fixture package is removed; the repository source is never edited.
   rmSync(join(f.root, 'notify-web'), { recursive: true })
-  for (const path of ['package.json', 'lib', 'locale', 'examples', 'icon.svg', 'cordis.patch.yml', 'README.md']) cpSync(join(sourceRoot, 'approval-allowlist', path), join(f.root, 'approval-allowlist', path), { recursive: true })
+  for (const path of ['package.json', 'lib', 'locale', 'examples', 'icon.svg', 'cordis.patch.yml', 'profile.defaults.patch.yml', 'README.md']) cpSync(join(sourceRoot, 'approval-allowlist', path), join(f.root, 'approval-allowlist', path), { recursive: true })
+  for (const name of ['typescript', 'esbuild']) {
+    mkdirSync(join(f.root, 'node_modules', name), { recursive: true })
+    writeFileSync(join(f.root, 'node_modules', name, 'package.json'), readFileSync(join(sourceRoot, 'node_modules', name, 'package.json')))
+  }
   completeBuild(f.root, beginBuild(f.root))
   let manifest = ''
   assert.equal(await runPack({ skipBuild: true }, settings, p => { manifest = p }), 0)
   const set = loadArtifacts(f.root, manifest)
   assert.equal(await runVerifyArtifacts({ manifest, keep: false }, settings), 0)
   const target = resolveTarget({ surface: 'web' })
-  const good = readVerification(set, target, workspaceDshVersion, ['@local/approval-allowlist'])
+  const good = readVerification(set, target, workspaceDshVersion, ['@mbda9091/approval-allowlist'])
   assert.ok(good.functions.l4!.steps.some(s => s.name === 'host-capabilities' && s.ok))
-  const files = Object.fromEntries(set.packages.get('@local/approval-allowlist')!.files)
+  const files = Object.fromEntries(set.packages.get('@mbda9091/approval-allowlist')!.files)
   files['lib/index.js'] = Buffer.from("export const name='approval-allowlist'; export function apply() {}")
   const broken = artifactFixture(f.root, tarball(files))
   assert.equal(await runVerifyArtifacts({ manifest: broken.path, keep: false }, settings), 1)
   const failed = JSON.parse(readFileSync(verificationPath(broken, target.platform), 'utf8'))
   assert.equal(failed.status, 'failed')
   assert.equal(failed.functions.l4.steps.find((s: { name: string }) => s.name === 'host-capabilities').ok, false)
-  assert.throws(() => readVerification(broken, target, workspaceDshVersion, ['@local/approval-allowlist']))
+  assert.throws(() => readVerification(broken, target, workspaceDshVersion, ['@mbda9091/approval-allowlist']))
   const unknown = artifactFixture(f.root)
   await assert.rejects(checkHostCapabilities({ settings } as Parameters<typeof checkHostCapabilities>[0], unknown), /lacks a capability adapter/)
   writeFileSync(join(process.env.DSH_ENV_TEST_RUN!, 'ART-07-details.json'), JSON.stringify({ good, failed, unknownAdapterRejected: true }, null, 2))

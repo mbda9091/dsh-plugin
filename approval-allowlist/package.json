@@ -1,5 +1,5 @@
 {
-  "name": "@local/approval-allowlist",
+  "name": "@mbda9091/approval-allowlist",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -22,7 +22,8 @@
     "icon.svg",
     "README.md",
     "examples/*.json",
-    "examples/*.yml"
+    "examples/*.yml",
+    "profile.defaults.patch.yml"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -39,10 +40,19 @@
     "typescript": "7.0.2"
   },
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "targets": {
-      "surfaces": ["web"],
-      "platforms": ["mac"]
+      "surfaces": [
+        "web"
+      ],
+      "platforms": [
+        "mac"
+      ]
     }
+  },
+  "dshPlugin": {
+    "profileDefaults": "./profile.defaults.patch.yml"
   }
 }

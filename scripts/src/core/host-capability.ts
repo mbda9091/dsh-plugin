@@ -57,7 +57,7 @@ export async function checkApprovalCapability(plugin: unknown, directory: string
 export const checkHostCapabilities: HostCapabilityCheck = async (context, set) => {
   const evidence: HostCapabilityEvidence[] = []
   for (const pkg of webArtifacts(set).filter(p => !p.client)) {
-    if (pkg.name !== '@local/approval-allowlist') throw new Error(`Host plugin lacks a capability adapter: ${pkg.name}`)
+    if (pkg.name !== '@mbda9091/approval-allowlist') throw new Error(`Host plugin lacks a capability adapter: ${pkg.name}`)
     const content = set.packages.get(pkg.name)!
     const actual = checkInstalledPackage(content, join(context.home, 'profiles/web'), set.root)
     const script = `import {checkApprovalCapability} from ${JSON.stringify(import.meta.url)}; await checkApprovalCapability(await import(${JSON.stringify(pathToFileURL(join(actual, content.entry)).href)}), ${JSON.stringify(context.runDir)});`

@@ -88,11 +88,11 @@ it('DEV-04 duplicate instances, occupied ports, timeout and stale PIDs are safe'
 it('DEV-05 reset validates ownership and unlinks only verified source links', () => environmentCase('DEV-05', async f => {
   const d = prepareDevelopment(f), p = developmentPaths(f.root)
   await runWeb(['init'], f.root, d.env)
-  const plugin = { packageName: '@local/fixture', dir: join(f.root, 'fixture') }
+  const plugin = { packageName: '@mbda9091/fixture', dir: join(f.root, 'fixture') }
   mkdirSync(plugin.dir); writeFileSync(join(plugin.dir, 'sentinel'), 'source')
   recordDevelopmentLinks(d.context, [plugin])
-  mkdirSync(join(p.profile, 'node_modules/@local'), { recursive: true })
-  symlinkSync(plugin.dir, join(p.profile, 'node_modules/@local/fixture'), process.platform === 'win32' ? 'junction' : 'dir')
+  mkdirSync(join(p.profile, 'node_modules/@mbda9091'), { recursive: true })
+  symlinkSync(plugin.dir, join(p.profile, 'node_modules/@mbda9091/fixture'), process.platform === 'win32' ? 'junction' : 'dir')
   const source = snapshot(plugin.dir), before = snapshot(p.directory)
   await runWeb(['reset'], f.root, d.env); assert.deepEqual(snapshot(p.directory), before)
   const owner = readFileSync(p.owner)

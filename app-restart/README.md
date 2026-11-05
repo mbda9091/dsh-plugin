@@ -1,4 +1,4 @@
-# @local/app-restart
+# @mbda9091/app-restart
 
 在对话输入框里输入 `/restart`，自动重启 DeepSeek Harness 桌面应用（包含 Host），不用手动关闭再打开。
 

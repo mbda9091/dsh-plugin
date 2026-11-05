@@ -35,7 +35,7 @@ export async function runVerifyArtifacts(input: { manifest: string; keep: boolea
       validateArtifactReport(record.functions.l4, 'l4', artifacts, record.startedAt)
       record.contracts = artifacts.manifest.packages.map(p => ({ name: p.name, sha256: p.sha256, status: 'passed' }))
       if (selected.some(p => p.client)) {
-        if (selected.some(p => p.client && p.name !== '@local/notify-web')) throw new Error('client plugin lacks an artifact L5 adapter')
+        if (selected.some(p => p.client && p.name !== '@mbda9091/notify-web')) throw new Error('client plugin lacks an artifact L5 adapter')
         const l5 = await runL5(options, settings, report => { record.functions.l5 = report })
         if (l5 !== 0) throw new Error('artifact L5 failed')
         validateArtifactReport(record.functions.l5, 'l5', artifacts, record.startedAt)

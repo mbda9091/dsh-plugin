@@ -40,14 +40,14 @@ Desktop 的声音、PowerShell、AppUserModelID 等配置不迁入共享触发�
 已提交的 session/event
           │
           ▼
-@local/notify-host
+@mbda9091/notify-host
 全局监听、根会话过滤、延迟、去重、结束原因判断
           │
           └── NotificationUpdate
                    ├── desktop-notify → Windows 通知
                    └── notify-web Host → 认证 SSE → 浏览器通知
 
-@local/notify-core
+@mbda9091/notify-core
 两端共用的通知词汇、文案、locale 与纯格式化函数
 ```
 
@@ -170,7 +170,7 @@ Host 在激活时只建立一个共享源订阅，不按连接重复注册。打
 
 两个插件继续保留各自的 `dsh.targets` 和最先执行的 `assertTarget`。Web Host 增加实际使用的 `agents`、`connection` 等依赖声明；Client 删除已不需要的直接注入项，但保留 workspace 导航自身需要的依赖装配。
 
-`notify-host`、`notify-core` 均由 esbuild 内联进插件。构建顺序明确为共享库依赖先于消费方，不能只依赖目录名字的排序。新增 DSH 类型依赖固定到运行时版本，Node 实现不得被 Client bundle 引入。tarball 中不得残留运行时 `@local/notify-host` 或 `@local/notify-core` 裸导入。
+`notify-host`、`notify-core` 均由 esbuild 内联进插件。构建顺序明确为共享库依赖先于消费方，不能只依赖目录名字的排序。新增 DSH 类型依赖固定到运行时版本，Node 实现不得被 Client bundle 引入。tarball 中不得残留运行时 `@mbda9091/notify-host` 或 `@mbda9091/notify-core` 裸导入。
 
 ## 8. 实施顺序
 
@@ -367,7 +367,7 @@ Desktop 仍从自己的 loader 行读取四个共用字段和 Windows 专属字�
 ### 11.7 初次实现验证（2026-10-25）
 
 - `node scripts/bootstrap.mjs build --check`：通过。
-- `node scripts/bootstrap.mjs build`：通过；`notify-web/lib/index.js` 与 `client.js`、`desktop-notify/lib/index.js` 均无运行时 `@local/notify-*` 裸导入。
+- `node scripts/bootstrap.mjs build`：通过；`notify-web/lib/index.js` 与 `client.js`、`desktop-notify/lib/index.js` 均无运行时 `@mbda9091/notify-*` 裸导入。
 - `node scripts/bootstrap.mjs test`：189 个测试通过。
 - `node scripts/bootstrap.mjs l4`（含 tarball 阶段）与 `l4 --skip-tarball`：均通过；真实 web profile 的 L4 额外验证了未认证 SSE 返回 401/403、认证请求返回 200、`content-type: text/event-stream` 且首帧为 `event: sync`。
 - 当时尚未完成：真实浏览器中由用户手势授权、操作系统通知真正弹出、点击聚焦标签页的视觉验收。模拟 Notification 不能替代这一项；后续原生验收结果见 §11.11。
@@ -499,7 +499,7 @@ L5 的五项结果分别为 `no-custom-plugins`、`slot-interaction-theme-locale
 
 ### 11.13 仓库 Web 配置与实际启动入口验收（2026-10-28）
 
-当时的日常 `web` profile 保留插件管理器建立的 `@local/notify-web` 链接安装与 bundle 启用记录。通知参数由当时的 `profiles/web/cordis.patch.yml` 管理，通过 `start.ps1` 的 `--patch` 加载；本次没有手改用户目录的 profile 配置或安装记录。该文件现已迁为 example 与本机 patch，当前用法见 [Web 配置说明](../profiles/web/README.md)。
+当时的日常 `web` profile 保留插件管理器建立的 `@mbda9091/notify-web` 链接安装与 bundle 启用记录。通知参数由当时的 `profiles/web/cordis.patch.yml` 管理，通过 `start.ps1` 的 `--patch` 加载；本次没有手改用户目录的 profile 配置或安装记录。该文件现已迁为 example 与本机 patch，当前用法见 [Web 配置说明](../profiles/web/README.md)。
 
 - 仓库 patch 用 `id: notify-web` 覆盖已安装插件的行，不重复 `insert`。显式配置审批/完成/错误通知为开启，审批延迟 300ms，心跳 15000ms，补发窗口 120000ms，缓存与单连接队列上限各 256。
 - HMR `root` 新增 `<repo>\notify-web\lib`，保留原有路径及 Windows 排除规则。共享库先构建并内联进插件；Client 代码更新后仍需刷新浏览器。

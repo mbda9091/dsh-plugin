@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { DEFAULTS, buildScript, escapeXml, literal } from '@local/desktop-notify'
-import type { Options } from '@local/desktop-notify'
-import { clip } from '@local/notify-core'
+import { DEFAULTS, buildScript, escapeXml, literal } from '@mbda9091/desktop-notify'
+import type { Options } from '@mbda9091/desktop-notify'
+import { clip } from '@mbda9091/notify-core'
 
 const OPTIONS: Options = {
   ...DEFAULTS,

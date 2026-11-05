@@ -17,7 +17,7 @@ function fixture(failure = '') {
   for (const [name, surfaces] of [['alpha', ['web']], ['beta', ['web']], ['desktop-only', ['desktop']]] as const) {
     mkdirSync(join(f.root, name, 'lib'), { recursive: true })
     writeFileSync(join(f.root, name, 'lib/index.js'), '')
-    writeFileSync(join(f.root, name, 'package.json'), JSON.stringify({ name: `@local/${name}`, version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' }, targets: { surfaces, platforms: ['windows', 'mac'] } } }))
+    writeFileSync(join(f.root, name, 'package.json'), JSON.stringify({ name: `@mbda9091/${name}`, version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' }, targets: { surfaces, platforms: ['windows', 'mac'] } } }))
   }
   const trace = join(f.root, 'trace.jsonl')
   const recorder = `const fs = require('node:fs'); const args = process.argv.slice(2);
@@ -65,7 +65,7 @@ for (const mode of ['link'] as const) {
       const calls = f.calls()
       assert.deepEqual(calls.map(c => c.tool), ['dsh', 'pnpm', 'dsh', 'pnpm'])
       assert.deepEqual(calls[0]?.args, ['plugin', '--profile', 'web', 'add', mode === 'link' ? join(f.root, 'alpha') : join(f.root, 'dist/local-alpha-1.0.0.tgz')])
-      assert.deepEqual(calls[1]?.args, ['update', '@local/alpha'])
+      assert.deepEqual(calls[1]?.args, ['update', '@mbda9091/alpha'])
       for (const call of calls) {
         assert.equal(call.profile, 'web')
         assert.equal(call.directory, join(mode === 'link' ? join(f.root, '.local/dsh-dev/home') : join(f.root, 'chosen-home'), 'profiles/web'))

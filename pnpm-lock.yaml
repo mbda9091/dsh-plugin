@@ -11,10 +11,10 @@ importers:
       '@deepseek-ai/dsh':
         specifier: 0.2.1-rc.5
         version: 0.2.1-rc.5(478eb64f9222bff3ebc1cfc9317ce8c6)
-      '@local/notify-core':
+      '@mbda9091/notify-core':
         specifier: workspace:*
         version: link:packages/notify-core
-      '@local/notify-host':
+      '@mbda9091/notify-host':
         specifier: workspace:*
         version: link:packages/notify-host
       '@types/node':
@@ -104,8 +104,6 @@ importers:
       typescript:
         specifier: 7.0.2
         version: 7.0.2
-
-  packages/daily-launcher: {}
 
   packages/notify-core:
     devDependencies:

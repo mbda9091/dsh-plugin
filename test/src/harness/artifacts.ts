@@ -21,10 +21,10 @@ export function tarball(files: Record<string, string | Buffer>): Buffer {
   blocks.push(Buffer.alloc(1024)); return gzipSync(Buffer.concat(blocks))
 }
 export function packageFixture() {
-  const manifest = { name: '@local/alpha', version: '1.0.0', type: 'module', exports: { '.': { default: './lib/index.js' }, './icon': './icon.svg' },
+  const manifest = { name: '@mbda9091/alpha', version: '1.0.0', type: 'module', exports: { '.': { default: './lib/index.js' }, './icon': './icon.svg' },
     dsh: { bundle: { patch: './cordis.patch.yml' }, targets: { surfaces: ['web'], platforms: ['windows', 'mac'] } } }
   const files: Record<string, string> = { 'package.json': JSON.stringify(manifest), 'lib/index.js': "export const name='alpha'; export function apply(ctx) { ctx.on('fixture/check', () => name) }",
-    'cordis.patch.yml': "- insert:\n    - id: alpha\n      name: '@local/alpha'\n", 'README.md': 'test Web plugin', 'icon.svg': '<svg/>',
+    'cordis.patch.yml': "- insert:\n    - id: alpha\n      name: '@mbda9091/alpha'\n", 'README.md': 'test Web plugin', 'icon.svg': '<svg/>',
     'locale/en.json': JSON.stringify({ meta: { title: 'Alpha', description: '[Web · All platforms] Test' } }),
     'locale/zh.json': JSON.stringify({ meta: { title: 'Alpha', description: '【Web · 通用平台】测试' } }) }
   return { manifest, files }

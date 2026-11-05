@@ -5,7 +5,7 @@
 
 M1–M6 实现协议（2026-10-31）。对应[环境计划](development-environment-plan.md)。M5 绑定固定产物与验收记录，M6 提供明确目标管理、安装预览和逐包交付报告；实际平台验收范围见计划中的实施记录。
 
-日常独立运行 S1–S3 增加 `daily-launcher prepare|deploy --target NAME --destination <绝对外部目录>` 和 `stable-install --archive-root <绝对外部归档目录>`。独立入口与外部配置 v1 的使用及恢复见 [启动器说明](../packages/daily-launcher/README.md)，实施与验收见 [日常隔离方案](daily-environment-isolation-plan.md)。本机入口切换属于 S4。
+日常启动和启动器部署已移除。外部 tarball 归档能力保留，直接安装与配置见 [安装指南](profile-install.md)。
 
 `prepare` 只在仓库 `dist/daily-launcher` 写候选；`deploy --dry-run` 只读；`deploy` 保留旧 release，原子选择发行件及不可变配置快照，并在仓库 `.local/dsh-daily/<target>/deployment.json` 保存便利入口定位。仓库 `web` 现为直接启动 DSH 的参数封装，不再读取部署定位记录；外部 `bin/dshweb.ps1` / shell 函数仍是独立启动器的显式入口。
 
@@ -50,7 +50,7 @@ node scripts/bootstrap.mjs ci
 | `web.openBrowser` / `startupTimeoutMs` | `true` / `30000` | 开发 Web；超时为 1–2147483647 的整数毫秒 |
 | `test.browser` / `browserPath` | `chrome` / 路径或 `null` | 测试偏好；支持 Playwright 管理的 `chromium`，只有 L5/CI 需要浏览器 |
 | `test.timeoutMs` | `120000` | 测试操作超时，取值范围同上 |
-| `targets` | 完整目标对象数组，默认 `[]` | 必填；空数组是合法开发配置；日常 `web` 默认选择名为 `macos-web` 的目标，安装仍须显式选择 |
+| `targets` | 完整目标对象数组，默认 `[]` | 必填；空数组是合法开发配置；安装必须显式选择目标 |
 | `targets[].name` | 唯一标签 | ASCII 字母或数字开头，后续允许字母、数字、`_`、`-` |
 | `targets[].dshCli` / `home` | 非空路径 | 目标 CLI 和数据根；不从环境变量补齐 |
 | `targets[].profile` | profile 名 | 同 name 字符规则，不允许目录穿越 |
@@ -77,15 +77,11 @@ node scripts/bootstrap.mjs config check
 
 锁定依赖的安装脚本策略见 `pnpm-workspace.yaml`：允许 esbuild、node-pty、koffi 和 DSH spawn-helper 准备；明确拒绝已发布纯 JS 包的非必需脚本。开启 peer 自动解析并锁定，因为公开 DSH 需要这些宿主服务才能启动。插件交付仍不含 DSH、Node 或 workspace 依赖。
 
-`web` 配置字段表示日常与开发的浏览器/启动超时偏好，不包含个人 YAML。开发数据固定为 `.local/dsh-dev/home`、profile `web`；patch 为 `.local/dsh-dev/cordis.patch.yml`。`dev-web init`、首次 `dev-web` 或 `dev-install` 通过锁定 DSH 的公开 `--profile web --dump-config` 初始化，并从独立的 `profiles/web/cordis.dev.patch.yml` 生成开发 patch。重复初始化不覆盖已有设置，不导入个人 patch、模型凭据或审批规则。
+`web` 配置字段表示开发的浏览器/启动超时偏好，不包含个人 YAML。开发数据固定为 `.local/dsh-dev/home`、profile `web`；patch 为 `.local/dsh-dev/cordis.patch.yml`。`dev-web init`、首次 `dev-web` 或 `dev-install` 通过锁定 DSH 的公开 `--profile web --dump-config` 初始化，并从独立的 `profiles/web/cordis.dev.patch.yml` 生成开发 patch。重复初始化不覆盖已有设置，不导入个人 patch、模型凭据或审批规则。
 
-## 日常 Web 默认入口
+## 指定 profile 安装
 
-2026-11-05 起，`node scripts/bootstrap.mjs web` 只封装目标参数并在前台启动 DSH：默认 target `macos-web`、host `127.0.0.1`、port `3080`、`--no-open`。支持 `--target NAME`、`--port PORT`、loopback `--host HOST` 和 `--open|--no-open`；`start` 保留为可选别名。目标仍明确绑定 CLI/home/profile，模型配置继续由 `targets[].patch` 传递，未配置 patch 时不额外加载 YAML。
-
-输出直接进入终端，退出码由子进程返回，Ctrl+C/SIGTERM 转交当前子进程。入口不提供 status/stop/check，不维护 runtime.json、operation.lock、控制服务、就绪探测或日志文件，也不委托部署入口；旧运行记录不会影响启动。仅 pnpm shim 使用临时目录并在退出时清理。不会安装插件或重置数据。浏览器启动由 DSH 的默认行为或 no-open 参数控制，不读取 web.openBrowser 偏好；browser-path/startup-timeout 属于 dev-web，不再适用于此入口。
-
-此前报错来自 supervisor 异常退出后残留的 running 记录：旧入口必须通过控制接口核验身份，控制接口消失后会阻止启动。新入口不持久化进程身份，因此无需手工恢复这类记录。开发环境和测试 harness 继续保留各自隔离与生命周期管理。
+日常 `web` 和 `daily-launcher` 已移除，无参数调用显示帮助。新增 `install` 优先复用当前匹配产物，仅在必要时编译/打包，不跑完整功能验收；输出 `<profile>/mbda9091/cordis.patch.yml`，不修改根 patch、不启动用户宿主。详见 [安装指南](profile-install.md)。`targets[].patch` 保留旧配置读取兼容，新安装不加载它。
 
 ## 持久开发环境（M3）
 
@@ -120,7 +116,6 @@ node scripts/bootstrap.mjs dev-web reset --yes
 | `config check` | 校验磁盘 v2/事务状态，输出工具诊断；不接受覆盖、不要求 DSH/pnpm 已安装 | 不使用运行时覆盖 |
 | `config migrate [--dry-run]` | 只读取磁盘旧值；不依赖 DSH/pnpm，不启动工具探测 | 不使用运行时覆盖 |
 | `build`、`pack`、`test` | 工具上下文；`--pnpm-script` | `DSH_PNPM` |
-| `web [start]` | 日常目标上下文；默认 `macos-web`、3080、no-open；支持 `--target`、`--port`、loopback `--host`、`--open/--no-open`；应用目标 patch；前台参数封装 | `DSH_PNPM`；不继承 DSH 目的地变量 |
 | `dev-web [start]` | 开发上下文；`--open/--no-open`、`--browser`、`--browser-path`、`--startup-timeout`、loopback `--host`、`--port`，默认随机端口 | `DSH_PNPM`；无浏览器变量覆盖 |
 | `dev-web init/status/stop/reset` | 开发上下文；仅 reset 接受 `--yes`；status 同时显示开发插件安装状态 | `DSH_PNPM` 仅 init 需要 |
 | `dev-install` | 开发上下文；只安装开发 home；`--pnpm-script`、`--dry-run`、`--skip-build`、`--all` | `DSH_PNPM` |
@@ -132,7 +127,7 @@ node scripts/bootstrap.mjs dev-web reset --yes
 
 `DSH_CLI`、`DSH_HOME`、`DSH_PROFILE`、`DSH_PROFILE_DIR`、`DSH_WEB_URL` 不再重定向上述命令。子进程清理这些变量和 Electron 标志，再由用途上下文填入选定地址。旧变量本身不会触发错误；不适用的显式目标参数会报错。`l4 --home` 仅代表新的仓库 `.tmp` 测试目录，不是正式目标 home。`--` 不能绕过 Web 参数校验。
 
-`stable-install` 必须传 `--manifest`，核验 M5 记录、包哈希及实际目标宿主版本，再执行 add/update；不能用 `--all` 绕过范围门禁。`--only @local/a,@local/b` 选择清单子集，未知、重复或不兼容包在安装前拒绝。`status --manifest PATH` 可只读核对已安装包内容和 bundle；不要求该清单仍为最新构建。
+`stable-install` 必须传 `--manifest`，核验 M5 记录、包哈希及实际目标宿主版本，再执行 add/update；不能用 `--all` 绕过范围门禁。`--only @mbda9091/a,@mbda9091/b` 选择清单子集，未知、重复或不兼容包在安装前拒绝。`status --manifest PATH` 可只读核对已安装包内容和 bundle；不要求该清单仍为最新构建。
 
 ## 显式迁移与恢复
 
@@ -213,8 +208,8 @@ node scripts/bootstrap.mjs target bind daily --dsh-cli <外部CLI> --home <独�
 node scripts/bootstrap.mjs target bind daily --dsh-cli <外部CLI> --home <独立home> --profile web --surface web --platform windows
 node scripts/bootstrap.mjs target list
 node scripts/bootstrap.mjs target show daily
-node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<UUID>/manifest.json --only @local/notify-web --dry-run
-node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<UUID>/manifest.json --only @local/notify-web
+node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<UUID>/manifest.json --only @mbda9091/notify-web --dry-run
+node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<UUID>/manifest.json --only @mbda9091/notify-web
 node scripts/bootstrap.mjs status --target daily --manifest dist/batches/<UUID>/manifest.json
 node scripts/bootstrap.mjs target unbind daily --dry-run
 ```

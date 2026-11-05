@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { it } from 'node:test'
 import { readFileSync } from 'node:fs'
 import { parse } from 'yaml'
-import { readGrantsFile } from '@local/approval-allowlist'
+import { readGrantsFile } from '@mbda9091/approval-allowlist'
 import { fileURLToPath } from 'node:url'
 
 it('M4 shipped grant examples are valid but do not grant permission by default', () => {

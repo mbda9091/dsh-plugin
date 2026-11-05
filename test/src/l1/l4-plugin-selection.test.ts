@@ -19,10 +19,10 @@ describe('L1 L4 non-manifest plugin selection', () => {
   it('keeps approval smoke coverage on mac and selects notify-web on Windows', () => {
     const mac = selectL4Plugins(repoRoot, { surface: 'web', platform: 'mac' })
     assert.deepEqual(mac.links.map(plugin => plugin.dirName), ['approval-allowlist', 'notify-web'])
-    assert.equal(mac.tarball.packageName, '@local/approval-allowlist')
+    assert.equal(mac.tarball.packageName, '@mbda9091/approval-allowlist')
     const windows = selectL4Plugins(repoRoot, { surface: 'web', platform: 'windows' })
     assert.deepEqual(windows.links.map(plugin => plugin.dirName), ['notify-web'])
-    assert.equal(windows.tarball.packageName, '@local/notify-web')
+    assert.equal(windows.tarball.packageName, '@mbda9091/notify-web')
     for (const platform of ['mac', 'windows'] as const) {
       const target = { surface: 'web' as const, platform }
       const selection = selectL4Plugins(repoRoot, target)

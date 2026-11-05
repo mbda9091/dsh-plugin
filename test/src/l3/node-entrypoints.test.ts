@@ -40,14 +40,14 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     const help = run(['--help'], 0, 'node')
     assert.match(help.stdout, /config init/)
     assert.doesNotMatch(help.stdout, /\.ps1/)
-    assert.match(run(['web', '--help']).stdout, /node scripts\/bootstrap\.mjs web/)
+    assert.match(run(['web'], 1).stderr, /daily launch entry removed/)
     assert.match(run(['status'], 1).stderr, /node scripts\/bootstrap\.mjs config init/)
     const init = ['config', 'init', '--pnpm-script', f.options.pnpmScript, '--browser', 'default', '--test-browser', 'chromium']
     run([...init, '--dry-run'])
     assert.equal(existsSync(f.paths.local), false)
     assert.equal(existsSync(f.paths.patch), false)
     run(init)
-    assert.match(run(['web', '--no-open'], 1).stderr, /unknown named target/)
+    assert.match(run(['web', '--no-open'], 1).stderr, /daily launch entry removed/)
     assert.equal(existsSync(join(f.root, '.local/dsh-dev')), false)
     assert.match(run(['dev-web', '--help']).stdout, /OS-assigned port/)
     const before = [f.paths.local].map(path => readFileSync(path, 'utf8'))
@@ -57,7 +57,7 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     mkdirSync(join(f.root, 'alpha/lib'), { recursive: true })
     writeFileSync(join(f.root, 'alpha/lib/index.js'), '')
     writeFileSync(join(f.root, 'alpha/package.json'), JSON.stringify({
-      name: '@local/alpha', version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' }, targets: { surfaces: ['web'], platforms: ['windows', 'mac'] } },
+      name: '@mbda9091/alpha', version: '1.0.0', dsh: { bundle: { patch: 'cordis.patch.yml' }, targets: { surfaces: ['web'], platforms: ['windows', 'mac'] } },
     }))
     const install = ['dev-install']
     assert.match(run([...install, '--dry-run']).stdout, /dsh plugin --profile web add/)
@@ -79,17 +79,15 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     mkdirSync(join(env.DSH_HOME!, 'profiles/web'), { recursive: true })
     writeFileSync(join(env.DSH_HOME!, 'profiles/web/package.json'), '{"dependencies":{}}')
     const platform = process.platform === 'win32' ? 'windows' : 'mac'
-    assert.match(run(['status', '--dsh-cli', f.cli, '--home', env.DSH_HOME!, '--profile', 'web', '--surface', 'web', '--platform', platform]).stdout, /@local\/alpha/)
+    assert.match(run(['status', '--dsh-cli', f.cli, '--home', env.DSH_HOME!, '--profile', 'web', '--surface', 'web', '--platform', platform]).stdout, /@mbda9091\/alpha/)
     assert.match(run(['build', '--unknown'], 1).stderr, /Unknown option/)
     assert.equal(existsSync(f.paths.patch), false)
     assert.deepEqual([f.paths.local].map(path => readFileSync(path, 'utf8')), before)
     const disk = JSON.parse(readFileSync(f.paths.local, 'utf8'))
     disk.targets = [{ name: 'macos-web', dshCli: f.cli, home: env.DSH_HOME, profile: 'web', surface: 'web', platform }]
     writeFileSync(f.paths.local, JSON.stringify(disk))
-    run([], 7)
-    assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')).args, ['--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', '3080'])
-    run(['--target', 'macos-web', '--port', '3090'], 7)
-    assert.deepEqual(JSON.parse(readFileSync(capture, 'utf8')).args, ['--profile', 'web', '--no-open', '--host', '127.0.0.1', '--port', '3090'])
+    assert.match(run([]).stdout, /No command: show help/)
+    assert.match(run(['--target', 'macos-web', '--port', '3090'], 1).stderr, /unknown command/)
     assert.match(run(['test', '--unknown'], 1).stderr, /Unknown option/)
     assert.match(run(['unknown-command'], 1).stderr, /unknown command/i)
   } finally {

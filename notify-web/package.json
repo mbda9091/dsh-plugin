@@ -1,5 +1,5 @@
 {
-  "name": "@local/notify-web",
+  "name": "@mbda9091/notify-web",
   "version": "2.0.0",
   "private": true,
   "type": "module",
@@ -21,7 +21,8 @@
     "cordis.patch.yml",
     "locale/*.json",
     "icon.svg",
-    "README.md"
+    "README.md",
+    "profile.defaults.patch.yml"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -33,10 +34,17 @@
     "typescript": "7.0.2"
   },
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "targets": {
-      "surfaces": ["web"],
-      "platforms": ["mac", "windows"]
+      "surfaces": [
+        "web"
+      ],
+      "platforms": [
+        "mac",
+        "windows"
+      ]
     },
     "client": {
       "platform": "web",
@@ -46,5 +54,8 @@
         "@deepseek-ai/dsh-client-ui-workspace"
       ]
     }
+  },
+  "dshPlugin": {
+    "profileDefaults": "./profile.defaults.patch.yml"
   }
 }

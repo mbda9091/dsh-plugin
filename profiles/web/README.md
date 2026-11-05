@@ -1,36 +1,6 @@
-# 日常、开发与测试 Web
+# 开发与测试 Web
 
-`node scripts/bootstrap.mjs` 无子命令时默认执行 `web`，也支持直接传 `--target`、`--port`、`--no-open` 等启动参数；显式 `build`、`test`、`ci` 等命令仍按原用途执行，`--help` 显示总帮助。
-
-
-日常入口简化为 DSH 前台参数封装：默认选择 local.json 的 `macos-web` 目标、监听 `127.0.0.1:3080`、传入 `--no-open`。已有目标配置可直接使用：
-
-```sh
-node scripts/bootstrap.mjs web
-node scripts/bootstrap.mjs web --target macos-web --port 3080
-# 可选：由 DSH 打开浏览器
-node scripts/bootstrap.mjs web --open
-```
-
-输出直接显示在终端，Ctrl+C 退出。入口不维护 runtime.json、operation.lock、控制端口或日志文件，不提供 status/stop/check，也不读取部署定位记录；旧记录不会阻止启动。pnpm shim 仅放在本次临时目录，退出时清理。首次使用仍需通过 target bind 明确绑定外部 CLI、home、profile、surface 和 platform；缺少目标或未初始化 profile 时明确报错。目标可用 `--target NAME` 覆盖，日常数据继续保存在目标 home。
-
-独立 Windows 启动器仍通过[外部入口](../../packages/daily-launcher/README.md)显式使用，与此仓库参数封装分开。
-
-目标可选 `patch` 字段：`web` 启动时把它作为最后一个 `--patch` 覆盖层传给宿主（层序 bundle → profile → home → `--patch`），用于本机模型清单、端点这类不随仓库分发的配置。相对路径按仓库根解析，允许指向仓库外；路径缺失或不是普通文件时在启动前失败，不会退化成"没有 patch"。
-
-```json
-{
-  "name": "macos-web",
-  "dshCli": "<外部普通Node版CLI>",
-  "home": "<本机home>",
-  "profile": "macos-web",
-  "surface": "web",
-  "platform": "mac",
-  "patch": "<模型清单patch的绝对路径>"
-}
-```
-
-该字段只存在于本机 `scripts/config/local.json`，不入库；`target bind` 重绑时保留。`daily-launcher prepare|deploy` 目前不透传该字段，目标配置了 `patch` 会直接报错，避免部署后静默丢配置。
+日常启动由用户负责。将插件安装到已有 profile 并生成配置，见 [指定 profile 安装](../../docs/profile-install.md)。
 
 开发使用 workspace 锁定的普通 Node DSH `0.2.1-rc.5`，固定 profile `web`，可变数据在 `.local/dsh-dev/`。完整字段、目录归属和异常恢复见 [配置 v2](../../docs/configuration-v2.md)。
 
@@ -46,13 +16,12 @@ node scripts/bootstrap.mjs dev-install
 node scripts/bootstrap.mjs dev-web --no-open
 ```
 
-`dev-web` 显式启动开发环境，默认通过 `--port 0` 分配空闲端口，可显式传 `--port` 覆盖。日常与开发入口都只接受 loopback 地址并前台运行。日常默认 no-open，端口占用等启动结果由 DSH 处理；开发入口保留原有生命周期管理。
+`dev-web` 显式启动开发环境，默认通过 `--port 0` 分配空闲端口，可显式传 `--port` 覆盖。开发入口只接受 loopback 地址，保留原有生命周期管理。
 
 三种环境分别管理：
 
 | 用途 | 端口 | 数据目录 |
 |---|---|---|
-| 日常使用（`dshweb` / `web`） | 默认固定 `3080` | `macos-web`（或显式选择）目标绑定的原日常 home，停止后保留 |
 | 开发预览（`dev-web`） | 默认随机空闲端口 | `.local/dsh-dev/home`，停止后保留 |
 | 自动化测试（L4/L5） | 每次通过 `--port 0` 由系统分配空闲端口 | `.tmp/<suite>/run-*/dsh-home`，一次性独立数据 |
 

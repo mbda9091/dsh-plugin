@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { Context } from '@deepseek-ai/cordis'
-import { createNotificationSource } from '@local/notify-host'
-import type { NotificationUpdate, TriggerOptions } from '@local/notify-host'
+import { createNotificationSource } from '@mbda9091/notify-host'
+import type { NotificationUpdate, TriggerOptions } from '@mbda9091/notify-host'
 
 const OPTIONS: TriggerOptions = {
   notifyOnApproval: true,

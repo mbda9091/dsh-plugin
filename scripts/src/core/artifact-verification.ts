@@ -40,7 +40,7 @@ export function validateArtifactReport(report: unknown, kind: 'l4' | 'l5', set: 
     if (!Array.isArray(results) || results.length !== hosts.length || hosts.some(p => results.filter(r => isRecord(r)
       && r.name === p.name && r.sha256 === p.sha256 && r.status === 'passed' && typeof r.adapter === 'string' && r.adapter.length > 0
       && Array.isArray(r.checks) && r.checks.length > 0 && new Set(r.checks).size === r.checks.length && r.checks.every((c: unknown) => typeof c === 'string' && c.length > 0)
-      && (p.name !== '@local/approval-allowlist' || r.adapter === 'approval-allowlist-v1' && JSON.stringify(r.checks) === JSON.stringify(approvalCapabilityChecks))).length !== 1)) throw new Error('incomplete Host capability evidence')
+      && (p.name !== '@mbda9091/approval-allowlist' || r.adapter === 'approval-allowlist-v1' && JSON.stringify(r.checks) === JSON.stringify(approvalCapabilityChecks))).length !== 1)) throw new Error('incomplete Host capability evidence')
   }
 }
 export function validateVerification(set: ArtifactSet, value: unknown, target: Target, host: string, names: readonly string[]): asserts value is Verification {

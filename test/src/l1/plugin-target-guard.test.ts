@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { readFileSync } from 'node:fs'
-import { evaluateTarget as evaluateAppRestart } from '@local/app-restart'
-import { evaluateTarget as evaluateAllowlist } from '@local/approval-allowlist'
-import { evaluateTarget as evaluateNotify } from '@local/desktop-notify'
-import { evaluateTarget as evaluateWebNotify } from '@local/notify-web'
+import { evaluateTarget as evaluateAppRestart } from '@mbda9091/app-restart'
+import { evaluateTarget as evaluateAllowlist } from '@mbda9091/approval-allowlist'
+import { evaluateTarget as evaluateNotify } from '@mbda9091/desktop-notify'
+import { evaluateTarget as evaluateWebNotify } from '@mbda9091/notify-web'
 
 const DESKTOP_WINDOWS = { surfaces: ['desktop'], platforms: ['windows'] }
 const WEB_UNIVERSAL = { surfaces: ['web'], platforms: ['mac', 'windows'] }

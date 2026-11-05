@@ -43,7 +43,7 @@
 
 ```yaml
 - id: desktop-notify                # 行身份，patch 靠它定位
-  name: '@local/desktop-notify'     # 指向哪个包
+  name: '@mbda9091/desktop-notify'     # 指向哪个包
   config: {...}                     # 传给插件 apply 的配置
   disabled: false                   # 可选，可用 !!js 表达式
 ```
@@ -79,7 +79,7 @@
 ```yaml
 - insert:                        # 新增行
     - id: my-plugin
-      name: '@local/my-plugin'
+      name: '@mbda9091/my-plugin'
 
 - id: ui-chat                   # 按 id 改写已有行
   config: { transcriptView: detailed }
@@ -285,7 +285,7 @@ pnpm 最终记录到 `dependencies` 的协议可能更多：`link:`、`file:`、
 # 新增一行（插件自带）
 - insert:
     - id: my-plugin
-      name: '@local/my-plugin'
+      name: '@mbda9091/my-plugin'
       config:
         enabled: true
 

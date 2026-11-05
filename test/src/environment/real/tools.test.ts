@@ -81,7 +81,7 @@ it('TOOL-04 clean frozen install, public CLI, internal pnpm and real tarball (TO
   const artifacts = join(f.root, 'artifacts'); mkdirSync(artifacts)
   run('pack', process.execPath, [pnpm, 'pack', '--pack-destination', artifacts], join(clean, 'notify-web'))
   const pluginVersion = JSON.parse(readFileSync(join(clean, 'notify-web/package.json'), 'utf8')).version
-  const tgz = join(artifacts, `local-notify-web-${pluginVersion}.tgz`)
+  const tgz = join(artifacts, `mbda9091-notify-web-${pluginVersion}.tgz`)
   // Windows' system tar can corrupt Unicode paths through its locale encoding.
   const files = [...readPackage(readFileSync(tgz)).files.keys()].map(file => `package/${file}`)
   evidence.push({ label: 'tar-content', status: 0 })

@@ -1,6 +1,6 @@
 # dsh-plugin
 
-`node scripts/bootstrap.mjs` 无子命令时默认执行 `web`，也支持直接传 `--target`、`--port`、`--no-open` 等启动参数；显式 `build`、`test`、`ci` 等命令仍按原用途执行，`--help` 显示总帮助。
+`node scripts/bootstrap.mjs` 无子命令时显示帮助。日常启动由用户管理；本仓库提供 `install --target NAME` 安装当前 tarball 并生成命名空间配置，`dev-web` 用于独立开发环境。
 
 
 为 DeepSeek Harness（DSH）编写的自定义插件，提供桌面重启、审批提醒、任务完成通知和精确调用审批白名单。
@@ -81,7 +81,7 @@ node scripts/bootstrap.mjs dev-web reset
 
 开发只使用 workspace 锁定的普通 Node DSH。缺依赖时先冻结安装，不接受 `--dsh-cli` 或日常环境变量重定向。`dev-web` 默认使用随机空闲端口，可用 `--port 0` 选择空闲端口；重复启动或端口占用会报错。
 
-日常启动使用 `node scripts/bootstrap.mjs web`：默认 target `macos-web`、端口 `3080`、`--no-open`；可显式覆盖 target/port，并用 `--open` 让 DSH 打开浏览器。它只在前台启动 DSH，输出直接进入终端，Ctrl+C 退出；不提供 status/stop，不读写旧 runtime/lock 或委托部署入口。
+日常启动入口已移除；安装及配置加载见 [指定 profile 安装](docs/profile-install.md)。开发仍使用 `dev-web`，测试仍使用独立临时 home/profile。
 
 浏览器通知需要允许站点通知权限，并保持标签页打开。完整参数、配置层序和 Windows 排障见 [Web 配置与启动说明](profiles/web/README.md)。
 
@@ -90,7 +90,7 @@ node scripts/bootstrap.mjs dev-web reset
 | 提交到仓库的模板 | 初始化生成的本机文件 | 用途 |
 | --- | --- | --- |
 | `scripts/config/example.json` | `scripts/config/local.json` | 工具路径、浏览器偏好和启动参数 |
-| `profiles/web/cordis.dev.patch.yml` | `.local/dsh-dev/cordis.patch.yml` | `web init` 生成的开发 HMR 配置；不会导入旧个人 patch |
+| `profiles/web/cordis.dev.patch.yml` | `.local/dsh-dev/cordis.patch.yml` | `dev-web init` 生成的开发 HMR 配置；不会导入旧个人 patch |
 
 本机文件已被 Git 忽略。运行时读取本机文件，**不会合并 example**；重复 `init` 不覆盖已有配置。配置格式由 `scripts/config/schema.json` 校验，支持的覆盖顺序为 **命令行参数 → 环境变量 → 本机配置**。
 
@@ -121,7 +121,7 @@ node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches
 node scripts/bootstrap.mjs status --target daily
 ```
 
-开发链接使用仓库构建产物；tarball 安装使用打包副本，可用 `--only @local/包名` 选择子集。交付报告位于 `dist/consumption/run-*/report.json`，分开记录文件、bundle/配置行、加载和能力验证；部分失败不自动回滚或重启。目标管理、精确版本证据、持久输入与重试规则见 [v2 协议](docs/configuration-v2.md#正式目标与交付恢复m6)。切换安装方式使用 add 覆盖与 update，避免手工删除 `link:` 依赖。
+开发链接使用仓库构建产物；tarball 安装使用打包副本，可用 `--only @mbda9091/包名` 选择子集。交付报告位于 `dist/consumption/run-*/report.json`，分开记录文件、bundle/配置行、加载和能力验证；部分失败不自动回滚或重启。目标管理、精确版本证据、持久输入与重试规则见 [v2 协议](docs/configuration-v2.md#正式目标与交付恢复m6)。切换安装方式使用 add 覆盖与 update，避免手工删除 `link:` 依赖。
 
 ## 验证
 

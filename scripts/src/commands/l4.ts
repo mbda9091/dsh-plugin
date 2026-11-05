@@ -79,15 +79,15 @@ export async function runL4(input: L4Options, settings: CommandContext = loadCom
       await step('install-artifacts', async () => {
         const evidence = await installArtifacts(context, artifacts)
         const rows = parseRows(await dumpConfig(context, 'dump-artifacts', context.home))
-        for (const item of webArtifacts(artifacts)) assertRow(rows, item.name.slice(7), item.name)
+        for (const item of webArtifacts(artifacts)) assertRow(rows, item.name.split('/').at(-1)!, item.name)
         return evidence
       })
       await step('host-capabilities', () => (options.hostCapabilityCheck ?? checkHostCapabilities)(context, artifacts))
       await step('web-artifacts', () => serveAndCheck(context, 'artifacts', async (url, stderr) => {
         const page = await fetchAuthorizedPage(url)
-        if (/did not activate|@local\//.test(stderr)) throw new Error(`artifact activation failed: ${stderr}`)
+        if (/did not activate|@mbda9091\//.test(stderr)) throw new Error(`artifact activation failed: ${stderr}`)
         for (const item of webArtifacts(artifacts).filter(p => p.client)) if (!page.html.includes(item.name)) throw new Error(`missing client: ${item.name}`)
-        if (artifacts.packages.has('@local/notify-web')) await checkSse(page.pageUrl, page.cookie)
+        if (artifacts.packages.has('@mbda9091/notify-web')) await checkSse(page.pageUrl, page.cookie)
         checkArtifactInstallations(context, artifacts)
         return `HTTP, client modules and applicable SSE passed; manifest ${artifacts.hash}`
       }))
@@ -99,11 +99,11 @@ export async function runL4(input: L4Options, settings: CommandContext = loadCom
     await step('web-link', () =>
       serveAndCheck(context, 'link', async (url, stderr) => {
         const page = await fetchAuthorizedPage(url)
-        for (const module of ['@local/web-hello', '@local/notify-web']) {
+        for (const module of ['@mbda9091/web-hello', '@mbda9091/notify-web']) {
           if (!page.html.includes(module)) throw new Error(`boot HTML is missing the ${module} client module`)
         }
         if (stderr.includes('did not activate')) throw new Error(`compatible plugins failed to activate:\n${stderr}`)
-        if (/@local\//.test(stderr)) throw new Error(`unexpected @local warning in server stderr:\n${stderr}`)
+        if (/@mbda9091\//.test(stderr)) throw new Error(`unexpected @mbda9091 warning in server stderr:\n${stderr}`)
         const sse = await checkSse(page.pageUrl, page.cookie)
         return `HTTP 200, boot HTML contains both client modules, no activation warnings, ${sse}`
       }),
@@ -180,7 +180,7 @@ async function installLinks(context: L4Context): Promise<string> {
   const profile = readProfile(context.home)
   const dependencies = isRecord(profile['dependencies']) ? profile['dependencies'] : {}
   const bundles = readBundles(profile)
-  for (const name of ['@local/web-hello', ...plugins.map(plugin => plugin.packageName)]) {
+  for (const name of ['@mbda9091/web-hello', ...plugins.map(plugin => plugin.packageName)]) {
     const spec = dependencies[name]
     if (typeof spec !== 'string' || !spec.toLowerCase().startsWith('link:')) {
       throw new Error(`${name} is not a link: dependency (got ${JSON.stringify(spec)})`)
@@ -189,7 +189,7 @@ async function installLinks(context: L4Context): Promise<string> {
   }
 
   const rows = parseRows(await dumpConfig(context, 'dump-link', context.home))
-  assertRow(rows, 'web-hello', '@local/web-hello')
+  assertRow(rows, 'web-hello', '@mbda9091/web-hello')
   for (const plugin of plugins) assertRow(rows, plugin.dirName, plugin.packageName)
   return 'link install + rows enabled'
 }
@@ -203,7 +203,7 @@ async function installMismatch(context: L4Context): Promise<string> {
     context.options.timeoutMs,
   )
   const rows = parseRows(await dumpConfig(context, 'dump-mismatch', context.home))
-  assertRow(rows, 'target-mismatch', '@local/target-mismatch')
+  assertRow(rows, 'target-mismatch', '@mbda9091/target-mismatch')
   return 'mismatched fixture installed; failure asserted at runtime'
 }
 
