@@ -15,8 +15,8 @@
 - **配置策略**：命名空间目录内缺失的插件配置行首次写入；该文件已有同 ID 行完整保留，profile 根 patch 始终不改。升级不自动覆盖用户配置，不创建审批授权规则，不修改模型、账号或全局 home 配置。
 - **产物策略**：优先复用与当前源码及工具链匹配、内容校验通过的 tarball；没有可复用包时，再判断是否可复用编译输出，仅执行缺失的构建或打包阶段。不能仅凭版本号或文件时间判断“最新”。
 - **本轮边界**：保留 `dev-web`、`dev-install`、构建、打包、测试、CI、目标登记、状态查询和现有 `stable-install`。日常启动、停止、重启、浏览器和服务托管均交还用户。
-- **当前进展**：日常入口删除、插件 scope 改名、配置子目录布局，以及独立提供直接安装命令已由用户确定；独立 install、配置协议和分级产物复用已实现；真实环境回归仍有两项超时，Windows Web 尚未验证。
-- **下一步**：按 M1–M3 实施，验证默认配置写入与原开发测试链路均符合预期。
+- **当前进展**：日常入口删除、插件 scope 改名、配置子目录布局，以及独立提供直接安装命令已由用户确定；独立 install、配置协议和分级产物复用已实现；原两项超时已定向重跑通过；4355362 双平台 CI 通过，7e6e72c 的 Windows CI 通过、macOS 尚未全部完成；个人环境接入边界见第 8、10 节。
+- **下一步**：核对最终 PR head 的双平台 CI；个人环境接入和原生能力按需另行验收。
 
 ## 2. 范围
 
@@ -246,7 +246,7 @@ node scripts/bootstrap.mjs install --target my-web --dry-run
 - 文档同步更新根 README、AGENTS、Web README、配置协议与开发环境方案中的当前描述；历史实施记录保留并注明由本方案替代。补齐目标登记和新安装的最短步骤。
 - 测试删除或替换被移除的日常入口专属场景；保留共享归档、路径隔离、目标检查与开发测试场景。更新测试 ID/结果数量契约，禁止通过跳过来伪造原 CI 全通过。
 - scope 改名覆盖当前三个插件及内部共享包的声明、import、bundle loader name、模板、脚本硬编码、测试 fixture、CATALOG 与锁文件；源码目录与 loader ID 保持不变。旧批次的包名、哈希和报告仍按历史事实保留，新 scope 必须重新构建验证。
-- 已有目标如果仍安装对应 `@local/*` 插件，或根 patch 中对同 ID 使用旧 `name`，新安装命令预检失败并列出迁移原因，不能直接并存注册。由用户通过宿主支持方式处理旧包及个人引用后重试；本轮不自动卸载、搬迁或改写根 patch。既有开发环境也须检测旧 scope，提示使用原有 reset/init/dev-install 流程重建；不会静默清空。
+- 已有目标和开发环境中的旧 `@local/*` 包、bundle 及个人引用不再检测或拦截，由用户手动清理；命令不自动卸载、搬迁或改写根 patch。
 - 配置恢复可使用本次备份；包回退继续使用明确的旧批次与既有交付入口，不新增自动回退。用户独立日常启动不依赖本仓库版本回退。
 
 ### 4.5 验证设计
@@ -254,7 +254,7 @@ node scripts/bootstrap.mjs install --target my-web --dry-run
 | 验收项 | 对应目标 | 场景与预期行为 | 验证方式 | 覆盖边界 |
 |---|---|---|---|---|
 | A1 | G1 | 默认帮助；旧日常命令不启动进程；包脚本和文档无有效日常入口 | CLI 契约与引用检查 | 不删除用户已部署文件 |
-| A2 | G2 | 具名/完整显式目标正确解析；不存在 profile、参数缺失、平台不兼容均写入前失败 | L3 / 环境测试 | 使用隔离目标 |
+| A2 | G2 | 具名/完整显式目标正确解析；不存在 profile、参数缺失、平台不兼容、目标 DSH 版本不匹配均在安装写入前失败（含 dry-run） | L3 / 环境测试 | 使用隔离目标 |
 | A3 | G2 | 模板随 tarball 发布，安装只消费相同包中的模板；缺模板、非法模板、哈希变化拒绝 | 打包契约和安装测试 | 不靠源码目录模板代验 |
 | A4 | G3 | mbda9091 目录及文件首次生成；同 ID 保留；无配置时生成 []；重复执行字节不变；根 patch 始终不变 | patch 单元测试 | 覆盖注释、!!js、禁用行、复杂冲突及路径逃逸 |
 | A5 | G3 | 非法 YAML、并发修改、写入失败、第二包安装失败均非零；原配置保留、报告可恢复 | 故障注入测试 | 不承诺 pnpm 全事务回滚 |
@@ -262,7 +262,7 @@ node scripts/bootstrap.mjs install --target my-web --dry-run
 | A7 | G4 | dev-web init/start/status/stop/reset、dev-install 链接与 HMR 维持原行为 | 原开发环境测试回归 | 同名 web、不同 home 的隔离不变 |
 | A8 | G4 | install 无验收记录也可安装且不调用 L4/L5/CI；stable-install 缺少匹配记录仍拒绝；原开发测试和固定产物验收保持有效 | 编排契约、既有测试入口及新回归 | 日常专属用例移除需列明；Windows/macOS 分别记录 |
 | A9 | G2/G3 | macOS Web 与 Windows Web 在 mbda9091 下生成文件；显式 --patch 后组合正确，不传参数时不自动加载；Desktop 目标及显式选择 Desktop 插件均写入前拒绝 | Web 双平台真实隔离 profile 与参数边界测试 | 不启动用户宿主；Windows Desktop 适配和真实验收不适用 |
-| A10 | G2/G4 | @mbda9091 包名、默认 patch name、安装过滤、适配器和锁文件一致；旧 @local 插件冲突在写入前识别 | 契约、开发/测试回归与隔离目标安装 | 不自动删除旧包或用户配置 |
+| A10 | G2/G4 | @mbda9091 包名、默认 patch name、安装过滤、适配器和锁文件一致；旧 @local 包及引用保留且不拦截 | 契约、开发/测试回归与隔离目标安装 | 不自动删除旧包或用户配置 |
 | A11 | G2/G4 | 相同输入第二次安装不调用插件编译或 pack；仅缺 tarball 时复用有效编译输出；同版本源码/模板/依赖/工具链变化触发重建；损坏包拒绝；--rebuild 强制新批次 | 编排调用计数、哈希/文件变更及并发故障测试 | 含 lib 缺失但 tarball 有效、旧记录缺字段和 dry-run；不改变显式 build/pack 语义 |
 
 测试报告沿用原 `.tmp`/`dist` 输出体系。实施时记录提交、包哈希、Node/DSH/pnpm 版本和平台；配置文件使用无凭据 fixture。Windows Desktop 不属于本轮新增能力验收对象；原有 Desktop 测试保留，不为此新增真实 Desktop 环境要求。
@@ -281,11 +281,11 @@ node scripts/bootstrap.mjs install --target my-web --dry-run
 |---|---|---|---|---|
 | D1 | 删除日常使用职责，保留开发测试 | 继续维护多套启动器，不符合用户要求 | 2026-11-05 | 已定，用户要求；G1/G4 |
 | D2 | 新增独立 install 编排，保留现有 stable-install 语义 | 合并入口或增加跳过验收开关会混淆直接安装与严格交付 | 2026-11-05 | 已定，用户明确要求；4.3、9.2 |
-| D3 | 模板随 tarball 交付，在命名空间文件按 ID 只补缺行 | 复制 bundle patch 会重复 insert；覆盖已有 config 会改变用户行为 | 2026-11-05 | 提议中；4.2 |
+| D3 | 模板随 tarball 交付，在命名空间文件按 ID 只补缺行 | 复制 bundle patch 会重复 insert；覆盖已有 config 会改变用户行为 | 2026-11-05 | 已实现；4.2 |
 | D4 | 原提案：默认 patch 直接进入 profile 根用户层 | 原目标为自动读取 | 2026-11-05 | 已被 D7 替代；见 9.1 |
 | D7 | scope 改为 @mbda9091/，默认 patch 存在 profile/mbda9091/，不改根 patch | 用户明确要求按前缀独立存放；加载由用户负责 | 2026-11-05 | 命名与目录已定，用户要求；加载边界见 4.2 |
 | D5 | 新入口验证安装与配置，不要求功能验收记录、不自动执行完整功能验收 | 自动串联全量 L4/L5 会放大普通安装成本，且当前 Desktop 验收覆盖不同 | 2026-11-05 | 已定，直接安装职责；严格交付入口保留 |
-| D6 | 必须显式指定已有目标，归档脱离 worktree | 默认猜测日常环境或保存临时 tarball 会产生错误目的地或悬空依赖 | 2026-11-05 | 提议中；4.2/4.3 |
+| D6 | 必须显式指定已有目标，归档脱离 worktree | 默认猜测日常环境或保存临时 tarball 会产生错误目的地或悬空依赖 | 2026-11-05 | 已实现；4.2/4.3 |
 | D8 | install 自动复用与当前输入匹配的 tarball，其次复用编译输出；只重做必要阶段 | 每次重新编译打包浪费时间；仅按版本号复用无法识别同版本源码变化 | 2026-11-05 | 已定，用户要求；4.2、A11 |
 | D9 | 保留 YAML 对 !!js 与复杂注释的处理要求；本轮新增安装能力不适配 Windows Desktop | 不扩展 Desktop 安装、配置接入及真实宿主验收 | 2026-11-05 | 已定，用户要求；Q1 已通过本轮 fixture 验证，Q2 关闭 |
 
@@ -300,7 +300,7 @@ node scripts/bootstrap.mjs install --target my-web --dry-run
 | R3 | 安装已成功但配置写入失败 | 仅部分完成 | 阶段报告、非零退出、重跑补配置；A5 | 待验证 |
 | R4 | 删除 daily 文件时误删公共归档/隔离逻辑 | 正式安装或测试退化 | 先查引用，保留公共原语；A6/A8 | 待验证 |
 | R5 | 新目录不自动加载，显式 --patch 后优先级又高于根配置 | 文件未生效或覆盖用户同 ID 配置 | 明确提示用户接入方式及层序；A9 | 已识别 |
-| R7 | 旧 @local 和新 @mbda9091 同时安装，仍使用同一 loader ID | 重复注册或 name 校验失败 | 安装前检测旧包与旧 patch 引用，报告冲突，不自动叠加新包；A10 | 待验证 |
+| R7 | 旧 @local 和新 @mbda9091 同时安装，仍使用同一 loader ID | 重复注册或 name 校验失败 | 用户明确选择手动清理；命令不做旧 scope 预检、不自动卸载；A10 | 已接受此边界 |
 | R6 | 原 CI 依赖日常专项测试 ID 或计数 | 表面通过但缺少必要测试 | 更新清单与结果契约，记录删除范围；A8 | 待验证 |
 
 ### 7.2 开放问题
@@ -312,7 +312,7 @@ node scripts/bootstrap.mjs install --target my-web --dry-run
 
 ## 8. 验收状态
 
-> 截至：2026-11-05。验收对象：当前 worktree 实现。环境：macOS、Node v24.16.0、仓库锁定 DSH 与 pnpm，真实浏览器 Chrome。
+> 截至：2026-11-06。下表保留本机专项证据；远端 CI 按提交分别记录，最新状态见 §9.8。
 
 | 验收项 | 实现状态 | 验收结果 | 证据与日期 | 尚未覆盖或失败原因 |
 |---|---|---|---|---|
@@ -321,14 +321,14 @@ node scripts/bootstrap.mjs install --target my-web --dry-run
 | A3：tarball 模板契约 | 已实现 | 通过 | profile-install / profile-patch，真实安装 | 无 |
 | A4：默认配置与幂等 | 已实现 | 通过 | profile-patch；真实重复安装原文哈希一致 | 无 |
 | A5：失败与并发 | 已实现 | 单测及真实部分失败场景通过 | profile-patch、artifact-install、TGT-06-real | 无全量事务回滚 |
-| A6：真实 tarball 安装 | 已实现 | macOS 通过 | run-4LA0dg / run-JAmpXz | 独立宿主 TGT-04/05 超时另列 |
-| A7：开发流程回归 | 保持 | 通过 | fast、DEV-03、L4 | Windows 未运行 |
-| A8：测试与严格交付回归 | 已实现 | 部分通过 | L1–L3、fast、L4/L5、ART 重试通过 | TGT-04 / TGT-05-real 超时；整套 real 仍失败 |
+| A6：真实 tarball 安装 | 已实现 | macOS 通过 | run-4LA0dg / run-JAmpXz | 独立宿主 TGT-04/05 定向重跑通过 |
+| A7：开发流程回归 | 保持 | 通过 | fast、DEV-03、L4；双平台 CI 见 §9.8 | 个人日常环境不由 CI 代验 |
+| A8：测试与严格交付回归 | 已实现 | 部分通过 | L1–L3、fast、L4/L5、ART 重试通过 | TGT-04 / TGT-05-real 定向重跑通过；后续远端完整回归见 §9.8 |
 | A9：平台安装配置与显式加载 | 已实现 | macOS 通过 | 真实 --patch dump-config 保留用户 false 值 | Windows Web 未执行；Desktop 不适用 |
-| A10：scope 改名与旧包冲突 | 已实现 | 通过 | 包契约及 profile-install / 开发预检测试 | 不自动迁移旧 profile |
+| A10：scope 改名与手动清理 | 已实现 | 通过 | 包契约及 profile-install 保留旧包回归 | 不自动迁移旧 profile |
 | A11：构建与打包复用 | 已实现 | 通过 | install-cache；真实重复安装 reuse-tarball | bootstrap 自身编译保留 |
 
-验收结论：代码已落地，主要 macOS 功能验证通过；未满足双 Web 平台及全部真实宿主用例的完成定义，不宣称完整 CI 通过。
+验收结论：代码已落地，本机专项及 4355362 的双平台完整 CI 已通过；7e6e72c 的 Windows CI 已通过，macOS 尚未全部完成。不能以既有基线替代最终 PR head；个人环境接入和原生能力不由自动化结果代验。
 
 ## 9. 实施结果与修正
 
@@ -374,6 +374,10 @@ node scripts/bootstrap.mjs install --target my-web --dry-run
 - 证据：fast .tmp/environment-tests/run-PgwClU/report.json；real 首轮 run-21sl5z/report.json、浏览器重试 run-fvfd12/report.json（同一 environment-tests 目录）；L4 .tmp/l4/run-K7nsCF/report.json；L5 .tmp/l5/run-hfSVYe/report.json；直接安装 dist/consumption/run-4LA0dg/report.json 和 run-JAmpXz/report.json。这些生成目录可清理，关键结果另存任务根目录验收记录。
 - Windows Web 缺少当前实机环境，未执行；不将 macOS 结果视作 Windows 通过。使用步骤见 [指定 profile 安装](profile-install.md)。
 
+### 9.6 超时用例定向重跑（2026-11-06）
+
+TGT-04 / TGT-05-real 均通过，退出码 0，耗时分别为 605.2 秒、78.9 秒。报告为 .tmp/environment-tests/run-WETU67/report.json，并复制至任务根目录 profile-install-acceptance/real-target-retry.json。本次没有改代码或超时门槛；观察到同步读取宿主普通文件出现秒级延迟，具体系统原因未确认。历史失败报告保留，Windows Web 仍未覆盖，未重跑完整 CI。
+
 ### 9.7 CR 修正与审批插件移除（2026-11-06）
 
 - YAML 追加只在缺少行结束符时补换行，追加后校验原行解析值完整保留。保留 `|+` / `>+` 的尾部换行语义；无法无损追加时拒绝写入。增加 CRLF、文档结束标记、无末尾换行和重复追加回归。
@@ -381,12 +385,20 @@ node scripts/bootstrap.mjs install --target my-web --dry-run
 - 历史验收记录保留，不能替代本次改动验证。用户已有 profile 和授权文件未修改。
 - 本次 macOS 验证：build --check 通过；L1–L3 226 通过、1 平台跳过；fast 28 项通过（.tmp/environment-tests/run-2pkLkD/report.json）；L4 通过（.tmp/l4/run-poel4q/report.json）；L5 默认 fixture 通过（.tmp/l5/run-TwiySH/report.json）。Windows 与完整 real/CI 未重跑。
 
+### 9.8 合入前文档与版本门禁同步（2026-11-06）
+
+2026-11-06 合入前核对：`4355362` 的 [Windows/macOS CI 六项全部通过](https://github.com/mbda9091/dsh-plugin/actions/runs/42063036525)。新增版本检查的 `7e6e72c` 本机 macOS 类型检查、L1–L3（226 通过、1 跳过）、fast 28 项与 L4 通过；其 [远端 CI](https://github.com/mbda9091/dsh-plugin/actions/runs/42068198590) Windows 三项通过，macOS 三项在本次核对时尚未全部完成（排队/运行中）。后续提交须以自身检查结果为准。Web 自动化不替代真实 Desktop、原生系统通知及个人日常 profile 验收。
+
+- 取消安装与开发初始化中的旧 scope 拦截，由用户手动处理旧插件。正文兼容策略、A10 和风险处置同步更新。
+- 直接 install 的预览和实际入口均检查精确宿主版本，交付前复核；stable-install 仍保留独立验收记录门禁。
+- 保留 §9.6 已有的本机超时定向重跑证据，不将历史失败改写为成功。
+
 ## 10. 当前未完成事项与下一步
 
 | 事项 | 分类与当前状态 | 下一步或启动条件 | 依据 |
 |---|---|---|---|
-| 独立宿主真实测试 TGT-04 / TGT-05-real | 超时，未通过 | 定位独立宿主安装/文件 I/O 耗时并定向复验；不改验收门槛 | M3 / A8 |
-| Windows Web 安装与配置加载 | 未验证 | 在 Windows Web 实机运行相关回归 | M3 / A9 |
-| 完整 CI 验收 | 尚未闭环 | 上述欠项通过后更新验收状态 | 完成定义 |
+| 独立宿主真实测试 TGT-04 / TGT-05-real | 11-06 定向重跑通过 | 保留首次超时及文件读取延迟证据，未放宽门槛 | M3 / A8 |
+| Windows 个人 Web 配置接入 | CI 自动化已覆盖 Windows，个人环境未验 | 按需验证显式 --patch 与原生通知；不阻塞自动化证据记录 | M3 / A9 |
+| 最终 PR head CI | 4355362 双平台通过；7e6e72c Windows 通过、macOS 尚未全部完成 | 合入前确认最终 head 所有必需检查完成 | §9.8 |
 
-实现与使用文档已同步。本轮不推送、不修改日常 profile；Windows Desktop 不属于新增安装范围。
+实现与使用文档已同步。文档同步后提交并推送 PR；不修改日常 profile，Windows Desktop 不属于新增安装范围。

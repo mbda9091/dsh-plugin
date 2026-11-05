@@ -1104,20 +1104,28 @@ L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profi
 - macOS 的普通 Node DSH Web 与 Chromium 已有真实 runner 证据；日常 `start.ps1` / 系统默认浏览器和桌面 Electron 的使用体验不由此覆盖。
 - 本次沿用不上传原始日志、截图、trace 的策略；工作流成功是指定提交的证据，后续提交需重新通过各自的检查。
 
+### 19.8 合入前验收核对（2026-11-06）
+
+2026-11-06 合入前核对：`4355362` 的 [Windows/macOS CI 六项全部通过](https://github.com/mbda9091/dsh-plugin/actions/runs/42063036525)。新增版本检查的 `7e6e72c` 本机 macOS 类型检查、L1–L3（226 通过、1 跳过）、fast 28 项与 L4 通过；其 [远端 CI](https://github.com/mbda9091/dsh-plugin/actions/runs/42068198590) Windows 三项通过，macOS 三项在本次核对时尚未全部完成（排队/运行中）。后续提交须以自身检查结果为准。Web 自动化不替代真实 Desktop、原生系统通知及个人日常 profile 验收。
+
+旧提交 `cdbdd14` 的 [Windows 失败记录](https://github.com/mbda9091/dsh-plugin/actions/runs/42058707425) 来自审批授权示例：macOS 风格路径未通过 Windows 绝对路径校验，报 `invalid or duplicate grant`。后续 `4355362` 已删除审批插件和对应测试，并完成双平台回归。
+
+当前环境测试集合为 fast/real/all = 28/14/42 项；日常启动器 DLY 用例及已删除审批插件的专属用例不再纳入。新安装版本检查覆盖 dry-run、实际调用前拒绝和交付入口复核，旧 scope 保留不拦截。命名空间 patch 的真实 Windows 个人环境接入、原生通知和 Desktop 不由这些检查代验。
+
 ## 20. 当前未完成事项
 
-2026-10-31 日常隔离 S1–S3 新增 Windows `DLY-01/02/03/04/06` 快速用例及 `DLY-05` 真实用例，纳入 `test-env` 和 `ci`。Windows fast/real/all 为 33/16/49 项；其他平台仍为 28/15/43 项，不宣称日常启动器支持 macOS。DLY 覆盖仓库移走、工具漂移、部署中断/恢复、外部归档碰撞/lockfile、真实 link 覆盖、三环境并发及失败清理。报告纳入启动器源码指纹；本轮结果和证据以 [日常隔离方案 §9.2](daily-environment-isolation-plan.md#92-s1s3-实现与回归2026-10-31) 为准。
+历史记录（2026-11-06 已移除日常启动器，当前数量见 §19.8）：2026-10-31 日常隔离 S1–S3 新增 Windows `DLY-01/02/03/04/06` 快速用例及 `DLY-05` 真实用例，纳入 `test-env` 和 `ci`。Windows fast/real/all 为 33/16/49 项；其他平台仍为 28/15/43 项，不宣称日常启动器支持 macOS。DLY 覆盖仓库移走、工具漂移、部署中断/恢复、外部归档碰撞/lockfile、真实 link 覆盖、三环境并发及失败清理。报告纳入启动器源码指纹；本轮结果和证据以 [日常隔离方案 §9.2](daily-environment-isolation-plan.md#92-s1s3-实现与回归2026-10-31) 为准。
 
 基础构建、配置第一/二阶段、L1–L5 已完成。P0 已移除 PowerShell 入口，并通过 Windows 独立验收及迁移提交的 Windows/macOS 远端 CI（§7.5）。以下区分待实现、按需建设和验收边界。
 
 | 事项 | 当前状态与下一步 | 依据 |
 |---|---|---|
 | TS 脚本收尾与 PS 退场 | **已完成**：Node/TS 主入口、帮助/文档/调用方迁移，移除 PS 入口；Windows 本机 252 项测试与真实 L4/L5 通过，迁移提交 `ab745e9` 的 Windows/macOS CI 均通过 | 本文 §7.5、[本机配置方案 §14.10](local-configuration-design.md#1410-powershell-兼容层移除计划) |
-| 环境统一与开发隔离 | **环境 M1–M6 已实现**：固定产物 ART 与正式目标 TGT 纳入 CI，环境 fast/real/all 为 28/15/43 项，真实产物验证复用 L4/L5；平台与桌面覆盖边界见实施记录 | [开发环境方案 §9.11](development-environment-plan.md#911-m6-目标管理与逐包交付2026-10-31) |
+| 环境统一与开发隔离 | **环境 M1–M6 已实现**：固定产物 ART 与正式目标 TGT 纳入 CI，环境 fast/real/all 为 28/14/42 项，真实产物验证复用 L4/L5；平台与桌面覆盖边界见实施记录 | [开发环境方案 §9.11](development-environment-plan.md#911-m6-目标管理与逐包交付2026-10-31) |
 | 本机配置第三阶段 | **维护机制已设计，尚未实现**：保留字段归属、预览、备份、repair/migrate 与故障恢复设计，按 P1 的新配置职责调整字段与迁移；不作为 TS 收尾前置。当前新增命令不可用 | [本机配置方案 §14](local-configuration-design.md#14-第三阶段具体设计修复与格式升级) |
 | M6 / UI 组件测试 | **条件性待建设**：首个真实 React/JSX UI 组件需要时，引入 `src/client.tsx` 构建和 Vitest 组件测试，并复用现有 Playwright L5；不为了完成里程碑而新增插件或迁移全部 Host 测试 | 本文 §8、§10 |
 | 插件场景 UI 徽章/页面 | **可选、暂不实施**：场景元数据、目录、安装过滤、运行时守卫已完成；将来有展示需求时再做插件管理器伴生 UI | [插件场景方案](plugin-targets.md) 阶段 3 |
 | 原生通知与日常使用验收 | **待补人工证据**：独立 Chrome/Edge、macOS 的原生权限弹窗、系统通知、点击聚焦/切会话及多标签页接管；加载即申请权限改动后的原生流程也需复验。已有 Windows Codex 内嵌浏览器证据保持有效，但不推广到其他环境 | [通知方案 §11.11–§11.15](notification-host-design.md#1111-原生浏览器通知验收2026-10-28asiashanghai) |
 | 桌面端 L5 与更深的恢复场景 | **当前延期/未覆盖**：Electron 壳、真实重启、Toast/声音不进现有 Web CI；Host 重启后跨进程恢复待审批、后台冻结/勿扰等场景需要另定需求和验收方案，不能因 CI 通过而视为已覆盖 | 本文 §2、§4、§18；通知方案 §11.11 |
 
-P0 与环境 M1–M6 已实现；下一步补当前实现的两平台 CI 证据，各阶段分别验收。本文 M6 的 UI 组件测试仍按真实 UI 需求安排，与环境 M6 正式目标交付是不同里程碑；`headless` / Linux 当前是保留场景。
+P0 与环境 M1–M6 已实现；当前双平台及后续提交 CI 状态见 §19.8，各阶段分别验收。本文 M6 的 UI 组件测试仍按真实 UI 需求安排，与环境 M6 正式目标交付是不同里程碑；`headless` / Linux 当前是保留场景。

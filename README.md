@@ -15,7 +15,7 @@
 | [desktop-notify](desktop-notify/README.md) | 审批申请、任务完成或出错时弹出系统通知，可播放提示音 | 桌面 | Windows |
 | [notify-web](notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS |
 
-完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断；历史 Windows、macOS 远端类型检查与 L1–L5 结果保留。2026-11-05 升级至 DSH `0.2.1-rc.5` 后，本机 macOS / Node 24.16.0 已通过类型检查、L1–L3（276 通过、2 项平台跳过）、L4 与 L5；43 项环境测试中 42 项首轮通过，干净安装 TOOL-04 在关闭可选 Kerberos 构建后单项复验通过，首次完整 CI 失败记录保留。本轮未执行 Windows 和桌面 Electron 验收，系统原生通知及真实桌面重启仍需按场景另行验证。
+完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断。2026-11-06 合入前核对：`4355362` 的 [Windows/macOS CI 六项全部通过](https://github.com/mbda9091/dsh-plugin/actions/runs/42063036525)。新增版本检查的 `7e6e72c` 本机 macOS 类型检查、L1–L3（226 通过、1 跳过）、fast 28 项与 L4 通过；其 [远端 CI](https://github.com/mbda9091/dsh-plugin/actions/runs/42068198590) Windows 三项通过，macOS 三项在本次核对时尚未全部完成（排队/运行中）。后续提交须以自身检查结果为准。Web 自动化不替代真实 Desktop、原生系统通知及个人日常 profile 验收。
 
 ## 准备环境
 
@@ -138,7 +138,7 @@ L1–L3 覆盖逻辑、包契约和集成行为；L4 使用一次性 profile 验
 
 GitHub Actions 在 Windows 和 macOS runner 上先初始化各自的本机配置，再运行同一套检查。测试产物保存在本机或临时 CI runner 的 `.tmp/`，不自动上传日志、截图或 trace。
 
-已确认通过的基线：[`d9f2a12`，2026-10-30 的 Windows/macOS CI](https://github.com/mbda9091/dsh-plugin/actions/runs/41061844806)。验收范围见 [测试方案 §19.7](docs/testing-plan.md#197-远端-ci-验收2026-10-30)；尚未完成的建设见 [§20](docs/testing-plan.md#20-当前未完成事项)。该记录对应指定提交，不代表后续每次运行自动通过。
+当前验收记录见 [测试方案 §19.8](docs/testing-plan.md#198-合入前验收核对2026-11-06)，保留历史基线和失败原因；尚未完成的建设见 [§20](docs/testing-plan.md#20-当前未完成事项)。
 
 ## 文档
 

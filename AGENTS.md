@@ -1,6 +1,6 @@
 # AGENTS.md
 
-`node scripts/bootstrap.mjs` 无子命令时显示帮助。日常启动由用户管理；本仓库提供 `install --target NAME` 安装当前 tarball 并生成命名空间配置，`dev-web` 用于独立开发环境。
+`node scripts/bootstrap.mjs` 无子命令时显示帮助。日常启动由用户管理；本仓库提供 `install --target NAME` 安装当前 tarball 并生成命名空间配置，`dev-web` 用于独立开发环境。直接 `install`（含 `--dry-run`）要求目标 DSH 精确匹配根 `package.json` 声明版本；`stable-install` 按验收记录匹配宿主版本。旧 `@local/` 包及引用不再拦截或自动清理，由用户手动处理。
 
 
 本文件是本仓库的工作约定，供在本仓库中工作的 agent 与开发者阅读。**所有自定义 DeepSeek Harness (dsh) 插件都在这里实现，每个插件单独一个顶层目录。**
@@ -460,7 +460,7 @@ node scripts/bootstrap.mjs status --target daily
 ```
 
 - 两个安装脚本都支持 `--dry-run`，只打印将执行的命令，不改 profile；
-- 安装按完整目标过滤；开发安装固定开发上下文，不接受日常目标参数。正式安装必须 `--target NAME` 或完整显式目标，并提供清单及匹配平台/surface/宿主版本的成功记录；桌面证据缺失时拒绝安装。`target bind` 保存真实路径身份，安装时重验；`--only` 选择清单子集，`--all` 不绕过门禁。逐包报告在 `dist/consumption/`，文件安装、配置行、加载与能力验证分别记录，不自动重启或回滚；
+- 安装按完整目标过滤；开发安装固定开发上下文，不接受日常目标参数。严格交付 `stable-install` 必须 `--target NAME` 或完整显式目标，并提供清单及匹配平台/surface/宿主版本的成功记录；桌面证据缺失时拒绝安装。`target bind` 保存真实路径身份，安装时重验；`--only` 选择清单子集，`--all` 不绕过门禁。逐包报告在 `dist/consumption/`，文件安装、配置行、加载与能力验证分别记录，不自动重启或回滚；
 - 安装会写 profile（工作区外），DSH 可能需要一次批准；在 DSH 外的终端执行也可以；
 - **不要用 `pnpm remove` / `dsh plugin remove` 移除 `link:` 依赖**：Windows 上 pnpm 会跟随 junction 删除插件源码目录（已经踩过一次，源码从 git 恢复）。切换方向一律用 `add` 覆盖同名依赖。
 - **切换方向后要重解析**：从 `link:` 切到 tarball 时，`dsh plugin add <tgz>` 可能只改 manifest 的 spec，而在 `node_modules` 里留下 junction、lockfile 里留下 `link:` 解析（表现为“装好了但还是链接”）。脚本会在 profile 里再执行 `pnpm update <name>` 强制重解析；`status` 会直接报告 `tarball spec, but LINKED` 这类不一致。

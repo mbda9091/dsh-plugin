@@ -9,7 +9,7 @@ M1–M6 实现协议（2026-10-31）。对应[环境计划](development-environm
 
 `prepare` 只在仓库 `dist/daily-launcher` 写候选；`deploy --dry-run` 只读；`deploy` 保留旧 release，原子选择发行件及不可变配置快照，并在仓库 `.local/dsh-daily/<target>/deployment.json` 保存便利入口定位。仓库 `web` 现为直接启动 DSH 的参数封装，不再读取部署定位记录；外部 `bin/dshweb.ps1` / shell 函数仍是独立启动器的显式入口。
 
-`--archive-root` 保留原有源码/构建/目标/验收门禁，安装前在外部按批次复制原 manifest、所选 tarball 和原成功记录；不同字节拒绝覆盖。安装从外部副本执行 add/update，并检查 manifest spec、lockfile specifier/version/tarball/integrity、实际目录、包内文件哈希及 bundle/row。安装前 spec/真实路径和逐包结果同时写入仓库报告及归档父目录 `receipts/run-*/report.json`；文件安装、加载和能力仍分别记录，归档不产生新的能力证据。归档/receipt 写入失败返回失败，不宣称交付完成；不回滚已安装包。`dev-install` 拒绝该参数，测试/开发清理不回收这些外部来源。
+`stable-install --archive-root` 保留原有源码/构建/目标/验收门禁，安装前在外部按批次复制原 manifest、所选 tarball 和原成功记录；不同字节拒绝覆盖。安装从外部副本执行 add/update，并检查 manifest spec、lockfile specifier/version/tarball/integrity、实际目录、包内文件哈希及 bundle/row。安装前 spec/真实路径和逐包结果同时写入仓库报告及归档父目录 `receipts/run-*/report.json`；文件安装、加载和能力仍分别记录，归档不产生新的能力证据。归档/receipt 写入失败返回失败，不宣称交付完成；不回滚已安装包。`dev-install` 拒绝该参数，测试/开发清理不回收这些外部来源。
 
 ## 开发完成标准与依赖职责（2026-11-05）
 
@@ -81,7 +81,7 @@ node scripts/bootstrap.mjs config check
 
 ## 指定 profile 安装
 
-日常 `web` 和 `daily-launcher` 已移除，无参数调用显示帮助。新增 `install` 优先复用当前匹配产物，仅在必要时编译/打包，不跑完整功能验收；输出 `<profile>/mbda9091/cordis.patch.yml`，不修改根 patch、不启动用户宿主。详见 [安装指南](profile-install.md)。`targets[].patch` 保留旧配置读取兼容，新安装不加载它。
+日常 `web` 和 `daily-launcher` 已移除，无参数调用显示帮助。新增 `install`（含 `--dry-run`）先验证目标 DSH 精确匹配根 `package.json` 声明版本，实际交付前再次核验；版本不符或无法读取时停止。旧 `@local/` 包及引用由用户手动清理，命令不拦截。`install` 优先复用当前匹配产物，仅在必要时编译/打包，不跑完整功能验收；输出 `<profile>/mbda9091/cordis.patch.yml`，不修改根 patch、不启动用户宿主。详见 [安装指南](profile-install.md)。`targets[].patch` 保留旧配置读取兼容，新安装不加载它。
 
 ## 持久开发环境（M3）
 
@@ -120,6 +120,7 @@ node scripts/bootstrap.mjs dev-web reset --yes
 | `dev-web init/status/stop/reset` | 开发上下文；仅 reset 接受 `--yes`；status 同时显示开发插件安装状态 | `DSH_PNPM` 仅 init 需要 |
 | `dev-install` | 开发上下文；只安装开发 home；`--pnpm-script`、`--dry-run`、`--skip-build`、`--all` | `DSH_PNPM` |
 | `l4`、`l5`、`ci`、`verify-artifacts` | 测试上下文；L4/L5 可传 `--manifest`，verify-artifacts 必传且支持 `--check`；`--pnpm-script`、`--test-browser`、`--test-browser-path`、`--timeout`、`--keep` | `DSH_PNPM`、`DSH_E2E_BROWSER`、`CHROME_PATH` |
+| `install` | 显式目标上下文，仅本机 Web；支持 `--only`、`--rebuild`、`--dry-run`、`--archive-root`；目标 DSH 版本精确匹配根声明 | 仅 `DSH_PNPM`；不从环境变量拼目标 |
 | `stable-install`、`status` | 目标上下文；`--target NAME`，或完整的 `--dsh-cli PATH --home DIR --profile NAME --surface desktop\|web --platform windows\|mac`，两种方式互斥 | 仅 `DSH_PNPM`；不从环境变量拼目标 |
 | `test-env --suite fast` | 无本机配置依赖；可用 `--keep`、`--only ID,ID` | 不从个人配置获得被测值 |
 | `test-env --suite real\|all` | 无本机配置依赖；显式 `--pnpm-script PATH`，可用 `--keep`、`--only ID,ID`；ART 浏览器用例接受 `--test-browser`/`--test-browser-path`；TOOL-04 需网络、Git 和 tar | 不从个人配置获得被测值；子进程独立 DSH home；包管理设置继承，冷安装/污染场景显式使用模拟设置 |
