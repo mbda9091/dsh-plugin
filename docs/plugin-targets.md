@@ -130,19 +130,19 @@ node scripts/bootstrap.mjs check-targets
 - **不要用 `ctx.get('webServer')` 判断 web**：`webServer` 服务在插件 `apply` 执行时还没有就绪（实测 `apply` 时 `false`、约 1.5 s 后为 `true`），此前按它判断会把 Web Host 误判成 `headless`；桌面 Host 同样有 `webServer`，因此也不能用它区分 desktop；
 - **不要用 `ELECTRON_RUN_AS_NODE` 环境变量判断桌面**：它会泄漏到子进程；在 Host 进程内用 `process.versions.electron`；
 - Web 判定使用 profile 组合后的 `startedBundles`：`dsh web` 会加载 `@deepseek-ai/dsh-web-app`，该列表在插件激活时已可用。自定义 Web bundle 名只要以 `/dsh-web-app` 结尾也能识别；
-- **用默认 Node 的 `dsh web` 启动 Web**：桌面安装自带的 CLI 把 Host 跑在 Electron 引擎里，`process.versions.electron` 仍存在，会被判为 `desktop`。初始化优先从 PATH 发现普通 Node CLI，仓库 `node scripts/bootstrap.mjs web` 与 L4 读取已配置的工具路径；
+- **用默认 Node 的 `dsh web` 启动 Web**：桌面安装自带的 CLI 把 Host 跑在 Electron 引擎里，`process.versions.electron` 仍存在，会被判为 `desktop`。仓库 `dev-web` 与 L4/L5 固定使用 workspace 精确声明的普通 Node DSH，不从日常目标或 PATH 切换宿主；日常启动由用户负责，仓库 `web` 入口已移除；
 - Client 侧不要用 `navigator` 猜平台；由 Host 判定并通过服务或首屏数据告知 Client。
 
 ## 6. 安装过滤与自由组合
 
 组合的单位是 bundle。dsh 已经支持任意启用/停用 bundle，不需要发明新的组合格式；只需要按目标过滤：
 
-- `node scripts/bootstrap.mjs dev-install` / `stable-install` 增加 `--surface desktop|web`、`--platform windows|mac`；
-- 默认值：`--platform` 取当前系统，`--surface` 从 profile 名 `desktop`/`web` 推断；自定义 profile 必须显式传 `--surface`；
-- 默认只安装目标兼容的插件，跳过时打印 `requires ...`；`--all` 才强制安装不兼容插件；
-- desktop profile 安装“桌面 + 平台”和“通用 + 平台”的插件；
-- web profile 安装“Web + 平台”和“通用 + 平台”的插件；
-- `node scripts/bootstrap.mjs status` 增加同样的 `--surface` / `--platform`，显示每个插件的声明目标和 `compatible` / `skip`。
+- `dev-install` 固定使用受管开发 home、Web surface 和当前平台，不接受正式目标参数；默认跳过不兼容插件。
+- `stable-install` 与 `status` 必须选择 `--target NAME`，或完整提供 `--dsh-cli`、`--home`、`--profile`、`--surface`、`--platform`；不从 profile 名或日常环境变量补齐目标。
+- `stable-install` 还必须提供固定包 manifest 和匹配的验收记录；`--all` 会被拒绝，不能绕过兼容性或验收门禁。`dev-install --all` 仅绕过开发安装筛选，运行时场景守卫仍会拒绝不匹配插件，不代表获得跨场景支持。
+- 直接 `install` 使用显式目标，只支持 Web，并筛选适用插件；配置生成方式见[安装指南](profile-install.md)。
+- desktop 目标匹配声明为 desktop 或通用形态且平台匹配的包；web 目标同理。匹配只是必要条件，桌面严格交付仍需对应验收证据。
+- `status --target NAME` 展示插件声明及兼容/跳过结果，不负责卸载不兼容插件。
 
 跳过不等于卸载：已经装在 profile 里的不兼容插件不会被脚本删除；用 `status` 查看，再到插件管理器里停用或移除。不要对 `link:` 依赖执行自动删除。
 

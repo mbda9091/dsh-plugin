@@ -77,14 +77,9 @@ Web UI 左侧 **Plugins（插件）** 页 → 安装 → 填本目录的绝对�
 
 ## 开发与稳定版
 
-```powershell
-node scripts/bootstrap.mjs dev-install     # link 安装，改代码 HMR 生效
-node scripts/bootstrap.mjs pack            # 构建 + pnpm pack → dist/*.tgz
-node scripts/bootstrap.mjs stable-install  # 覆盖 link，安装 tarball（需重启）
-node scripts/bootstrap.mjs status          # 查看当前是 link 还是 tarball
-```
+`dev-install` 固定面向 Web，会跳过本桌面插件；桌面开发安装沿用上方宿主入口，替换 Host 代码后需重启。
 
-两个安装脚本支持 `--dry-run` 预览。link 模式不会安装插件的 `dependencies`，tarball 会——所以稳定版要单独验证一次依赖路径。
+`node scripts/bootstrap.mjs pack` 构建并生成 `dist/batches/<批次>/*.tgz`。严格交付必须提供显式目标、manifest 和匹配的验收记录；当前缺少桌面固定包能力证据，不能把 Web 验收当作桌面可安装凭据。`status` 同样需要 `--target <名称>` 或完整目标参数。详见[配置 v2](../docs/configuration-v2.md)。
 
 ## 限制
 

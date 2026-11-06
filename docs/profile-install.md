@@ -38,4 +38,4 @@ tarball 默认归档到 `~/.local/share/dsh-plugin/releases`；可用 `--archive
 
 自有包名前缀改为 `@mbda9091/`。命令不检查或清理旧 `@local/` 包、bundle 和个人引用，由用户手动处理；开发环境也不因旧 scope 拦截初始化。
 
-默认配置追加会核对已有行的解析值，保留 YAML 块文本尾部换行；无法无损追加时拒绝写入。2026-11-06 已移除审批白名单插件，当前 Web 安装只选择 notify-web。旧 profile 中的插件与授权文件不自动清理，移除说明见 [已撤销方案](external-directory-authorization-plan.md)。
+默认配置追加会核对已有行的解析值，保留 YAML 块文本尾部换行；无法无损追加时拒绝写入。2026-11-06 已移除审批白名单插件，当前 Web 安装只选择 notify-web。旧 profile 中的插件与授权文件不自动清理，移除说明见 [已废弃方案](archive/external-directory-authorization-plan.md)。

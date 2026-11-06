@@ -1,13 +1,12 @@
 # 本机配置 v2：字段、命令与迁移
 
-`node scripts/bootstrap.mjs` 无子命令时默认执行 `web`，也支持直接传 `--target`、`--port`、`--no-open` 等启动参数；显式 `build`、`test`、`ci` 等命令仍按原用途执行，`--help` 显示总帮助。
+`node scripts/bootstrap.mjs` 无子命令时显示帮助。日常启动由用户管理；当前 `web` / `daily-launcher` 入口已移除，开发使用 `dev-web`，安装使用显式目标。
 
 
 M1–M6 实现协议（2026-10-31）。对应[环境计划](development-environment-plan.md)。M5 绑定固定产物与验收记录，M6 提供明确目标管理、安装预览和逐包交付报告；实际平台验收范围见计划中的实施记录。
 
 日常启动和启动器部署已移除。外部 tarball 归档能力保留，直接安装与配置见 [安装指南](profile-install.md)。
 
-`prepare` 只在仓库 `dist/daily-launcher` 写候选；`deploy --dry-run` 只读；`deploy` 保留旧 release，原子选择发行件及不可变配置快照，并在仓库 `.local/dsh-daily/<target>/deployment.json` 保存便利入口定位。仓库 `web` 现为直接启动 DSH 的参数封装，不再读取部署定位记录；外部 `bin/dshweb.ps1` / shell 函数仍是独立启动器的显式入口。
 
 `stable-install --archive-root` 保留原有源码/构建/目标/验收门禁，安装前在外部按批次复制原 manifest、所选 tarball 和原成功记录；不同字节拒绝覆盖。安装从外部副本执行 add/update，并检查 manifest spec、lockfile specifier/version/tarball/integrity、实际目录、包内文件哈希及 bundle/row。安装前 spec/真实路径和逐包结果同时写入仓库报告及归档父目录 `receipts/run-*/report.json`；文件安装、加载和能力仍分别记录，归档不产生新的能力证据。归档/receipt 写入失败返回失败，不宣称交付完成；不回滚已安装包。`dev-install` 拒绝该参数，测试/开发清理不回收这些外部来源。
 
@@ -56,7 +55,7 @@ node scripts/bootstrap.mjs ci
 | `targets[].profile` | profile 名 | 同 name 字符规则，不允许目录穿越 |
 | `targets[].surface` / `platform` | `desktop` 或 `web` / `windows` 或 `mac` | 必填；目标选择是一组完整字段 |
 | `targets[].binding` | 可选真实路径对象 | `target bind` 保存 cli/engine/entry/home/profile；每次使用重验。手写完整目标也执行路径隔离检查，但没有历史路径身份可比较 |
-| `targets[].patch` | 非空路径 / `null`，默认 `null` | 可选；日常 `web` 启动时作为最后一个 `--patch` 覆盖层应用。相对路径以仓库根解析，允许指向仓库外（如本机模型清单）。文件缺失、不是普通文件时启动失败；`daily-launcher` 部署暂不透传该字段并明确拒绝 |
+| `targets[].patch` | 非空路径 / `null`，默认 `null` | 仅保留旧配置读取兼容；当前仓库不启动日常 DSH，安装命令不加载此字段，个人 patch 由用户在自己的启动命令中显式加载 |
 | `legacy.dshCli` | 路径或 `null` | 只保留 v1 待核对信息；任何命令都不将其当作宿主或目标 |
 
 所有对象拒绝未知字段。入口要求普通 Node 24；编译器、pnpm、开发 DSH 都由当前 `process.execPath` 执行。开发 DSH 只解析根 `devDependencies` 精确版本对应的 `node_modules/@deepseek-ai/dsh` 的公开 `bin`（当前为 `lib/bin.js`）。缺失或版本不符提示 `pnpm install --frozen-lockfile`，不查询 PATH、不回退到 `legacy.dshCli`。正式目标拒绝 workspace DSH 及其链接别名；Electron 目标保留自己的引擎。

@@ -34,7 +34,7 @@ helper 必须通过 WMI 创建：Electron 壳会把 Host 放进一个 job 对象
 dsh plugin --profile desktop add (Join-Path $PWD 'app-restart')
 ```
 
-开发期也可以用 `node scripts/bootstrap.mjs dev-install` 以 link 方式安装（改代码 HMR 生效）。
+`dev-install` 固定面向 Web 开发环境，会跳过本桌面插件。桌面安装沿用上述宿主入口；替换已加载 Host 代码后需要重启，不以 HMR 代替验证。
 
 ## 限制
 
