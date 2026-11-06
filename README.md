@@ -168,7 +168,7 @@ node scripts/bootstrap.mjs dev-web --no-open
 
 启动器打印访问地址；有桌面会话时可去掉 `--no-open`，通过 `xdg-open` 打开默认浏览器。自动化测试可用 `node node_modules/playwright-core/cli.js install --with-deps chromium` 准备浏览器及系统依赖。
 
-Linux 支持 `notify-web`。正式目标使用 `--platform linux`，仍需独立目标及匹配 Linux 的固定产物验收证据。Windows 专用的 `app-restart`、`desktop-notify` 和独立日常启动器不适用于 Linux；日常 Web 可使用仓库的 `web --target NAME` 入口。
+Linux 支持 `notify-web`。正式目标使用 `--platform linux`，仍需独立目标及匹配 Linux 的固定产物验收证据。`app-restart`、`desktop-notify` 仅适用于 Windows 桌面端。日常 DSH 启动由用户自行管理；仓库的 `web`、`daily-launcher` 入口已移除，开发环境使用 `dev-web`。
 
 ### WSL 默认工作区与验收边界
 
