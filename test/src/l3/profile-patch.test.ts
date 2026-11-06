@@ -57,10 +57,11 @@ it('L3 namespace patch keeps root untouched, backs up only changed namespace fil
   } finally { removeDir(root) }
 })
 
-it('L3 shipped notify defaults match runtime defaults', async () => {
+it('L3 shipped notify configuration exposes only user notification options', async () => {
   const { repoRoot } = await import('../harness/tmp.js')
   const { parse } = await import('yaml')
-  const { DEFAULTS } = await import('../../../notify-web/lib/index.js')
   const rows = parse(readFileSync(join(repoRoot, 'notify-web/profile.defaults.patch.yml'), 'utf8'))
-  assert.deepEqual(rows[0].config, DEFAULTS)
+  assert.deepEqual(rows, [{ id: 'notify-web', name: '@mbda9091/notify-web', config: {
+    notifyOnApproval: true, approvalDelayMs: 300, notifyOnTurnEnd: true, notifyOnTurnError: true,
+  } }])
 })

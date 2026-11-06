@@ -37,29 +37,61 @@ Host 全局监听已提交的 `session/event`，按真实 Agent registry 只处�
 
 ## 配置
 
-Host 从 `notify-web` loader 行读取以下字段，默认值如下：
+安装器默认只展示 4 个常用通知选项，内部通信参数保留可配置能力，但不写入生成文件。在 `<home>/profiles/<profile>/mbda9091/cordis.patch.yml` 中为新插件生成以下配置：
+
+```yaml
+- id: notify-web
+  name: '@mbda9091/notify-web'
+  config:
+    notifyOnApproval: true
+    approvalDelayMs: 300
+    notifyOnTurnEnd: true
+    notifyOnTurnError: true
+```
+
+直接修改上述选项即可调整通知行为；需要调优内部通信时，可按下表将对应字段手动添加到同一 `config` 下。省略的字段由插件补充默认值；显式填写的字段会固定为该值。重新安装会保留已有同 ID 配置，不会自动精简旧文件。
+
+### 通知选项
 
 | 字段 | 默认 | 作用 |
 |---|---:|---|
-| `notifyOnApproval` | `true` | 审批通知开关 |
-| `approvalDelayMs` | `300` | 审批延迟；期间决定则取消 |
-| `notifyOnTurnEnd` | `true` | 完成 / max-tokens 通知开关 |
-| `notifyOnTurnError` | `true` | 错误通知开关 |
-| `heartbeatMs` | `15000` | SSE 心跳间隔 |
-| `replayWindowMs` | `120000` | 断线补发时间窗口 |
-| `maxReplayEntries` | `256` | 补发缓存条数上限 |
-| `maxQueuedUpdates` | `256` | 单连接输出队列上限 |
+| `notifyOnApproval` | `true` | 根会话需要工具权限审批时通知；不会替你批准权限 |
+| `approvalDelayMs` | `300` 毫秒 | 等待后再弹审批通知；期间审批已决定则取消，避免短暂请求造成打扰 |
+| `notifyOnTurnEnd` | `true` | 根会话一轮正常完成或达到输出上限时通知 |
+| `notifyOnTurnError` | `true` | 根会话一轮因错误结束时通知 |
 
-示例：
+### 内部通信参数
+
+以下参数控制服务端向浏览器发送通知事件的长连接（SSE），一般无需调整。它们不执行任务、不自动审批，也不是定时弹通知。
+
+| 字段 | 默认 | 作用 |
+|---|---:|---|
+| `heartbeatMs` | `15000` 毫秒 | 每 15 秒发送保活信号，不显示系统通知；最小有效值为 1000 毫秒 |
+| `replayWindowMs` | `120000` 毫秒 | 短暂断线重连时可补发最近 2 分钟的事件；缓存只在当前宿主进程内存中保存 |
+| `maxReplayEntries` | `256` 条 | 补发缓存最多保留的事件数，与时间窗口共同限制缓存大小 |
+| `maxQueuedUpdates` | `256` 条 | 每个连接的待发送队列上限；浏览器消费过慢导致积压超限时关闭连接，避免无限占用内存 |
+
+补发不是无限历史恢复：超出缓存范围的事件不保证补发；已决定的审批不会作为待审批通知重新弹出。关闭页面后也不会后台推送通知。
+
+### 修改并加载配置
+
+例如只关闭错误通知、把审批等待时间改为 500 毫秒，在已有 `notify-web` 行中修改：
 
 ```yaml
-- insert:
-    - id: notify-web
-      name: '@mbda9091/notify-web'
-      config:
-        notifyOnTurnError: false
-        approvalDelayMs: 500
+- id: notify-web
+  name: '@mbda9091/notify-web'
+  config:
+    notifyOnTurnError: false
+    approvalDelayMs: 500
 ```
+
+安装 bundle 已负责插入插件行，这份覆盖配置不需要再写 `insert`。`mbda9091` 子目录不会被自动扫描；要让修改生效，需要在启动时显式加载文件，并重新启动宿主。例如默认 home 下的 macOS Web：
+
+```sh
+dsh --profile macos-web --patch "$HOME/.dsh/profiles/macos-web/mbda9091/cordis.patch.yml"
+```
+
+已有 provider 等其他 `--patch` 参数时保留它们，再追加通知配置的 `--patch`。多个覆盖层中同一行的 `config` 是整段替换，插件再为最终配置中省略的字段补上内置默认值。未加载这份文件时，插件仍可正常使用内置默认值。
 
 ## 权限
 
