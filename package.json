@@ -23,7 +23,7 @@
     "install-plugins": "node scripts/bootstrap.mjs install"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh": "0.2.1-rc.5",
+    "@deepseek-ai/dsh": "0.2.2-rc.1",
     "@mbda9091/notify-core": "workspace:*",
     "@mbda9091/notify-host": "workspace:*",
     "@types/node": "^24.0.0",

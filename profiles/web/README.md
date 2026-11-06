@@ -2,7 +2,7 @@
 
 日常启动由用户负责。将插件安装到已有 profile 并生成配置，见 [指定 profile 安装](../../docs/profile-install.md)。
 
-开发使用 workspace 锁定的普通 Node DSH `0.2.1-rc.5`，固定 profile `web`，可变数据在 `.local/dsh-dev/`。完整字段、目录归属和异常恢复见 [配置 v2](../../docs/configuration-v2.md)。
+开发使用 workspace 锁定的普通 Node DSH `0.2.2-rc.1`，固定 profile `web`，可变数据在 `.local/dsh-dev/`。完整字段、目录归属和异常恢复见 [配置 v2](../../docs/configuration-v2.md)。
 
 ## 准备与使用
 

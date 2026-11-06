@@ -16,7 +16,7 @@ node scripts/bootstrap.mjs install --target my-web --rebuild
 
 Windows Web 使用 `--platform windows` 和本机绝对路径。也可通过 `pnpm run install-plugins --target my-web` 调用；`pnpm install` 仍是安装仓库依赖。
 
-安装（含 `--dry-run`）先检查目标 DSH 版本，要求与仓库根 `package.json` 中 `@deepseek-ai/dsh` 的精确版本一致（当前 `0.2.1-rc.5`）；不匹配或无法读取版本时，在安装包和写入配置前停止。`stable-install` 仍按验收记录匹配宿主版本。
+安装（含 `--dry-run`）先检查目标 DSH 版本，要求与仓库根 `package.json` 中 `@deepseek-ai/dsh` 的精确版本一致（当前 `0.2.2-rc.1`）；不匹配或无法读取版本时，在安装包和写入配置前停止。`stable-install` 仍按验收记录匹配宿主版本。
 
 安装先检查当前 tarball 的源码快照、工具链和内容哈希。匹配则输出 `reuse-tarball`，不编译或打包；仅编译输出有效时输出 `reuse-build`，只打包；否则输出 `rebuild`。版本号相同不代表内容相同；损坏的包拒绝使用。源码快照包含文档和 Git 状态，使用保守整批复用。bootstrap 编译脚本自身的步骤仍保留。
 

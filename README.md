@@ -15,14 +15,14 @@
 | [desktop-notify](desktop-notify/README.md) | 审批申请、任务完成或出错时弹出系统通知，可播放提示音 | 桌面 | Windows |
 | [notify-web](notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS |
 
-完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断。2026-11-06 合入前核对：`4355362` 的 [Windows/macOS CI 六项全部通过](https://github.com/mbda9091/dsh-plugin/actions/runs/42063036525)。新增版本检查的 `7e6e72c` 本机 macOS 类型检查、L1–L3（226 通过、1 跳过）、fast 28 项与 L4 通过；其 [远端 CI](https://github.com/mbda9091/dsh-plugin/actions/runs/42068198590) Windows 三项通过，macOS 三项在本次核对时尚未全部完成（排队/运行中）。后续提交须以自身检查结果为准。Web 自动化不替代真实 Desktop、原生系统通知及个人日常 profile 验收。
+完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断。2026-11-06 升级 DSH `0.2.2-rc.1`、Cordis `4.1.0` 后，本机 macOS 完整 CI 通过：环境 42 项、类型检查、L1–L3（226 通过、1 跳过）、L4 与 L5。详见 [本次验收记录](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)。Windows CI、真实 Desktop 和个人日常 profile 尚未在本版本验收。
 
 ## 准备环境
 
-- DeepSeek Harness：当前开发与类型依赖版本为 **`0.2.1-rc.5`**，开发宿主由 workspace 冻结安装，无需全局 DSH；正式桌面应用单独管理。
+- DeepSeek Harness：当前开发与类型依赖版本为 **`0.2.2-rc.1`**，开发宿主由 workspace 冻结安装，无需全局 DSH；正式桌面应用单独管理。
 - Node.js **24**、pnpm **11.28.5**；下面的依赖安装命令要求 pnpm 在 PATH 中可用。
 
-2026-11-05 查询 npm `latest` 得到 `0.2.1-rc.5`，仓库使用该精确版本及锁文件保证可复现安装。宿主、插件类型包和真实环境测试版本同步；未来升级仍先解析 `latest` 再更新精确版本。`pnpm-workspace.yaml` 允许新增 WebSocket 原生依赖构建；可选 Kerberos 模块默认不构建，因为其 node-gyp 在带空格的用户目录下编译失败。普通 Web 与代理功能不依赖它；需要 Negotiate/SPNEGO 代理认证时，须在支持的本机环境单独启用并验证 Kerberos 构建。
+2026-11-06 查询 npm `latest` 得到 `0.2.2-rc.1`，仓库使用该精确版本及锁文件保证可复现安装。宿主、插件类型包和真实环境测试版本同步；未来升级仍先解析 `latest` 再更新精确版本。`pnpm-workspace.yaml` 允许新增 WebSocket 原生依赖构建；可选 Kerberos 模块默认不构建，因为其 node-gyp 在带空格的用户目录下编译失败。普通 Web 与代理功能不依赖它；需要 Negotiate/SPNEGO 代理认证时，须在支持的本机环境单独启用并验证 Kerberos 构建。
 
 统一入口为 `node scripts/bootstrap.mjs <command>`。普通 Node 24 需要在 PATH 中，或使用其绝对路径启动；不通过 `DSH_NODE` 选择运行时。编译器、pnpm 和开发 DSH 使用当前 Node。`config init` 只从 PATH 发现 pnpm 包脚本及系统浏览器，不扫描私有 runtime；无法发现时显式提供 `--pnpm-script <pnpm包>/bin/pnpm.cjs`。例如用 npm 全局安装指定 pnpm 后，包位于 `npm root -g` 输出目录下。准备说明和 v1 迁移见 [配置 v2](docs/configuration-v2.md)。
 
@@ -138,7 +138,7 @@ L1–L3 覆盖逻辑、包契约和集成行为；L4 使用一次性 profile 验
 
 GitHub Actions 在 Windows 和 macOS runner 上先初始化各自的本机配置，再运行同一套检查。测试产物保存在本机或临时 CI runner 的 `.tmp/`，不自动上传日志、截图或 trace。
 
-当前验收记录见 [测试方案 §19.8](docs/testing-plan.md#198-合入前验收核对2026-11-06)，保留历史基线和失败原因；尚未完成的建设见 [§20](docs/testing-plan.md#20-当前未完成事项)。
+当前验收记录见 [测试方案 §19.10](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)，保留历史基线和失败原因；尚未完成的建设见 [§20](docs/testing-plan.md#20-当前未完成事项)。
 
 ## 文档
 

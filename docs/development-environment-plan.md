@@ -51,7 +51,7 @@
 ### 2.3 适用场景与协作边界
 
 - 适用对象：本仓库脚本、开发环境、测试 harness、插件包验收及正式安装工作流。
-- 环境范围：开发/自动化以普通 Node 的 DSH Web 为主，Windows/macOS 分别验收；计划宿主基线 `0.2.1-rc.2`，桌面 Electron 保留自身运行时和能力边界。
+- 环境范围：开发/自动化以普通 Node 的 DSH Web 为主，Windows/macOS 分别验收；计划宿主基线 `0.2.2-rc.1`，桌面 Electron 保留自身运行时和能力边界。
 - 分工：本机配置方案提供维护/事务设计；本方案负责环境职责、选择规则和交付一致性；插件测试计划提供包契约及实际功能验证，不另建一套插件测试体系。
 - 完成定义：M1–M6 的实现交付齐备，A1–A6 在两平台的适用自动化项通过，所选交付包的功能证据完整。未执行、失败或受阻不算通过；桌面未覆盖项必须单列，不能将 Web 范围完成写成桌面也已验收。
 
@@ -118,8 +118,8 @@ TS CLI 收尾
 | Node | 普通 Node 24.x，由调用方选择；检查支持的主版本，记录完整版本与路径；不自动下载或切换另一套 Node |
 | pnpm | 以根 `package.json.packageManager` 为准，当前 `11.28.5`；使用选定 pnpm 的脚本入口，由当前 Node 执行 |
 | TS/esbuild/yaml/测试工具 | workspace 开发依赖与 lockfile 管理，通过冻结安装准备 |
-| 开发 DSH | 根 workspace 精确版本 devDependency，当前计划基线 `@deepseek-ai/dsh@0.2.1-rc.2`；仅开发和验收使用 |
-| DSH 类型与 Cordis | 与开发宿主接口基线对齐，当前 DSH 类型为 `0.2.1-rc.2`、Cordis 为 `4.0.5` |
+| 开发 DSH | 根 workspace 精确版本 devDependency，当前计划基线 `@deepseek-ai/dsh@0.2.2-rc.1`；仅开发和验收使用 |
+| DSH 类型与 Cordis | 与开发宿主接口基线对齐，当前 DSH 类型为 `0.2.2-rc.1`、Cordis 为 `4.1.0` |
 | 正式 DSH | 用户独立管理；记录所选入口并检查兼容性，不由本仓库安装、升级、降级或覆盖 |
 | 浏览器与系统工具 | L5 需要 Chrome 或匹配的 Playwright Chromium；当前 L2 需要系统 tar；按命令检查，避免让无关命令依赖它们 |
 

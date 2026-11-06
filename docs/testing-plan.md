@@ -1120,6 +1120,24 @@ L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profi
 
 `7e6e72c` 的较早运行最终有两个 macOS job 被取消，不能记为完整通过；§19.8 保留核对当时的状态。
 
+### 19.10 DSH 0.2.2-rc.1 整体适配（2026-11-06）
+
+根开发宿主、desktop-notify 与 notify-host 的 DSH 类型依赖统一锁定为 `0.2.2-rc.1`；所有插件及 notify-host 的 Cordis 依赖按宿主要求升级到 `4.1.0`。pnpm 重新解析锁文件，当前插件源码无需接口改写。Node 24、pnpm 11.28.5 保持不变。
+
+本机 macOS、Node 24.16.0、系统 Chrome，在本次未提交改动上运行 `node scripts/bootstrap.mjs ci`，五阶段全部通过：
+
+| 检查 | 结果 | 本机证据 |
+| --- | --- | --- |
+| 环境 all（fast 28 + real 14） | 42/42 通过，含干净 checkout 冻结安装、独立目标安装及失败恢复 | `.tmp/environment-tests/run-z9IBh2/report.json` |
+| 类型与元数据检查 | 通过 | 完整 CI 报告 |
+| L1–L3 | 226 通过、0 失败、1 跳过 | `.tmp/upgrade-022rc1-ci.log` |
+| L4 真实宿主 | 10 步通过，覆盖 link、场景拒绝和 tarball | `.tmp/l4/run-vbrkq3/report.json` |
+| L5 浏览器 | 9 步通过，覆盖基线和通知夹具 | `.tmp/l5/run-w2mE5Q/report.json` |
+
+完整报告：`.tmp/ci/run-WZlAUu/report.json`。本机临时证据可能随清理失效；未上传原始日志。真实环境安装受 npm 下载速度及依赖树快照读取耗时影响，本轮未调整超时、跳过检查或修改测试断言。
+
+范围：本轮已完成仓库开发与自动化环境的 macOS Web 适配。Windows CI、真实 Desktop 和个人日常 profile 尚未在本版本验收；旧版本 CI 不能代替本轮证据。没有更新全局 DSH、安装日常 profile、提交或推送。后续正式安装目标必须先与仓库精确版本一致；旧版本固定包验收记录不可复用。
+
 ## 20. 当前未完成事项
 
 历史记录（2026-11-06 已移除日常启动器，当前数量见 §19.8）：2026-10-31 日常隔离 S1–S3 新增 Windows `DLY-01/02/03/04/06` 快速用例及 `DLY-05` 真实用例，纳入 `test-env` 和 `ci`。Windows fast/real/all 为 33/16/49 项；其他平台仍为 28/15/43 项，不宣称日常启动器支持 macOS。DLY 覆盖仓库移走、工具漂移、部署中断/恢复、外部归档碰撞/lockfile、真实 link 覆盖、三环境并发及失败清理。报告纳入启动器源码指纹；本轮结果和证据以 [日常隔离方案 §9.2](daily-environment-isolation-plan.md#92-s1s3-实现与回归2026-10-31) 为准。
