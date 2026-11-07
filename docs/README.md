@@ -33,4 +33,4 @@
 
 ## 当前独立调整
 
-- [内部开发测试与外部交付分离](development-delivery-separation-plan.md)：已实现两个脚本入口、按用途解析输入，安装必填 profile，保留缓存及必要时构建打包。实现未提交；本机回归与跨平台待验项见原文。
+- [内部开发测试与外部交付分离](development-delivery-separation-plan.md)：已提交两个脚本入口、按用途解析输入，安装必填 profile，保留缓存及必要时构建打包，并合并 Linux Web 支持。实现提交、本机回归与跨平台待验项见原文。

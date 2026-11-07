@@ -1,9 +1,9 @@
 # 内部开发测试与外部交付分离方案
 
-> 状态：待验收（实现已落地，本机主要回归通过，完整 CI 与 Windows 待验）。完成：否。更新日期：2026-11-07（Asia/Shanghai）。完成日期：—。
+> 状态：待验收（实现已提交，本机主要回归通过，完整 CI、Windows/Linux 与真实 DSH 沙箱待验）。完成：否。更新日期：2026-11-07（Asia/Shanghai）。完成日期：—。
 > 本轮使命：拆分内部开发测试与外部交付的入口、输入和执行职责，取消共享本机配置的强制前置条件。
-> 实现 commit：未提交；范围为脚本入口、输入解析、相关测试、CI 和使用指南。
-> 验收基线：`4fec7b318839b3ce38ce857fc0afa246b6da605e` 加本轮未提交改动；不能用已有提交的历史结果代表本轮结果。
+> 实现 commit：`fafaab2838b9d796f997d5d1e7d9e134aea45b5b`（入口、输入、测试与文档）；`a5210df82747f491cdfe583dd8a15a781e3d914e`（合并远端 Linux Web 支持并适配新入口）。
+> 当前验收基线：`a5210df82747f491cdfe583dd8a15a781e3d914e`；合并复验在提交前相同代码树执行，随后仅回写文档。此前基于 `4fec7b318839b3ce38ce857fc0afa246b6da605e` 的执行记录保留，不能冒充合并版本的全量验收。
 > 归档：未归档。关联：[现行配置协议](configuration-v2.md)、[现行安装指南](profile-install.md)、[旧方案历史](archive/local-configuration-design.md)。
 
 ## 1. 目标与边界
@@ -138,9 +138,9 @@ pnpm run install-plugins --profile my-web
 
 | 阶段 | 内容 | 出口条件 | 状态 / commit |
 |---|---|---|---|
-| M1 | 拆分 dev.mjs/install.mjs 及参数读取；去掉本机 JSON 前置；实现安装环境解析 | 无目标配置可开发测试，profile 必填且环境解析可核验；A1–A3 | 已实现，macOS 回归通过；Windows 未执行 / 未提交 |
-| M2 | 调整现有 install/status，保留现有缓存策略、install 既有检查和写入保护 | 缓存复用/必要时构建打包行为不变，目标预检有效，真实交付可用；A4–A7 | 已实现，预检/缓存与 L4 通过；独立外部宿主套件受阻 / 未提交 |
-| M3 | 更新 CI/文档/测试，移除多余命令和旧初始化机制 | macOS/Windows 必要检查通过，旧调用无自动转发；A8–A9 | 已实现；完整 CI、Windows 与提交对账待验 / 未提交 |
+| M1 | 拆分 dev.mjs/install.mjs 及参数读取；去掉本机 JSON 前置；实现安装环境解析 | 无目标配置可开发测试，profile 必填且环境解析可核验；A1–A3 | 已提交（见文首），macOS 回归通过；Windows/Linux 未执行 |
+| M2 | 调整现有 install/status，保留现有缓存策略、install 既有检查和写入保护 | 缓存复用/必要时构建打包行为不变，目标预检有效，真实交付可用；A4–A7 | 已提交（见文首），预检/缓存与此前 L4 通过；独立外部宿主套件受阻 |
+| M3 | 更新 CI/文档/测试，移除多余命令和旧初始化机制 | macOS/Windows 必要检查通过，旧调用无自动转发；A8–A9 | 已提交（见文首）；完整 CI 与 Windows/Linux 待验 |
 
 先复用已有能力完成边界拆分，再删除旧路径；不为拆分而重写工具链、harness 或插件。
 
@@ -161,6 +161,8 @@ pnpm run install-plugins --profile my-web
 | A9 | 继续使用的子命令/package scripts 保留名称并指向对应脚本；被移除项不再执行业务；CI 无 config init/target bind 前置；旧 bootstrap 不执行业务，被移除命令只输出说明，旧配置不删除或自动迁移 | 引用检查、CLI 回归与文件快照 | 通过：CFG-01/04/06、L3 入口、ISO-05 定向复验 |
 
 ## 6. 决策、风险与实施记录
+
+以下按时间保留设计、实施与提交前的历史状态；当前提交和验收状态以文首及本节最后的提交记录为准。
 
 2026-11-07 用户确认：内部开发测试独立，外部由用户明确提供目标；校验匹配即可，不预测或修复输入；授权本次编写方案并废弃旧文档，未授权代码实施。
 
@@ -201,3 +203,7 @@ pnpm run install-plugins --profile my-web
 2026-11-07 Review 修复：Corepack 路径发现与 npm global prefix 探测原先使用 execFileSync 管道，违反 DSH 沙箱 stdio 约定。两处改用基于 runToFiles 的临时文件捕获，在仓库 `.tmp/tool-probes` 创建独立目录，并在成功、非零退出、超时及启动异常后清理；保留原版本校验、离线限制与超时。
 
 验证：CFG-05/TOOL-02 使用拒绝管道、检查普通文件描述符的测试替身运行真实 fixture 子进程，两处发现及失败清理通过（`.tmp/environment-tests/run-5APjrE/report.json`）。新增 L1 覆盖输出捕获和各类退出路径清理。`test` 227 通过、1 项平台跳过、0 失败，`build --check` 与 `git diff --check` 通过。此结果验证了模拟的 DSH stdio 限制，未宣称已在真实 DSH 沙箱重新验收；Windows/完整 CI 待验状态不变，实现未提交。
+
+2026-11-07 提交前文档对齐与远端合并：用户授权检查后提交并 push。修正正文“尚未实现”、real 测试必填路径示例和 README 历史 CI 表述，补齐文件捕获说明。拉取远端发现 `6010087` / `d217388` 已新增 Linux Web 与 WSL 工作区配置，因此合并保留这些变更，安装入口改用共用平台解析，Linux 文档同步为新命令，不恢复已废弃配置系统。
+
+实现提交与合并提交见文首。合并后的 macOS 验证：`build --check` 通过，fast 28 项通过（`.tmp/environment-tests/run-0YTObh/report.json`），L1–L3 230 通过、1 项平台跳过、0 失败，Chromium L5 通过（`.tmp/l5/run-SEIiW5/report.json`）；相对链接、冲突标记及 diff 检查通过。提交后仅回写文档，代码树与此次复验一致。完整 CI 未重新执行，Windows/Linux 和真实 DSH 沙箱未执行；继续保持待验收，不将提交或推送当作验收完成。
