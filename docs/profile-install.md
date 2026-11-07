@@ -1,6 +1,6 @@
 # 将当前插件安装到已有 profile
 
-日常 DSH 的启动、停止和 profile 创建由用户负责。本命令仅支持本机 macOS/Windows Web，默认安装所有兼容插件，不适配 Desktop。
+日常 DSH 的启动、停止和 profile 创建由用户负责。本命令仅支持本机 macOS/Windows/Linux Web，默认安装所有兼容插件，不适配 Desktop。
 
 先准备普通 Node 24、仓库声明的 pnpm 和冻结 workspace 依赖，并由用户创建目标 profile。无需 config init 或命名目标配置：
 

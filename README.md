@@ -15,7 +15,7 @@
 | [desktop-notify](desktop-notify/README.md) | 审批申请、任务完成或出错时弹出系统通知，可播放提示音 | 桌面 | Windows |
 | [notify-web](notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS、Linux |
 
-完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断。2026-11-06 宿主升级轮次的 macOS 完整 CI 通过记录见[历史验收](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)，不代表后续入口重构已全量验收。本轮类型检查、L1–L5 及定向回归已通过；完整 CI 因依赖安装超时未通过，Windows 和真实 DSH 沙箱尚未复验，详见[分离方案记录](docs/development-delivery-separation-plan.md)。真实 Desktop 和个人日常 profile 不作为本轮已验收结果。
+完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断。2026-11-06 宿主升级轮次的 macOS 完整 CI 通过记录见[历史验收](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)，不代表后续入口重构已全量验收。入口拆分轮次已按用户确认的 macOS 范围完成，验收基线 `4049f6f` 的完整 CI 通过；Windows/Linux 与真实 DSH 沙箱暂缓，详见[分离方案记录](docs/development-delivery-separation-plan.md)。真实 Desktop 和个人日常 profile 不作为本轮已验收结果。
 
 ## 准备环境
 
@@ -91,7 +91,7 @@ node scripts/dev.mjs dev-install --dry-run
 # 构建并以 link 方式安装兼容插件
 node scripts/dev.mjs dev-install
 
-# 构建并生成固定批次，验收后安装同一份包（需匹配目标证据）
+# 安装当前 tarball；缓存失效时构建打包，不要求功能验收证据
 node scripts/install.mjs install --profile my-web --dry-run
 node scripts/install.mjs install --profile my-web
 node scripts/install.mjs status --profile my-web
@@ -115,14 +115,14 @@ L1–L3 覆盖逻辑、包契约和集成行为；L4 使用一次性 profile 验
 
 GitHub Actions 在 Windows、macOS 和 Linux runner 上准备 Node、pnpm 和冻结依赖后运行同一套检查。测试产物保存在本机或临时 CI runner 的 `.tmp/`，不自动上传日志、截图或 trace。
 
-当前验收记录见 [测试方案 §19.10](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)，保留历史基线和失败原因；尚未完成的建设见 [§20](docs/testing-plan.md#20-当前未完成事项)。
+最新入口拆分轮次的验收记录见 [分离方案](docs/development-delivery-separation-plan.md)；宿主升级轮次见 [测试方案 §19.10](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)，各自保留历史基线和失败原因；尚未完成的建设见 [§20](docs/testing-plan.md#20-当前未完成事项)。
 
 ## 文档
 
 - [插件目录与适用场景](CATALOG.md)
 - [DSH 的 bundle、patch 与 profile](docs/dsh-concepts.md)
 - [插件场景声明与运行时守卫](docs/plugin-targets.md)
-- [通知机制与设计记录](docs/notification-host-design.md)
+- [通知机制与设计记录](docs/archive/notification-host-design.md)
 - [仓库开发约定](AGENTS.md)
 
 ## 许可证
