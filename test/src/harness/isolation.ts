@@ -14,6 +14,7 @@ export function prepareIsolation(f: ReturnType<typeof fixture>, real = false) {
     const dependency = join(f.root, 'node_modules/@deepseek-ai/dsh')
     rmSync(dependency, { recursive: true })
     symlinkSync(realpathSync(join(sourceRoot, 'node_modules/@deepseek-ai/dsh')), dependency, process.platform === 'win32' ? 'junction' : 'dir')
+    d.env.DSH_PNPM = process.env.DSH_ENV_TEST_PNPM!
     f.config.tools.pnpmScript = process.env.DSH_ENV_TEST_PNPM
   } else {
     writeFileSync(d.entry, `const fs=require('node:fs'),path=require('node:path');
@@ -25,7 +26,7 @@ export function prepareIsolation(f: ReturnType<typeof fixture>, real = false) {
   // Explicit simulated system package settings are shared across all runs in this fixture.
   // DSH personal files remain protected by the read audit below.
   const shared = join(f.root, '.shared-package'); preparePackageEnvironment(shared)
-  const env = { ...packageEnvironment(d.env, shared), DSH_PATCH: f.paths.patch, DSH_WEB_PORT: '1', DSH_STORE: f.personal }
+  const env: NodeJS.ProcessEnv = { ...packageEnvironment(d.env, shared), DSH_PATCH: f.paths.patch, DSH_WEB_PORT: '1', DSH_STORE: f.personal }
   mkdirSync(join(shared, 'config/pnpm'), { recursive: true })
   writeFileSync(join(shared, 'config/pnpm/config.yaml'), 'networkConcurrency: 7\n')
   const audit = join(f.root, 'read-audit.cjs')

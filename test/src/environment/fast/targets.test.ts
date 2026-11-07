@@ -4,7 +4,6 @@ import { delimiter, dirname, join } from 'node:path'
 import { environmentCase, environmentTest as it, snapshot } from '../../harness/environment.js'
 import { prepareTarget, targetPackages, fakeAcceptance, installOptions, deliveryReport } from '../../harness/targets.js'
 import { discoverTargets, inspectTarget } from '../../../../scripts/.build/core/formal-target.js'
-import { runTarget } from '../../../../scripts/.build/commands/target.js'
 import { loadCommandContext } from '../../../../scripts/.build/core/command-context.js'
 import { runArtifactInstall, deliveryDiagnostics } from '../../../../scripts/.build/commands/install-artifacts.js'
 import { runStatus } from '../../../../scripts/.build/commands/status.js'
@@ -22,17 +21,12 @@ it('TGT-01 discovery rejects development aliases; binding and path replacement a
   assert.ok(found.candidates.some(c => c.path === external)); assert.ok(!found.candidates.some(c => c.path === alias))
   assert.ok(found.rejected.some(c => c.path === alias))
   const before = readFileSync(f.paths.local)
-  assert.equal(runTarget('bind', 'daily', { ...t.fields, dryRun: true }, f.root, env), 0)
-  assert.deepEqual(readFileSync(f.paths.local), before); assert.equal(existsSync(t.home), false)
-  runTarget('bind', 'daily', t.fields, f.root, env)
-  const named = () => loadCommandContext({ target: 'daily' }, f.root, env, 'target')
-  inspectTarget(named()); runTarget('show', 'daily', {}, f.root, env)
+  inspectTarget(t.context())
   renameSync(t.host, t.host + '-original'); symlinkSync(dirname(t.entry), t.host, process.platform === 'win32' ? 'junction' : 'dir')
-  assert.throws(() => inspectTarget(named()), /workspace development/)
-  assert.throws(() => runTarget('bind', 'bad', t.fields, f.root, env), /workspace development/)
+  assert.throws(() => inspectTarget(t.context()), /workspace development/)
   assert.equal(existsSync(t.home), false)
-  runTarget('unbind', 'daily', {}, f.root, env)
-  assert.deepEqual(JSON.parse(readFileSync(f.paths.local, 'utf8')).targets, [])
+  assert.deepEqual(readFileSync(f.paths.local), before)
+
 }))
 
 it('TGT-02 invalid selection platform version coverage and all fail before target writes', () => environmentCase('TGT-02', async f => {
@@ -61,9 +55,8 @@ it('TGT-03 previews do not write targets and execution rechecks config bytes and
   await assert.rejects(runArtifactInstall(options, t.context()), /hash changed/)
   assert.deepEqual(snapshot(t.home), installed)
   const next = targetPackages(f.root); fakeAcceptance(next)
-  assert.equal(await runArtifactInstall(installOptions(next.path), t.context(), p => { report = p; writeFileSync(f.paths.local, before.toString() + '\n') }), 1)
-  assert.match(deliveryReport(report).error!, /configuration changed/)
-  assert.deepEqual(snapshot(t.home), installed)
+  assert.equal(await runArtifactInstall(installOptions(next.path), t.context(), p => { report = p; writeFileSync(f.paths.local, 'broken legacy config') }), 0)
+  assert.equal(deliveryReport(report).status, 'installed')
 }))
 
 it('TGT-05 link overwrite reparses without remove and status detects residual source junctions', () => environmentCase('TGT-05', async f => {

@@ -9,7 +9,7 @@ import { profileDir } from '../../../scripts/.build/core/dsh.js'
 import { configFixture } from '../harness/local-config.js'
 import { removeDir } from '../harness/tmp.js'
 
-it('L1 command context: flags override env/file without modifying either, including test settings', () => {
+it('L1 command context: flags override environment and ignore legacy files, including test settings', () => {
   const f = configFixture()
   try {
     initializeConfig({ ...f.options, testTimeoutMs: 4321 }, f.root, f.env)
@@ -18,7 +18,7 @@ it('L1 command context: flags override env/file without modifying either, includ
     const before = { ...env }
     const settings = loadCommandContext({ ...f.options, testBrowser: 'chromium', testTimeoutMs: 1234 }, f.root, env, 'test')
     assert.equal(settings.config.test.timeoutMs, 1234)
-    assert.equal(loadCommandContext({}, f.root, f.env).config.test.timeoutMs, 4321)
+    assert.equal(loadCommandContext({}, f.root, f.env).config.test.timeoutMs, 120000)
     assert.equal(configuredPnpm(settings), f.options.pnpmScript)
     assert.equal(configuredDsh(settings, true).source, f.entry)
     assert.doesNotThrow(() => checkTestBrowser(settings))
@@ -40,12 +40,12 @@ it('L1 command context: absent tools never trigger discovery; unrelated browsers
     config.web.browserPath = 'missing-edge'
     config.test.browserPath = 'missing-chrome'
     writeFileSync(f.paths.local, JSON.stringify(config))
-    const settings = loadCommandContext({}, f.root, f.env)
+    const settings = loadCommandContext({ pnpmScript: 'missing', testBrowserPath: 'missing-chrome' }, f.root, f.env)
     assert.equal(configuredDsh(settings, true).source, f.entry)
-    assert.throws(() => configuredPnpm(settings), /required for this command/)
+    assert.throws(() => configuredPnpm(settings), /tools.pnpmScript/)
     assert.throws(() => checkTestBrowser(settings), /test.browserPath/)
     assert.equal(commandEnv(settings).DSH_CLI, undefined)
-    assert.equal(commandEnv(settings).DSH_PNPM, undefined)
+    assert.ok(commandEnv(settings).DSH_PNPM?.endsWith('missing'))
   } finally { removeDir(f.root) }
 })
 

@@ -13,7 +13,7 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     // Compile real sources in an isolated checkout; never copy generated output
     // or personal config. Only the installed compiler/libraries are shared.
     cpSync(join(repoRoot, 'scripts/src'), join(f.root, 'scripts/src'), { recursive: true })
-    for (const file of ['scripts/bootstrap.mjs', 'scripts/tsconfig.json', 'tsconfig.base.json', 'package.json']) {
+    for (const file of ['scripts/bootstrap.mjs', 'scripts/dev.mjs', 'scripts/install.mjs', 'scripts/launch.mjs', 'scripts/tsconfig.json', 'tsconfig.base.json', 'package.json']) {
       copyFileSync(join(repoRoot, file), join(f.root, file))
     }
     const manifest = JSON.parse(readFileSync(join(f.root, 'package.json'), 'utf8'))
@@ -30,30 +30,28 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
       if (/^(PATH|DSH_.*|CHROME_PATH|ELECTRON_RUN_AS_NODE|NODE_OPTIONS)$/i.test(key)) delete env[key]
     }
     Object.assign(env, { PATH: dirname(process.execPath), DSH_HOME: join(f.root, 'home'), DSH_NODE: 'must-not-be-used' })
-    const run = (args: string[], code = 0, command = process.execPath) => {
-      const result = runToFiles(command, [join(f.root, 'scripts/bootstrap.mjs'), ...args], {
+    const run = (args: string[], code = 0, command = process.execPath, entry = 'dev.mjs') => {
+      const result = runToFiles(command, [join(f.root, 'scripts', entry), ...args], {
         cwd, env, timeoutMs: 60_000, stdoutPath: join(f.root, 'stdout.log'), stderrPath: join(f.root, 'stderr.log'),
       })
       assert.equal(result.status, code, `${args.join(' ')}\n${result.stdout}\n${result.stderr}`)
       return result
     }
     const help = run(['--help'], 0, 'node')
-    assert.match(help.stdout, /config init/)
+    assert.match(help.stdout, /Development\/testing only/)
     assert.doesNotMatch(help.stdout, /\.ps1/)
     assert.match(run(['web'], 1).stderr, /daily launch entry removed/)
-    assert.match(run(['status'], 1).stderr, /node scripts\/bootstrap\.mjs config init/)
-    const init = ['config', 'init', '--pnpm-script', f.options.pnpmScript, '--browser', 'default', '--test-browser', 'chromium']
-    run([...init, '--dry-run'])
+    assert.match(run(['status'], 1).stderr, /unknown command/)
+    assert.match(run(['install', '--profile', 'web'], 1).stderr, /unknown command/)
+    assert.match(run(['build'], 1, process.execPath, 'install.mjs').stderr, /unsupported installation command/)
+    assert.match(run(['install'], 1, process.execPath, 'install.mjs').stderr, /--profile is required/)
+    assert.match(run([], 1, process.execPath, 'bootstrap.mjs').stderr, /Combined entry removed/)
     assert.equal(existsSync(f.paths.local), false)
-    assert.equal(existsSync(f.paths.patch), false)
-    run(init)
-    assert.match(run(['web', '--no-open'], 1).stderr, /daily launch entry removed/)
-    assert.equal(existsSync(join(f.root, '.local/dsh-dev')), false)
+    env.DSH_PNPM = f.options.pnpmScript
+    writeFileSync(f.paths.local, 'invalid legacy JSON must be ignored')
     assert.match(run(['dev-web', '--help']).stdout, /OS-assigned port/)
     const before = [f.paths.local].map(path => readFileSync(path, 'utf8'))
-    run(init)
     for (const name of ['app-restart', 'desktop-notify', 'notify-web']) mkdirSync(join(f.root, name, 'lib'), { recursive: true })
-    run(['config', 'check'])
     mkdirSync(join(f.root, 'alpha/lib'), { recursive: true })
     writeFileSync(join(f.root, 'alpha/lib/index.js'), '')
     writeFileSync(join(f.root, 'alpha/package.json'), JSON.stringify({
@@ -79,15 +77,11 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     mkdirSync(join(env.DSH_HOME!, 'profiles/web'), { recursive: true })
     writeFileSync(join(env.DSH_HOME!, 'profiles/web/package.json'), '{"dependencies":{}}')
     const platform = process.platform === 'win32' ? 'windows' : 'mac'
-    assert.match(run(['status', '--dsh-cli', f.cli, '--home', env.DSH_HOME!, '--profile', 'web', '--surface', 'web', '--platform', platform]).stdout, /@mbda9091\/alpha/)
+    assert.match(run(['status', '--dsh-cli', f.cli, '--home', env.DSH_HOME!, '--profile', 'web', '--platform', platform], 0, process.execPath, 'install.mjs').stdout, /@mbda9091\/alpha/)
     assert.match(run(['build', '--unknown'], 1).stderr, /Unknown option/)
     assert.equal(existsSync(f.paths.patch), false)
     assert.deepEqual([f.paths.local].map(path => readFileSync(path, 'utf8')), before)
-    const disk = JSON.parse(readFileSync(f.paths.local, 'utf8'))
-    disk.targets = [{ name: 'macos-web', dshCli: f.cli, home: env.DSH_HOME, profile: 'web', surface: 'web', platform }]
-    writeFileSync(f.paths.local, JSON.stringify(disk))
-    assert.match(run([]).stdout, /No command: show help/)
-    assert.match(run(['--target', 'macos-web', '--port', '3090'], 1).stderr, /unknown command/)
+    assert.match(run([]).stdout, /Development\/testing only/)
     assert.match(run(['test', '--unknown'], 1).stderr, /Unknown option/)
     assert.match(run(['unknown-command'], 1).stderr, /unknown command/i)
   } finally {

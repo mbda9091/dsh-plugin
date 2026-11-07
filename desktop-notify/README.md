@@ -59,8 +59,8 @@
 Host 入口是 TypeScript，`lib/` 是构建产物、不入库；`build.json` 声明 Host bundle，构建脚本用 `tsc` 生成声明、用 esbuild 内联 `@mbda9091/notify-host` 与 `@mbda9091/notify-core` 并产出 `lib/index.js`：
 
 ```powershell
-node scripts/bootstrap.mjs build          # 构建
-node scripts/bootstrap.mjs build --check   # 只做类型检查
+node scripts/dev.mjs build          # 构建
+node scripts/dev.mjs build --check   # 只做类型检查
 ```
 
 插件**没有运行时依赖**；`@mbda9091/notify-host` 与 `@mbda9091/notify-core` 是 workspace 内的构建期依赖，不会进入 profile。
@@ -79,7 +79,7 @@ Web UI 左侧 **Plugins（插件）** 页 → 安装 → 填本目录的绝对�
 
 `dev-install` 固定面向 Web，会跳过本桌面插件；桌面开发安装沿用上方宿主入口，替换 Host 代码后需重启。
 
-`node scripts/bootstrap.mjs pack` 构建并生成 `dist/batches/<批次>/*.tgz`。严格交付必须提供显式目标、manifest 和匹配的验收记录；当前缺少桌面固定包能力证据，不能把 Web 验收当作桌面可安装凭据。`status` 同样需要 `--target <名称>` 或完整目标参数。详见[配置 v2](../docs/configuration-v2.md)。
+`node scripts/dev.mjs pack` 构建并生成 `dist/batches/<批次>/*.tgz`。当前 install/status 仅支持 Web，不提供桌面脚本安装；桌面使用宿主插件管理器。内部 Web 验收不能冒充桌面能力证据。详见[配置 v2](../docs/configuration-v2.md)。
 
 ## 限制
 

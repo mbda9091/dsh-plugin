@@ -25,7 +25,7 @@ export function runCatalog(options: CatalogOptions): number {
   const lines: string[] = [
     '# 插件目录',
     '',
-    '> 本文件由 `node scripts/bootstrap.mjs catalog` 根据各插件 `package.json` 的 `dsh.targets` 生成，不要手动编辑。',
+    '> 本文件由 `node scripts/dev.mjs catalog` 根据各插件 `package.json` 的 `dsh.targets` 生成，不要手动编辑。',
     '> 适用场景语义见 [docs/plugin-targets.md](docs/plugin-targets.md)。',
     '',
     '| 插件 | 包名 | 形态 | 平台 | 说明 |',
@@ -66,12 +66,12 @@ export function runCatalog(options: CatalogOptions): number {
 
   if (options.check) {
     if (!existsSync(output)) {
-      console.error(`catalog: ${output} is missing; run node scripts/bootstrap.mjs catalog`)
+      console.error(`catalog: ${output} is missing; run node scripts/dev.mjs catalog`)
       return 1
     }
     const existing = readText(output).replace(/\r\n/g, '\n').replace(/^\uFEFF+/, '')
     if (existing !== content) {
-      console.error(`catalog: ${output} is out of date; run node scripts/bootstrap.mjs catalog`)
+      console.error(`catalog: ${output} is out of date; run node scripts/dev.mjs catalog`)
       return 1
     }
     console.log('catalog: up to date')

@@ -52,7 +52,7 @@ export interface PatchInspection { roots: string[]; warnings: string[] }
 /** Parse the user's YAML without changing it or executing expressions. */
 export function inspectWebPatch(path: string, root: string): PatchInspection {
   let text: string
-  try { text = readFileSync(path, 'utf8') } catch { throw new Error(`${path}: missing or unreadable; run config init`) }
+  try { text = readFileSync(path, 'utf8') } catch { throw new Error(`${path}: missing or unreadable; check the supplied patch or initialize the managed development environment`) }
   const values = rows(document(text, path).toJS({ maxAliasCount: 100 }), path)
   const warnings: string[] = []
   const marker = /^# Generated for repository: (.+)$/m.exec(text)?.[1]

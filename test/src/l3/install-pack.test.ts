@@ -82,8 +82,8 @@ it('L3 install/pack: preflight checks all artifacts before invoking tools', asyn
   try {
     mkdirSync(join(f.root, 'dist'), { recursive: true })
     writeFileSync(join(f.root, 'dist/local-alpha-1.0.0.tgz'), '')
-    const targetContext = loadCommandContext({ dshCli: f.cli, home: 'chosen-home', profile: 'web', surface: 'web', platform: 'windows' }, f.root, f.context.env, 'target')
-    await assert.rejects(runInstall({ ...f.options, mode: 'tarball' }, targetContext), /requires.*--manifest/)
+    const targetContext = loadCommandContext({ dshCli: f.cli, home: 'chosen-home', profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : 'mac' }, f.root, f.context.env, 'target')
+    await assert.rejects(runInstall({ ...f.options, mode: 'tarball' }, targetContext), /requires.*manifest/)
     rmSync(join(f.root, 'beta/lib'), { recursive: true })
     await assert.rejects(runInstall(f.options, f.context), /no build output.*beta/)
     await assert.rejects(runPack({ skipBuild: true }, f.context), /no build output.*beta/)

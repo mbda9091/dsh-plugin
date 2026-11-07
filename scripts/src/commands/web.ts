@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { envValue } from '../core/config.js'
 import type { ConfigOverrides, RepoConfig } from '../core/config.js'
-import { requireFile } from '../core/config-tools.js'
+import { requireFile, discoverBrowser } from '../core/config-tools.js'
 import { inspectWebPatch } from '../core/web-patch.js'
 import { startToFiles, stopChild, waitForServerUrl, waitForHttp } from '../core/exec.js'
 import { redactLaunchTokens } from '../core/web-harness.js'
@@ -18,7 +18,7 @@ export function webArguments(args: readonly string[]): { overrides: ConfigOverri
   const overrides: ConfigOverrides = {}
   const forward: string[] = []
   let help = false
-  const names = new Set(['--browser', '--browser-path', '--startup-timeout'])
+  const names = new Set(['--pnpm-script', '--browser', '--browser-path', '--startup-timeout'])
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!
     if (arg === '--') continue
@@ -39,6 +39,7 @@ export function webArguments(args: readonly string[]): { overrides: ConfigOverri
     const value = split < 0 ? args[++i] : arg.slice(split + 1)
     if (value === undefined || value === '' || value.startsWith('--')) throw new Error(`${name} requires a value`)
     switch (name) {
+      case '--pnpm-script': overrides.pnpmScript = value; break
       case '--browser': overrides.browser = value; break
       case '--browser-path': overrides.browserPath = value; break
       case '--startup-timeout': overrides.startupTimeoutMs = Number(value); break
@@ -73,9 +74,9 @@ export async function runWeb(args: readonly string[], root: string = repoRoot, e
   const action = ['init', 'start', 'status', 'stop', 'reset'].includes(args[0] ?? '') ? args[0]! : 'start'
   const rest = args[0] === action ? args.slice(1) : args
   if (rest.includes('--help') || rest.includes('-h')) {
-    console.log('Usage: node scripts/bootstrap.mjs dev-web [init|start|status|stop|reset]')
+    console.log('Usage: node scripts/dev.mjs dev-web [init|start|status|stop|reset]')
     console.log('start (default): [--open|--no-open] [--browser edge|default] [--browser-path PATH] [--startup-timeout MS] [--port PORT] [--host 127.0.0.1|::1|localhost]')
-    console.log('Development Web uses .local/dsh-dev/home and an OS-assigned port by default; daily Web uses web (3080).')
+    console.log('Development Web uses .local/dsh-dev/home and an OS-assigned port by default; daily Web is managed by the user.')
     console.log('reset: preview by default; --yes stops the owned instance and deletes only managed data. init/start never import personal configuration.')
     return 0
   }
@@ -126,6 +127,10 @@ export async function runWeb(args: readonly string[], root: string = repoRoot, e
     validateDevelopmentTree(context)
     const inspection = inspectWebPatch(p.patch, root)
     for (const warning of inspection.warnings) console.warn(`web: ${warning}`)
+    if (config.web.openBrowser && config.web.browser === 'edge' && config.web.browserPath === null) {
+      config.web.browserPath = discoverBrowser('edge', context.env)
+      if (config.web.browserPath === null) config.web.browser = 'default'
+    }
     if (config.web.openBrowser && config.web.browser === 'edge') {
       if (config.web.browserPath === null) throw new Error('web.browserPath: required for Edge; use --browser default or --no-open')
       requireFile(config.web.browserPath, 'web.browserPath')

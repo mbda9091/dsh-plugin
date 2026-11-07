@@ -39,7 +39,7 @@ export function configFixture() {
   mkdirSync(join(root, 'node_modules/@deepseek-ai/dsh'), { recursive: true })
   writeFileSync(join(root, 'package.json'), JSON.stringify({ packageManager: 'pnpm@11.28.5', devDependencies: { '@deepseek-ai/dsh': workspaceDshVersion } }))
   writeFileSync(join(root, 'node_modules/@deepseek-ai/dsh/package.json'), JSON.stringify({ name: '@deepseek-ai/dsh', version: workspaceDshVersion, bin: { dsh: './fake-dsh.cjs' } }))
-  const env: NodeJS.ProcessEnv = { PATH: '', DSH_HOME: join(root, 'unused-home') }
+  const env: NodeJS.ProcessEnv = { PATH: '', DSH_PNPM: pnpm, DSH_HOME: join(root, 'unused-home') }
   return { root, paths, entry, cli, options, env }
 }
 

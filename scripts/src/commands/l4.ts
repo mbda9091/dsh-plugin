@@ -154,7 +154,7 @@ async function checkPrerequisites(context: L4Context): Promise<string> {
     join(repoRoot, 'test', 'fixtures', 'target-mismatch', 'index.js'),
   ]
   for (const path of required) {
-    if (!existsSync(path)) throw new Error(`missing ${path}; run node scripts/bootstrap.mjs build first`)
+    if (!existsSync(path)) throw new Error(`missing ${path}; run node scripts/dev.mjs build first`)
   }
   ensurePnpmShim(context)
   return 'built plugin and fixtures are present; pnpm shim ready'

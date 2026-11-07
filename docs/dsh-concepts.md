@@ -347,7 +347,7 @@ bundle 层 → profile 层 → home 层 → --patch
 - **验证顺序**：`build` → `pack` → `install`。出错时先定位是哪一段，不靠提交产物兜底。
 - **不用 `pnpm remove` 移除 `link:` 依赖**：Windows 上 pnpm 会跟随 junction 删掉插件源码目录；切换方向一律用 `add` 覆盖。
 - **切换 link / tarball 后要重解析**：否则 `node_modules` 里可能还是 junction，而 manifest 已是 `file:` 指向 tgz。
-- **插件要声明适用场景**：每个插件在 `package.json` 的 `dsh.targets` 声明 `surfaces`（`desktop` / `web`）和 `platforms`（`mac` / `windows`）；`node scripts/bootstrap.mjs check-targets` 校验，`node scripts/bootstrap.mjs catalog` 生成 [`CATALOG.md`](../CATALOG.md)。安装脚本按目标过滤，`apply` 里的 `assertTarget` 做运行时守卫。语义与取值见 [plugin-targets.md](plugin-targets.md)。
+- **插件要声明适用场景**：每个插件在 `package.json` 的 `dsh.targets` 声明 `surfaces`（`desktop` / `web`）和 `platforms`（`mac` / `windows`）；`node scripts/dev.mjs check-targets` 校验，`node scripts/dev.mjs catalog` 生成 [`CATALOG.md`](../CATALOG.md)。安装脚本按目标过滤，`apply` 里的 `assertTarget` 做运行时守卫。语义与取值见 [plugin-targets.md](plugin-targets.md)。
 
 ---
 

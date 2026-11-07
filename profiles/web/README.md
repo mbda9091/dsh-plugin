@@ -6,14 +6,13 @@
 
 ## 准备与使用
 
-先准备普通 Node 24、pnpm 11.28.5，运行 `pnpm install --frozen-lockfile`。已有 v1 配置需显式预览、迁移；不会导入旧个人 YAML。
+先准备普通 Node 24、pnpm 11.28.5，运行 `pnpm install --frozen-lockfile`。不读取旧本机 JSON，也不导入旧个人 YAML。
 
 ```sh
-node scripts/bootstrap.mjs config init --pnpm-script <pnpm包路径>/bin/pnpm.cjs
-# v1 已存在时，改用 config migrate --dry-run / config migrate
-node scripts/bootstrap.mjs dev-web init
-node scripts/bootstrap.mjs dev-install
-node scripts/bootstrap.mjs dev-web --no-open
+# 初始化受管开发数据，与旧配置无关
+node scripts/dev.mjs dev-web init
+node scripts/dev.mjs dev-install
+node scripts/dev.mjs dev-web --no-open
 ```
 
 `dev-web` 显式启动开发环境，默认通过 `--port 0` 分配空闲端口，可显式传 `--port` 覆盖。开发入口只接受 loopback 地址，保留原有生命周期管理。
@@ -28,12 +27,12 @@ node scripts/bootstrap.mjs dev-web --no-open
 另一个终端可运行：
 
 ```sh
-node scripts/bootstrap.mjs dev-web status
-node scripts/bootstrap.mjs dev-web stop
+node scripts/dev.mjs dev-web status
+node scripts/dev.mjs dev-web stop
 # 只预览清理范围
-node scripts/bootstrap.mjs dev-web reset
+node scripts/dev.mjs dev-web reset
 # 停止已核对身份的实例并清理受管数据
-node scripts/bootstrap.mjs dev-web reset --yes
+node scripts/dev.mjs dev-web reset --yes
 ```
 
 停止保留配置和调试会话；开发重置会删除受管 home、patch、日志及管理记录，不删除共享包管理数据。已登记插件 link 只解除链接，不递归到源码。缺少归属记录、未知外部链接或无法核对实例身份时停止并诊断。日志和运行记录留在本地，可能包含认证参数，不要提交。
@@ -44,7 +43,7 @@ node scripts/bootstrap.mjs dev-web reset --yes
 
 | 文件 | 用途 |
 |---|---|
-| `scripts/config/local.json` | v2 工具位置和浏览器/测试偏好；由 config init 创建 |
+| 命令参数与默认值 | 工具按需解析，浏览器/超时可覆盖；不再需要 local.json |
 | `profiles/web/cordis.dev.patch.yml` | 版本化开发模板，仅 HMR 路径支持 `${repoRoot}` |
 | `.local/dsh-dev/cordis.patch.yml` | dev-web init 生成的开发 patch；可编辑，重复 init 不覆盖 |
 | `.local/dsh-dev/home/profiles/web/` | 通过宿主公开接口初始化的开发 profile；依赖由插件管理器管理 |

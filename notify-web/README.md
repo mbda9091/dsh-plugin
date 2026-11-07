@@ -116,8 +116,8 @@ dsh --profile macos-web --patch "$HOME/.dsh/profiles/macos-web/mbda9091/cordis.p
 ## 构建
 
 ```powershell
-node scripts/bootstrap.mjs build          # tsc 声明 + esbuild 打 bundle
-node scripts/bootstrap.mjs build --check   # 只做类型检查
+node scripts/dev.mjs build          # tsc 声明 + esbuild 打 bundle
+node scripts/dev.mjs build --check   # 只做类型检查
 ```
 
 `lib/client.js` 是构建产物，不入库。构建脚本直接调用平台自带的 esbuild 可执行文件，并通过继承 stdio 避免 DSH 沙箱对管道式子进程的限制；esbuild 自身不做类型检查，类型检查仍由 `tsc` 完成。

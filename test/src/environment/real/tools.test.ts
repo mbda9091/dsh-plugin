@@ -75,9 +75,8 @@ it('TOOL-04 clean frozen install, public CLI, internal pnpm and real tarball (TO
   assert.match(run('internal-pnpm', host.command, host.build(['plugin', '--profile', 'web', '--version'])), /11\.28\.5/)
   const internalRecords = readFileSync(trace, 'utf8').trim().split('\n').slice(beforeInternal).map(line => JSON.parse(line))
   assert.ok(internalRecords.some(record => record.entry === pnpm && record.node === process.execPath), 'DSH itself must invoke the selected pnpm on the current Node')
-  run('config-init', process.execPath, ['scripts/bootstrap.mjs', 'config', 'init', '--pnpm-script', pnpm, '--browser', 'default', '--test-browser', 'chromium'])
-  run('build-check', process.execPath, ['scripts/bootstrap.mjs', 'build', '--check'])
-  run('build', process.execPath, ['scripts/bootstrap.mjs', 'build'])
+  run('build-check', process.execPath, ['scripts/dev.mjs', 'build', '--check'])
+  run('build', process.execPath, ['scripts/dev.mjs', 'build'])
   const artifacts = join(f.root, 'artifacts'); mkdirSync(artifacts)
   run('pack', process.execPath, [pnpm, 'pack', '--pack-destination', artifacts], join(clean, 'notify-web'))
   const pluginVersion = JSON.parse(readFileSync(join(clean, 'notify-web/package.json'), 'utf8')).version

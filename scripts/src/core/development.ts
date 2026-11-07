@@ -71,7 +71,7 @@ export function validateDevelopmentPaths(context: CommandContext): void {
   const p = developmentPaths(context.root)
   for (const path of Object.values(p)) safeConfigPath(context.root, path)
   assertSeparatePaths(p.directory, resolve(context.root, '.tmp'))
-  for (const target of [...context.config.targets, ...(context.target ? [context.target] : [])]) {
+  for (const target of (context.target ? [context.target] : [])) {
     assertSeparatePaths(p.directory, target.home)
     assertSeparatePaths(resolve(context.root, '.tmp'), target.home)
   }

@@ -1,7 +1,8 @@
 import { spawn, spawnSync } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync } from 'node:fs'
-import { dirname } from 'node:path'
+import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { safeConfigPath } from './config-transaction.js'
 
 /**
  * Child-process helpers that never use pipes.
@@ -74,6 +75,20 @@ export function runToFiles(command: string, args: readonly string[], options: Ru
   } finally {
     closeSync(outFd)
     closeSync(errFd)
+  }
+}
+
+/** Short discovery probes need captured output, but no persistent transcript. */
+export function runToTemporaryFiles(root: string, command: string, args: readonly string[], options: Omit<RunOptions, keyof OutputPaths>): RunResult {
+  // DSH guarantees repository scratch space, not arbitrary system temp paths.
+  const base = join(root, '.tmp/tool-probes')
+  safeConfigPath(root, base)
+  mkdirSync(base, { recursive: true })
+  const directory = mkdtempSync(join(base, 'probe-'))
+  try {
+    return runToFiles(command, args, { ...options, stdoutPath: join(directory, 'stdout'), stderrPath: join(directory, 'stderr') })
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
   }
 }
 

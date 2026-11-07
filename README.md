@@ -1,6 +1,6 @@
 # dsh-plugin
 
-`node scripts/bootstrap.mjs` 无子命令时显示帮助。日常启动由用户管理；本仓库提供 `install --target NAME` 安装当前 tarball 并生成命名空间配置，`dev-web` 用于独立开发环境。
+开发测试入口为 `node scripts/dev.mjs`；安装入口为 `node scripts/install.mjs install --profile NAME`。无参数显示各自帮助。安装自动解析已准备好的 Node/DSH 环境，日常启动由用户管理。
 
 
 为 DeepSeek Harness（DSH）编写的自定义插件，提供桌面重启、审批提醒和任务完成通知。
@@ -15,7 +15,7 @@
 | [desktop-notify](desktop-notify/README.md) | 审批申请、任务完成或出错时弹出系统通知，可播放提示音 | 桌面 | Windows |
 | [notify-web](notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS |
 
-完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断。2026-11-06 升级 DSH `0.2.2-rc.1`、Cordis `4.1.0` 后，本机 macOS 完整 CI 通过：环境 42 项、类型检查、L1–L3（226 通过、1 跳过）、L4 与 L5。详见 [本次验收记录](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)。Windows CI、真实 Desktop 和个人日常 profile 尚未在本版本验收。
+完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断。2026-11-06 宿主升级轮次的 macOS 完整 CI 通过记录见[历史验收](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)，不代表后续入口重构已全量验收。本轮类型检查、L1–L5 及定向回归已通过；完整 CI 因依赖安装超时未通过，Windows 和真实 DSH 沙箱尚未复验，详见[分离方案记录](docs/development-delivery-separation-plan.md)。真实 Desktop 和个人日常 profile 不作为本轮已验收结果。
 
 ## 准备环境
 
@@ -24,21 +24,20 @@
 
 2026-11-06 查询 npm `latest` 得到 `0.2.2-rc.1`，仓库使用该精确版本及锁文件保证可复现安装。宿主、插件类型包和真实环境测试版本同步；未来升级仍先解析 `latest` 再更新精确版本。`pnpm-workspace.yaml` 允许新增 WebSocket 原生依赖构建；可选 Kerberos 模块默认不构建，因为其 node-gyp 在带空格的用户目录下编译失败。普通 Web 与代理功能不依赖它；需要 Negotiate/SPNEGO 代理认证时，须在支持的本机环境单独启用并验证 Kerberos 构建。
 
-统一入口为 `node scripts/bootstrap.mjs <command>`。普通 Node 24 需要在 PATH 中，或使用其绝对路径启动；不通过 `DSH_NODE` 选择运行时。编译器、pnpm 和开发 DSH 使用当前 Node。`config init` 只从 PATH 发现 pnpm 包脚本及系统浏览器，不扫描私有 runtime；无法发现时显式提供 `--pnpm-script <pnpm包>/bin/pnpm.cjs`。例如用 npm 全局安装指定 pnpm 后，包位于 `npm root -g` 输出目录下。准备说明和 v1 迁移见 [配置 v2](docs/configuration-v2.md)。
+普通 Node 24 需要在 PATH 中，或使用绝对路径启动脚本。无需 config init 或 local.json；工具按命令需要解析。pnpm 默认自动发现，支持 npm 与 Corepack 安装，不需要手填绝对路径；`--pnpm-script` 仅保留为可选覆盖。详见[环境输入](docs/configuration-v2.md)。
 
 ```sh
 git clone https://github.com/mbda9091/dsh-plugin.git
 cd dsh-plugin
 pnpm install --frozen-lockfile
-node scripts/bootstrap.mjs config init
-node scripts/bootstrap.mjs build
+node scripts/dev.mjs build
 ```
 
 构建会检查插件场景声明、插件目录和 TypeScript 类型，生成各插件的 `lib/`。`lib/`、`dist/` 和 `node_modules/` 均不入库。
 
 `pnpm-workspace.yaml` 显式决定依赖安装脚本，允许 esbuild 和 DSH 所需的 node-pty、koffi、spawn-helper 准备，拒绝非必需脚本。peer 依赖随宿主解析并锁定，否则公开 DSH 缺少启动服务。新增需要安装脚本的依赖时，应单独检查并更新该清单。
 
-`config check` 输出工具版本、实际入口、来源及使用范围。独立环境测试使用 `test-env --suite fast`；真实冻结安装、宿主/pnpm/包内容及开发生命周期验证使用 `test-env --suite real --pnpm-script <路径>`，不读取本机配置。
+快速环境检查使用 `node scripts/dev.mjs test-env --suite fast`；完整验证使用 `node scripts/dev.mjs ci`。
 
 ## 安装到桌面应用
 
@@ -59,23 +58,16 @@ Web 需要**普通 Node 版 DSH CLI**。桌面应用自带的 Electron CLI 不�
 从仓库根目录执行：
 
 ```sh
-# 查看工具探测结果，不写入本机配置
-node scripts/bootstrap.mjs config init --dry-run
-
-# 根据 example 生成本机配置，再检查格式与路径
-node scripts/bootstrap.mjs config init
-node scripts/bootstrap.mjs config check
-
 # 初始化持久开发环境，再构建安装兼容 Web 插件
-node scripts/bootstrap.mjs dev-web init
-node scripts/bootstrap.mjs dev-install
+node scripts/dev.mjs dev-web init
+node scripts/dev.mjs dev-install
 
-node scripts/bootstrap.mjs dev-web
+node scripts/dev.mjs dev-web
 # 另一个终端查看/停止；停止保留会话和配置
-node scripts/bootstrap.mjs dev-web status
-node scripts/bootstrap.mjs dev-web stop
+node scripts/dev.mjs dev-web status
+node scripts/dev.mjs dev-web stop
 # 默认只预览；添加 --yes 才停止自己的实例并清理开发数据
-node scripts/bootstrap.mjs dev-web reset
+node scripts/dev.mjs dev-web reset
 ```
 
 开发只使用 workspace 锁定的普通 Node DSH。缺依赖时先冻结安装，不接受 `--dsh-cli` 或日常环境变量重定向。`dev-web` 默认使用随机空闲端口，可用 `--port 0` 选择空闲端口；重复启动或端口占用会报错。
@@ -84,18 +76,9 @@ node scripts/bootstrap.mjs dev-web reset
 
 浏览器通知需要允许站点通知权限，并保持标签页打开。完整参数、配置层序和 Windows 排障见 [Web 配置与启动说明](profiles/web/README.md)。
 
-## 本机配置与模板
+## 配置职责
 
-| 提交到仓库的模板 | 初始化生成的本机文件 | 用途 |
-| --- | --- | --- |
-| `scripts/config/example.json` | `scripts/config/local.json` | 工具路径、浏览器偏好和启动参数 |
-| `profiles/web/cordis.dev.patch.yml` | `.local/dsh-dev/cordis.patch.yml` | `dev-web init` 生成的开发 HMR 配置；不会导入旧个人 patch |
-
-本机文件已被 Git 忽略。运行时读取本机文件，**不会合并 example**；重复 `init` 不覆盖已有配置。配置格式由 `scripts/config/schema.json` 校验，支持的覆盖顺序为 **命令行参数 → 环境变量 → 本机配置**。
-
-配置机制已接入 Web、构建、打包、安装、状态及测试入口。已有 `version: 1` 配置需显式运行 `config migrate --dry-run` 和 `config migrate`。L4/L5 使用一次性 profile，不加载个人或持久开发 patch。详见 [配置 v2](docs/configuration-v2.md)。
-
-审批由宿主处理，本仓库不提供自动审批规则。个人路径和凭据应留在本机配置中；带认证参数的启动地址及运行日志也不应提交。
+内部开发测试使用仓库声明、默认值和命令参数，不读取用户安装目标。安装只要求 profile，其余从当前 Node/DSH 环境解析或显式覆盖，不建立新的本机配置文件。旧配置保留但不读取。
 
 ## 开发与打包
 
@@ -103,40 +86,34 @@ node scripts/bootstrap.mjs dev-web reset
 
 ```sh
 # 预览目标过滤和安装命令
-node scripts/bootstrap.mjs dev-install --dry-run
+node scripts/dev.mjs dev-install --dry-run
 
 # 构建并以 link 方式安装兼容插件
-node scripts/bootstrap.mjs dev-install
+node scripts/dev.mjs dev-install
 
 # 构建并生成固定批次，验收后安装同一份包（需匹配目标证据）
-node scripts/bootstrap.mjs target discover
-node scripts/bootstrap.mjs target bind daily --dsh-cli <外部CLI> --home <独立home> --profile web --surface web --platform windows
-node scripts/bootstrap.mjs pack
-node scripts/bootstrap.mjs verify-artifacts --manifest dist/batches/<批次>/manifest.json
-node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<批次>/manifest.json --dry-run
-node scripts/bootstrap.mjs stable-install --target daily --manifest dist/batches/<批次>/manifest.json
-
-# 查看安装模式及目标兼容性
-node scripts/bootstrap.mjs status --target daily
+node scripts/install.mjs install --profile my-web --dry-run
+node scripts/install.mjs install --profile my-web
+node scripts/install.mjs status --profile my-web
 ```
 
-开发链接使用仓库构建产物；tarball 安装使用打包副本，可用 `--only @mbda9091/包名` 选择子集。交付报告位于 `dist/consumption/run-*/report.json`，分开记录文件、bundle/配置行、加载和能力验证；部分失败不自动回滚或重启。目标管理、精确版本证据、持久输入与重试规则见 [v2 协议](docs/configuration-v2.md#正式目标与交付恢复m6)。切换安装方式使用 add 覆盖与 update，避免手工删除 `link:` 依赖。
+开发链接使用仓库构建产物；tarball 安装使用打包副本，可用 `--only @mbda9091/包名` 选择子集。交付报告位于 `dist/consumption/run-*/report.json`，分开记录文件、bundle/配置行、加载和能力验证；部分失败不自动回滚或重启。输入来源与安装恢复规则见 [环境输入](docs/configuration-v2.md)。切换安装方式使用 add 覆盖与 update，避免手工删除 `link:` 依赖。
 
 ## 验证
 
 ```sh
 # 类型与元数据检查
-node scripts/bootstrap.mjs build --check
+node scripts/dev.mjs build --check
 
 # 完整本地检查：独立环境 all → 类型检查 → L1–L3 → L4 → L5
-node scripts/bootstrap.mjs ci
+node scripts/dev.mjs ci
 ```
 
-`ci` 先核验本次 CFG/TOOL/DEV/ISO 环境报告，再执行插件功能回归；环境 all 包含一次独立冻结安装，需要网络。单独快速验证可运行 `node scripts/bootstrap.mjs test-env --suite fast`，定向验证支持 `--only ISO-01,ISO-02`。L4/L5 成功清理可变数据但保留报告/日志，失败或 `--keep` 保留现场；报告路径收录在 `.tmp/ci/last-report.json`。平台验收进度见[环境计划](docs/development-environment-plan.md)。
+`ci` 先核验本次 CFG/TOOL/DEV/ISO 环境报告，再执行插件功能回归；环境 all 包含一次独立冻结安装，需要网络。单独快速验证可运行 `node scripts/dev.mjs test-env --suite fast`，定向验证支持 `--only ISO-01,ISO-02`。L4/L5 成功清理可变数据但保留报告/日志，失败或 `--keep` 保留现场；报告路径收录在 `.tmp/ci/last-report.json`。平台验收进度见[环境计划](docs/development-environment-plan.md)。
 
-L1–L3 覆盖逻辑、包契约和集成行为；L4 使用一次性 profile 验证真实 DSH 安装与加载；L5 通过 Playwright 验证 Web 交互和通知。L4/L5 需要普通 Node 版 DSH 和配置中的 pnpm，L5 使用 `test.browser` / `test.browserPath`；Chromium 需先通过 Playwright 安装。`test.timeoutMs` 控制测试操作和浏览器场景的超时。测试说明和环境覆盖参数见 [测试方案](docs/testing-plan.md)。
+L1–L3 覆盖逻辑、包契约和集成行为；L4 使用一次性 profile 验证真实 DSH 安装与加载；L5 通过 Playwright 验证 Web 交互和通知。L4/L5 使用 workspace 普通 Node 版 DSH 和按需解析的 pnpm；L5 默认使用 Chrome，可用 `--test-browser` / `--test-browser-path` 覆盖，Chromium 需先通过 Playwright 安装。`--timeout` 控制测试操作和浏览器场景的超时。测试说明和环境覆盖参数见 [测试方案](docs/testing-plan.md)。
 
-GitHub Actions 在 Windows 和 macOS runner 上先初始化各自的本机配置，再运行同一套检查。测试产物保存在本机或临时 CI runner 的 `.tmp/`，不自动上传日志、截图或 trace。
+GitHub Actions 在 Windows 和 macOS runner 上准备 Node、pnpm 和冻结依赖后运行同一套检查。测试产物保存在本机或临时 CI runner 的 `.tmp/`，不自动上传日志、截图或 trace。
 
 当前验收记录见 [测试方案 §19.10](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)，保留历史基线和失败原因；尚未完成的建设见 [§20](docs/testing-plan.md#20-当前未完成事项)。
 

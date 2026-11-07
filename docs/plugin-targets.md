@@ -6,8 +6,8 @@
 > `dsh.client.platform` 只用于 Client bundle 且只接受 `"web"`。
 > 所以适用场景由本仓库自己声明、校验和展示，dsh 不参与解释。
 
-> **阶段 1 已落地**：`dsh.targets` 声明、`node scripts/bootstrap.mjs check-targets` 校验、`CATALOG.md` 目录。
-> **阶段 2 已落地**：安装过滤（`dev-install` / `stable-install` / `status`）与运行时守卫（各插件的 `src/targets.ts`）。
+> **阶段 1 已落地**：`dsh.targets` 声明、`node scripts/dev.mjs check-targets` 校验、`CATALOG.md` 目录。
+> **阶段 2 已落地**：安装过滤（`dev-install` / `install` / `status`）与运行时守卫（各插件的 `src/targets.ts`）。
 > **阶段 3（可选）**：插件管理器里的 UI 徽章 / 按场景页面；当前不做。
 
 ## 1. 两个正交维度
@@ -77,12 +77,12 @@ locale 的 `meta.description` 必须以对应场景前缀开头，方便在内�
 [Universal · All platforms] ...
 ```
 
-前缀由 `node scripts/bootstrap.mjs check-targets` 和 `dsh.targets` 交叉校验，防止元数据和描述漂移。
+前缀由 `node scripts/dev.mjs check-targets` 和 `dsh.targets` 交叉校验，防止元数据和描述漂移。
 
 ## 4. 校验
 
 ```sh
-node scripts/bootstrap.mjs check-targets
+node scripts/dev.mjs check-targets
 ```
 
 检查内容：
@@ -94,7 +94,7 @@ node scripts/bootstrap.mjs check-targets
 - `locale/zh.json`、`locale/en.json` 的 `meta.description` 以场景前缀开头；
 - `README.md` 有 `## 适用场景` 一节。
 
-`node scripts/bootstrap.mjs build`（包括 `--check`）会先调用它，再检查 `CATALOG.md` 是否最新，最后才跑 `tsc`。
+`node scripts/dev.mjs build`（包括 `--check`）会先调用它，再检查 `CATALOG.md` 是否最新，最后才跑 `tsc`。
 
 ## 5. 运行时判定
 
@@ -138,11 +138,11 @@ node scripts/bootstrap.mjs check-targets
 组合的单位是 bundle。dsh 已经支持任意启用/停用 bundle，不需要发明新的组合格式；只需要按目标过滤：
 
 - `dev-install` 固定使用受管开发 home、Web surface 和当前平台，不接受正式目标参数；默认跳过不兼容插件。
-- `stable-install` 与 `status` 必须选择 `--target NAME`，或完整提供 `--dsh-cli`、`--home`、`--profile`、`--surface`、`--platform`；不从 profile 名或日常环境变量补齐目标。
-- `stable-install` 还必须提供固定包 manifest 和匹配的验收记录；`--all` 会被拒绝，不能绕过兼容性或验收门禁。`dev-install --all` 仅绕过开发安装筛选，运行时场景守卫仍会拒绝不匹配插件，不代表获得跨场景支持。
-- 直接 `install` 使用显式目标，只支持 Web，并筛选适用插件；配置生成方式见[安装指南](profile-install.md)。
-- desktop 目标匹配声明为 desktop 或通用形态且平台匹配的包；web 目标同理。匹配只是必要条件，桌面严格交付仍需对应验收证据。
-- `status --target NAME` 展示插件声明及兼容/跳过结果，不负责卸载不兼容插件。
+- `node scripts/install.mjs install|status --profile NAME` 从当前 Node/DSH 环境解析目标，可显式覆盖 CLI、home 和平台；仅支持本机 Web，不接受 `--target` 或 `--surface`。
+- install 按声明筛选插件，保留缓存复用和必要时构建打包；不要求固定包验收记录。内部 `verify-artifacts` 负责固定包验收。
+- `dev-install --all` 仅绕过开发安装筛选，运行时场景守卫仍会拒绝不匹配插件，不代表获得跨场景支持。外部 install 不提供 `--all`。
+- desktop/web 声明与实际宿主形态、平台均须匹配；脚本不提供 desktop 安装入口。
+- `status --profile NAME` 展示插件声明及兼容/跳过结果，不负责卸载不兼容插件。配置生成方式见[安装指南](profile-install.md)。
 
 跳过不等于卸载：已经装在 profile 里的不兼容插件不会被脚本删除；用 `status` 查看，再到插件管理器里停用或移除。不要对 `link:` 依赖执行自动删除。
 
@@ -167,9 +167,9 @@ node scripts/bootstrap.mjs check-targets
 
 ## 9. 相关文件
 
-- [`node scripts/bootstrap.mjs check-targets`](../scripts/src/commands/check-targets.ts)：声明校验；
-- [`node scripts/bootstrap.mjs catalog`](../scripts/src/commands/catalog.ts)：生成 [`CATALOG.md`](../CATALOG.md)；
-- [`node scripts/bootstrap.mjs dev-install`](../scripts/src/commands/install.ts)、[`node scripts/bootstrap.mjs stable-install`](../scripts/src/commands/install.ts)：按目标过滤安装；
-- [`node scripts/bootstrap.mjs status`](../scripts/src/commands/status.ts)：显示声明目标与当前兼容性；
-- [`node scripts/bootstrap.mjs build`](../scripts/src/commands/build.ts)：构建入口，串联上述检查；
+- [`node scripts/dev.mjs check-targets`](../scripts/src/commands/check-targets.ts)：声明校验；
+- [`node scripts/dev.mjs catalog`](../scripts/src/commands/catalog.ts)：生成 [`CATALOG.md`](../CATALOG.md)；
+- [`node scripts/dev.mjs dev-install`](../scripts/src/commands/install.ts)、[`node scripts/install.mjs install`](../scripts/src/commands/profile-install.ts)：按目标过滤安装；
+- [`node scripts/install.mjs status`](../scripts/src/commands/status.ts)：显示声明目标与当前兼容性；
+- [`node scripts/dev.mjs build`](../scripts/src/commands/build.ts)：构建入口，串联上述检查；
 - [`AGENTS.md`](../AGENTS.md)：插件开发规则与检查清单。

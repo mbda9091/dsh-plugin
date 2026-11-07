@@ -21,6 +21,7 @@ it('DEV-03 real link, loaded revisions, restart/reset persistence (DEV-01/04/05 
   const dependency = join(f.root, 'node_modules/@deepseek-ai/dsh')
   rmSync(dependency, { recursive: true })
   symlinkSync(realpathSync(join(sourceRoot, 'node_modules/@deepseek-ai/dsh')), dependency, process.platform === 'win32' ? 'junction' : 'dir')
+  d.env.DSH_PNPM = pnpm;
   f.config.tools.pnpmScript = pnpm; f.config.web.startupTimeoutMs = 60_000; f.write()
   const plugin = { packageName: '@mbda9091/m3-fixture', dir: join(f.root, 'm3-fixture') }
   mkdirSync(join(plugin.dir, 'lib'), { recursive: true })

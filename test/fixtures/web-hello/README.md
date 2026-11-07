@@ -1,6 +1,6 @@
 # Web L5 fixture
 
-仅供 `node scripts/bootstrap.mjs l4` / `l5` 安装到一次性 profile，不是正式插件，不进入 CATALOG。
+仅供 `node scripts/dev.mjs l4` / `l5` 安装到一次性 profile，不是正式插件，不进入 CATALOG。
 
 - Client 使用宿主 React、locale 和 `conversation.composer.dock`，包含输入/Host 回声与中英切换。
 - 测试初始化通过真实 workspace controller 创建临时会话，并写入受支持的会话事件；不调用模型。

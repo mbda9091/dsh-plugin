@@ -37,7 +37,7 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
     }
   }
   for (const directory of ['scripts/src', 'test/src']) fingerprint(join(repoRoot, directory))
-  for (const path of ['scripts/bootstrap.mjs', 'package.json', 'pnpm-workspace.yaml', 'scripts/config/schema.json', 'scripts/config/schema.v1.json', 'test/src/harness/environment.ts', 'test/src/harness/development.ts', 'test/src/harness/isolation.ts', 'profiles/web/cordis.dev.patch.yml', 'pnpm-lock.yaml']) sources[path] = digest(readFileSync(join(repoRoot, path)))
+  for (const path of ['scripts/dev.mjs', 'scripts/install.mjs', 'scripts/launch.mjs', 'scripts/bootstrap.mjs', 'package.json', 'pnpm-workspace.yaml', 'scripts/config/schema.json', 'scripts/config/schema.v1.json', 'test/src/harness/environment.ts', 'test/src/harness/development.ts', 'test/src/harness/isolation.ts', 'profiles/web/cordis.dev.patch.yml', 'pnpm-lock.yaml']) sources[path] = digest(readFileSync(join(repoRoot, path)))
   const revision = sourceState(repoRoot)
   const report = { version: 1, suite, selected: expected, platform: process.platform, node: process.version, nodePath: process.execPath,
     commit: revision.commit, dirty: revision.dirty,

@@ -2,7 +2,7 @@ import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve, isAbsolute } from 'node:path'
 import type { CommandContext } from '../core/command-context.js'
-import { configuredPnpm } from '../core/command-context.js'
+import { configuredPnpm, loadCommandContext } from '../core/command-context.js'
 import { inspectTarget } from '../core/formal-target.js'
 import { validateDevelopmentPaths } from '../core/development.js'
 import { discoverPlugins } from '../core/plugins.js'
@@ -56,7 +56,7 @@ export async function runProfileInstall(options: ProfileInstallOptions, context:
       if (options.dryRun) return 0
       path = cache.manifest
       if (!path) {
-        const code = await packUnlocked({ skipBuild: cache.mode === 'reuse-build' }, context, value => { path = value })
+        const code = await packUnlocked({ skipBuild: cache.mode === 'reuse-build' }, loadCommandContext({ pnpmScript: configuredPnpm(context) }, context.root, context.env), value => { path = value })
         if (code !== 0) return code
       }
     } finally { release() }

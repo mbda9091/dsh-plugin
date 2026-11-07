@@ -55,7 +55,7 @@ it('DEV-02 physical paths, aliases and replaced ancestors fail closed', () => en
   symlinkSync(f.personal, p.home, process.platform === 'win32' ? 'junction' : 'dir')
   for (const action of ['init', 'reset', 'status']) await assert.rejects(runWeb([action], f.root, d.env), /link/)
   unlinkSync(p.home)
-  const overlap = { ...d.context, config: { ...d.context.config, targets: [{ name: 'bad', home: p.home, dshCli: d.entry, profile: 'web', surface: 'web' as const, platform: 'windows' as const }] } }
+  const overlap = { ...d.context, target: { name: 'bad', home: p.home, dshCli: d.entry, profile: 'web', surface: 'web' as const, platform: 'windows' as const } }
   assert.throws(() => validateDevelopmentPaths(overlap), /overlap/)
 }))
 

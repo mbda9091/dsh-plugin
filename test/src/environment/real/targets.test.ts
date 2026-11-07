@@ -13,7 +13,6 @@ import { runVerifyArtifacts } from '../../../../scripts/.build/commands/verify-a
 import { runToFilesAsync } from '../../../../scripts/.build/core/exec.js'
 import { ensurePnpmShim, initProfile, runDsh, serveAndCheck } from '../../../../scripts/.build/core/web-harness.js'
 import type { WebHarness } from '../../../../scripts/.build/core/web-harness.js'
-import { runTarget } from '../../../../scripts/.build/commands/target.js'
 import { readPackage } from '../../../../scripts/.build/core/artifact-package.js'
 import { checkFixtureCapabilities } from '../../harness/fixture-capability.js'
 
@@ -31,8 +30,8 @@ async function prepare(f: ReturnType<typeof fixture>, names: string[]) {
   const cli = realpathSync(join(host, 'node_modules/@deepseek-ai/dsh/lib/bin.js'))
   assert.notEqual(cli, realpathSync(join(f.root, 'node_modules/@deepseek-ai/dsh/lib/bin.js')))
   const fields = { dshCli: cli, home, profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : 'mac' }
-  runTarget('bind', 'simulated', fields, f.root, env)
-  const context = loadCommandContext({ target: 'simulated' }, f.root, env, 'target')
+  env.DSH_PNPM = process.env.DSH_ENV_TEST_PNPM
+  const context = loadCommandContext(fields, f.root, env, 'target')
   const runner = inspectTarget(context).runner, runDir = join(f.root, '.formal-run'); mkdirSync(runDir)
   const harness: WebHarness = { settings: context, runner, home, runDir, logDir: runDir, options: { timeoutMs: 120000 } }
   ensurePnpmShim(harness); await initProfile(harness, 'initialize-target', home)

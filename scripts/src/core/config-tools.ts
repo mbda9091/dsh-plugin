@@ -59,9 +59,9 @@ export function discoverDsh(explicit: string | null, env: NodeJS.ProcessEnv, roo
   throw new Error(`cannot locate a plain-Node DSH CLI; pass --dsh-cli <path> or set DSH_CLI${rejected.length ? `\n${rejected.join('\n')}` : ''}`)
 }
 
-export function discoverPnpm(explicit: string | null, env: NodeJS.ProcessEnv): string | null {
+export function discoverPnpm(explicit: string | null, env: NodeJS.ProcessEnv, root = repoRoot): string | null {
   if (explicit !== null) return requirePnpm(explicit)
-  const candidate = discoverPnpmScript(env)
+  const candidate = discoverPnpmScript(env, root)
   return candidate === null ? null : requirePnpm(candidate)
 }
 

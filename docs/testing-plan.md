@@ -1,5 +1,7 @@
 # 测试与 Web L5 方案（v0.1）
 
+> 当前入口调整：开发测试使用 scripts/dev.mjs，安装使用 scripts/install.mjs；不要求 config init 或命名目标，旧 bootstrap/stable-install 不再执行。下文各历史轮次的命令与验收记录保留，不作为当前操作指南；当前规则见[环境输入](configuration-v2.md)，本轮结果见[分离方案](development-delivery-separation-plan.md)。
+
 > 2026-11-06 轮次扫描：本文是按版本追加的测试建设与验收记录，M1–M5/P0 的历史完成、按需 M6、环境扩展及宿主升级分别判断。§19.10 的 DSH 0.2.2-rc.1 改动随后提交为 `7011a6b53a65b62254dc5ad21a16611f88500d41`；该提交补齐版本落点，但正文原报告来自提交前工作区，不自动变成提交后重新验收。本次不重跑历史 CI，不将早期测试数量/平台结论用于最新版本。
 
 > 当前范围（2026-11-06）：审批白名单插件、专属探针和 ART-07 已移除；下文涉及它的验收记录仅为历史事实。当前插件为 app-restart、desktop-notify、notify-web，Web L4 的 link/tarball 对象为 notify-web。历史成功不代表本次变更已验收。
@@ -10,7 +12,7 @@
 
 > 状态：M1–M5 已完成；提交 `d9f2a12` 的 Windows/macOS 远端 CI 全部通过（§19.7）。更新日期：2026-10-30（Asia/Shanghai）。
 > 本文保留历史实施记录；原远端基线见 §19.7，P0 本机及 Windows/macOS 远端验收见 §7.5（2026-10-31 补验），未完成事项与范围边界集中在 §20。M6 等首个真实 UI 组件需要时再启动。
-> 历史日志中的机器路径已脱敏；`<repo>`、`%USERPROFILE%`、`%LOCALAPPDATA%` 为路径占位符。新的本机配置入口见 [本机配置方案](local-configuration-design.md)，L4/L5 不读取日常 Web 本机 patch。
+> 历史日志中的机器路径已脱敏；`<repo>`、`%USERPROFILE%`、`%LOCALAPPDATA%` 为路径占位符。当前配置入口见 [配置 v2](configuration-v2.md)；原方案已废弃，历史见 [本机配置方案](archive/local-configuration-design.md)，L4/L5 不读取日常 Web 本机 patch。
 > TS 脚本收尾已实现；后续环境统一与开发隔离见[独立规划](development-environment-plan.md)。以下历史通过记录不代表 P1–P4 已实现。
 > 环境配置的新增测试另见[环境方案 §4.7](development-environment-plan.md#47-验证设计独立环境配置测试)：包含独立入口、36 组场景及逐步交付安排；CFG/TOOL/DEV/ISO/ART/TGT 均已实现。它验证配置迁移、宿主选择、目录/进程隔离和交付一致性，与本文插件 L1–L5 分别报告。
 
@@ -1076,7 +1078,7 @@ node scripts/bootstrap.mjs l5
 
 ### 19.6 本机配置第二阶段（2026-10-30）
 
-首次运行前先安装 workspace 依赖，再执行 `config init`。构建、打包、安装、状态和测试共用 `core/command-context.ts`；PowerShell 入口只负责 Node 启动与参数转发。`DSH_CLI` / `DSH_PNPM` / `DSH_E2E_BROWSER` / `CHROME_PATH` 继续兼容，优先级低于命令行、高于本机 JSON；详见 [配置方案 §12](local-configuration-design.md#12-第二阶段实现与使用)。
+首次运行前先安装 workspace 依赖，再执行 `config init`。构建、打包、安装、状态和测试共用 `core/command-context.ts`；PowerShell 入口只负责 Node 启动与参数转发。`DSH_CLI` / `DSH_PNPM` / `DSH_E2E_BROWSER` / `CHROME_PATH` 继续兼容，优先级低于命令行、高于本机 JSON；详见 [配置方案 §12](archive/local-configuration-design.md#12-第二阶段实现与使用)。
 
 L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profile 和测试 patch；包管理配置、缓存/store/状态沿用系统。`test.timeoutMs` 控制外部操作与浏览器场景的截止时间；不读取个人 Web YAML。CI 在 runner 内通过 example 初始化，不依赖开发者的本机配置。
 
@@ -1148,9 +1150,9 @@ L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profi
 
 | 事项 | 当前状态与下一步 | 依据 |
 |---|---|---|
-| TS 脚本收尾与 PS 退场 | **已完成**：Node/TS 主入口、帮助/文档/调用方迁移，移除 PS 入口；Windows 本机 252 项测试与真实 L4/L5 通过，迁移提交 `ab745e9` 的 Windows/macOS CI 均通过 | 本文 §7.5、[本机配置方案 §14.10](local-configuration-design.md#1410-powershell-兼容层移除计划) |
+| TS 脚本收尾与 PS 退场 | **已完成**：Node/TS 主入口、帮助/文档/调用方迁移，移除 PS 入口；Windows 本机 252 项测试与真实 L4/L5 通过，迁移提交 `ab745e9` 的 Windows/macOS CI 均通过 | 本文 §7.5、[本机配置方案 §14.10](archive/local-configuration-design.md#1410-powershell-兼容层移除计划) |
 | 环境统一与开发隔离 | **环境 M1–M6 已实现**：固定产物 ART 与正式目标 TGT 纳入 CI，环境 fast/real/all 为 28/14/42 项，真实产物验证复用 L4/L5；平台与桌面覆盖边界见实施记录 | [开发环境方案 §9.11](development-environment-plan.md#911-m6-目标管理与逐包交付2026-10-31) |
-| 本机配置第三阶段 | **维护机制已设计，尚未实现**：保留字段归属、预览、备份、repair/migrate 与故障恢复设计，按 P1 的新配置职责调整字段与迁移；不作为 TS 收尾前置。当前新增命令不可用 | [本机配置方案 §14](local-configuration-design.md#14-第三阶段具体设计修复与格式升级) |
+| 本机配置第三阶段 | **已废弃（2026-11-07）**：完整 repair/HMR 接管/Web 模板升级与相关补验收不再实施；最小 JSON 迁移的已交付事实保留 | [本机配置方案 §14](archive/local-configuration-design.md#14-第三阶段具体设计修复与格式升级) |
 | M6 / UI 组件测试 | **条件性待建设**：首个真实 React/JSX UI 组件需要时，引入 `src/client.tsx` 构建和 Vitest 组件测试，并复用现有 Playwright L5；不为了完成里程碑而新增插件或迁移全部 Host 测试 | 本文 §8、§10 |
 | 插件场景 UI 徽章/页面 | **可选、暂不实施**：场景元数据、目录、安装过滤、运行时守卫已完成；将来有展示需求时再做插件管理器伴生 UI | [插件场景方案](plugin-targets.md) 阶段 3 |
 | 原生通知与日常使用验收 | **待补人工证据**：独立 Chrome/Edge、macOS 的原生权限弹窗、系统通知、点击聚焦/切会话及多标签页接管；加载即申请权限改动后的原生流程也需复验。已有 Windows Codex 内嵌浏览器证据保持有效，但不推广到其他环境 | [通知方案 §11.11–§11.15](notification-host-design.md#1111-原生浏览器通知验收2026-10-28asiashanghai) |

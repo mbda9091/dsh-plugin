@@ -82,14 +82,8 @@ export async function runDirectArtifactInstall(options: InstallOptions, context:
   return deliver(options, context, true)
 }
 async function deliver(options: InstallOptions, context: CommandContext, direct: boolean, onReport?: (path: string) => void): Promise<number> {
-  if (context.purpose !== 'target' || !options.manifest) throw new Error('stable-install requires an explicit target and --manifest; run pack then verify-artifacts')
+  if (context.purpose !== 'target' || !options.manifest) throw new Error('artifact delivery requires a resolved target and manifest')
   if (options.all) throw new Error('--all cannot bypass artifact target coverage')
-  const configPath = join(context.root, 'scripts/config/local.json')
-  const configHash = existsSync(configPath) ? digest(readFileSync(configPath)) : null
-  if (context.target && context.target.name !== 'explicit') {
-    const current = loadCommandContext({ target: context.target.name }, context.root, context.env, 'target')
-    if (JSON.stringify(current.target) !== JSON.stringify(context.target)) throw new Error('named target configuration changed; preview again')
-  }
   const initial = inspectTarget(context), release = artifactLock(context.root)
   try {
     if (options.archiveRoot && !isAbsolute(options.archiveRoot)) throw new Error('--archive-root must be absolute')
@@ -139,7 +133,6 @@ async function deliver(options: InstallOptions, context: CommandContext, direct:
       if (archiveRoot) { archiveLocation(context.root, initial.target.home, archiveRoot); saveDailyReceipt(archiveRoot, basename(scratch), report) }
     }
     const recheck = () => {
-      if ((existsSync(configPath) ? digest(readFileSync(configPath)) : null) !== configHash) throw new Error('configuration changed during delivery; preview again')
       const next = inspectTarget(context)
       if (JSON.stringify(next.identity) !== JSON.stringify(initial.identity)) throw new Error('target real paths changed during delivery')
       assertArtifactsUnchanged(set); if (!direct) readVerification(set, target, host, selected.map(p => p.name))

@@ -56,13 +56,13 @@ it('ISO-05 declared CI matrix uses shared environment and functional gate with l
   assert.match(workflow, /windows-latest, macos-latest/)
   assert.match(workflow, /node-version: '24'/); assert.match(workflow, /pnpm install --frozen-lockfile/)
   assert.doesNotMatch(workflow, /(?:npm|pnpm) (?:install|add).*global.*(?:@deepseek-ai\/dsh| dsh)/)
-  assert.match(workflow, /node scripts\/bootstrap.mjs ci/)
+  assert.match(workflow, /node scripts\/dev.mjs ci/)
   const ci = readFileSync(join(sourceRoot, 'scripts/src/commands/ci.ts'), 'utf8')
   assert.match(ci, /assertEnvironmentResults/); assert.match(ci, /runTestEnv\('all'/)
   const prepared = prepareIsolation(f, true)
   const report = await (await isolationWorker(f.root, prepared, 'runner')).finish(); assert.equal(report.ok, true)
   // Missing locked entry is a context failure with a report, never a PATH fallback.
-  f.config.tools.pnpmScript = 'missing'; f.write()
+  prepared.env.DSH_PNPM = 'missing'
   const failure = await (await isolationWorker(f.root, prepared, 'wrong-tool')).finish(); assert.equal(failure.ok, false)
   // Clean frozen checkout is TOOL-04. Platform-wide function results are referenced
   // by the enclosing CI report; this case does not label unexecuted platforms passed.

@@ -16,7 +16,7 @@ export function freshTestHome(root: string, runDir: string, requested?: string):
 export function validateTestRoot(settings: CommandContext, path: string): void {
   safeConfigPath(join(settings.root, '.tmp'), path)
   assertSeparatePaths(path, join(settings.root, '.local/dsh-dev'))
-  for (const target of settings.config.targets) assertSeparatePaths(path, target.home)
+  if (settings.target) assertSeparatePaths(path, settings.target.home)
 }
 
 /** lstat each entry: a profile's link dependencies are unlinked, never traversed. */

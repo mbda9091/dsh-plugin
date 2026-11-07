@@ -4,13 +4,14 @@ import { delimiter, dirname, join } from 'node:path'
 import { environmentTest as it } from '../../harness/environment.js'
 import { workspaceDsh, checkNode, checkPnpm } from '../../../../scripts/.build/core/toolchain.js'
 import { assertExternalDsh, discoverDsh } from '../../../../scripts/.build/core/config-tools.js'
-import { configuredDsh, loadCommandContext } from '../../../../scripts/.build/core/command-context.js'
+import { configuredDsh, configuredPnpm, loadCommandContext } from '../../../../scripts/.build/core/command-context.js'
 import { discoverPnpmScript, writePnpmShim } from '../../../../scripts/.build/core/pnpm.js'
 import { toolDiagnostics } from '../../../../scripts/.build/commands/config.js'
 import { runToFiles } from '../../../../scripts/.build/core/exec.js'
 import { discoverPlugins } from '../../../../scripts/.build/core/plugins.js'
 import { resolveDsh } from '../../../../scripts/.build/core/dsh-cli.js'
 import { environmentCase, sourceRoot } from '../../harness/environment.js'
+import { assertFileOnlyProbe } from '../../harness/file-only-probe.js'
 
 it('TOOL-01 workspace host is exact, never falls back, target aliases excluded', () => environmentCase('TOOL-01', f => {
   const entry = f.fake()
@@ -71,6 +72,33 @@ it('TOOL-02 wrong versions/entries fail; optional tools do not block diagnostics
   mkdirSync(join(prefix, 'node_modules'), { recursive: true })
   symlinkSync(join(f.root, 'pnpm'), join(prefix, 'node_modules/pnpm'), process.platform === 'win32' ? 'junction' : 'dir')
   assert.equal(realpathSync(discoverPnpmScript({ PATH: prefix })!), realpathSync(script))
+  const corepackPrefix = join(f.root, 'corepack-prefix')
+  const shim = join(corepackPrefix, 'node_modules/corepack/dist/pnpm.js')
+  mkdirSync(dirname(shim), { recursive: true })
+  writeFileSync(join(dirname(dirname(shim)), 'package.json'), '{"name":"corepack"}')
+  const moduleEntry = join(dirname(script), 'pnpm.mjs')
+  writeFileSync(moduleEntry, '')
+  writeFileSync(shim, `
+    const assert = require('node:assert/strict');
+    assert.equal(process.cwd(), ${JSON.stringify(f.root)});
+    assert.deepEqual(process.argv.slice(2), ['exec', process.execPath, '-p', 'process.env.npm_execpath']);
+    assert.equal(process.env.COREPACK_ENABLE_NETWORK, '0');
+    assert.equal(process.env.COREPACK_ENABLE_AUTO_PIN, '0');
+    assert.equal(process.env.COREPACK_ENABLE_PROJECT_SPEC, '1');
+    assert.equal(process.env.COREPACK_ENV_FILE, '0');
+    console.log(${JSON.stringify(moduleEntry)});
+  `)
+  const corepackEnv = { PATH: corepackPrefix, COREPACK_ENABLE_NETWORK: '1', COREPACK_ENABLE_PROJECT_SPEC: '0' }
+  const context = () => ({ ...loadCommandContext({}, f.root, corepackEnv), env: corepackEnv })
+  assert.equal(assertFileOnlyProbe(() => configuredPnpm(context())), realpathSync(script))
+  assert.equal(corepackEnv.COREPACK_ENABLE_NETWORK, '1')
+  writeFileSync(manifest, JSON.stringify({ name: 'pnpm', version: '10.0.0' }))
+  assert.throws(() => configuredPnpm(context()), /does not match/)
+  writeFileSync(manifest, JSON.stringify({ name: 'pnpm', version: '11.28.5' }))
+  writeFileSync(shim, 'console.log("relative/pnpm.mjs")')
+  assert.throws(() => configuredPnpm(context()), /invalid package entry/)
+  writeFileSync(shim, 'process.exit(1)')
+  assert.throws(() => assertFileOnlyProbe(() => configuredPnpm(context())), /automatic download disabled/)
   const diagnostic = toolDiagnostics(f.root, null).join('\n')
   assert.match(diagnostic, /Node: v24/); assert.match(diagnostic, /pnpm: unavailable/); assert.match(diagnostic, /DSH: unavailable/)
 }))
@@ -93,7 +121,7 @@ it('TOOL-03 current Node drives DSH and pnpm shim; Electron retains its engine',
   const desktop = resolveDsh({ platform: 'win32', env: { DSH_CLI: wrapper } })
   assert.equal(desktop.env.ELECTRON_RUN_AS_NODE, '1')
   assert.equal(desktop.build([])[0], '--expose-internals')
-  assert.match(readFileSync(join(sourceRoot, 'scripts/bootstrap.mjs'), 'utf8'), /spawnSync\(process.execPath/)
+  assert.match(readFileSync(join(sourceRoot, 'scripts/launch.mjs'), 'utf8'), /spawnSync\(process.execPath/)
 }))
 
 it('TOOL-05 DSH belongs only to root development dependencies', () => environmentCase('TOOL-05', () => {

@@ -42,13 +42,13 @@ it('ISO-02 unsafe homes rejected and independent processes own distinct homes st
 }))
 
 it('ISO-04 fast CLI works with broken disk config no plugin lib browser or real host', () => environmentCase('ISO-04', f => {
-  for (const path of ['scripts/src', 'scripts/bootstrap.mjs', 'scripts/tsconfig.json', 'test/src/environment', 'test/src/harness', 'test/tsconfig.environment.json', 'test/tsconfig.json', 'tsconfig.base.json', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'profiles/web/cordis.dev.patch.yml', '.gitignore']) {
+  for (const path of ['scripts/src', 'scripts/dev.mjs', 'scripts/install.mjs', 'scripts/launch.mjs', 'scripts/bootstrap.mjs', 'scripts/tsconfig.json', 'test/src/environment', 'test/src/harness', 'test/tsconfig.environment.json', 'test/tsconfig.json', 'tsconfig.base.json', 'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', 'profiles/web/cordis.dev.patch.yml', '.gitignore']) {
     cpSync(join(sourceRoot, path), join(f.root, path), { recursive: true })
   }
   mkdirSync(join(f.root, 'node_modules/@types'), { recursive: true })
   for (const name of ['typescript', '@types/node', 'undici-types']) symlinkSync(join(sourceRoot, 'node_modules', name), join(f.root, 'node_modules', name), process.platform === 'win32' ? 'junction' : 'dir')
   writeFileSync(f.paths.local, '{broken'); const before = readFileSync(f.paths.local)
-  const result = runToFiles(process.execPath, [join(f.root, 'scripts/bootstrap.mjs'), 'test-env', '--suite', 'fast', '--only', 'CFG-01'], {
+  const result = runToFiles(process.execPath, [join(f.root, 'scripts/dev.mjs'), 'test-env', '--suite', 'fast', '--only', 'CFG-01'], {
     cwd: f.personal, env: { ...process.env, DSH_CLI: 'missing', DSH_PNPM: '', CHROME_PATH: 'missing' }, timeoutMs: 60_000,
     stdoutPath: join(f.root, 'cli.out'), stderrPath: join(f.root, 'cli.err'),
   })

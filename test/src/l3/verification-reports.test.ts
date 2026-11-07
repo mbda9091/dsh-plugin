@@ -86,10 +86,10 @@ for (const failure of ['none', 'exit', 'throw', 'missing', 'partial', 'skip'] as
       `)
       write(root, 'entry.mjs', `
         import { runCi } from './scripts/.build/commands/ci.js';
-        process.exitCode = await runCi({ keep: true${failure === 'none' ? '' : ', timeoutMs: 1234'} });
+        process.exitCode = await runCi({ keep: true, timeoutMs: 1234 });
       `)
       const result = runToFiles(process.execPath, [join(root, 'entry.mjs')], {
-        env: { ...process.env, TEST_TRACE: join(root, 'trace.jsonl') }, timeoutMs: 10_000,
+        env: { ...process.env, DSH_PNPM: join(root, 'pnpm/bin/pnpm.cjs'), TEST_TRACE: join(root, 'trace.jsonl') }, timeoutMs: 10_000,
         stdoutPath: join(root, 'out.log'), stderrPath: join(root, 'err.log'),
       })
       assert.equal(result.status, failure === 'none' ? 0 : failure === 'exit' ? 7 : 1, result.stderr)

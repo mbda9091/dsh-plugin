@@ -1,6 +1,6 @@
 # 插件目录
 
-> 本文件由 `node scripts/bootstrap.mjs catalog` 根据各插件 `package.json` 的 `dsh.targets` 生成，不要手动编辑。
+> 本文件由 `node scripts/dev.mjs catalog` 根据各插件 `package.json` 的 `dsh.targets` 生成，不要手动编辑。
 > 适用场景语义见 [docs/plugin-targets.md](docs/plugin-targets.md)。
 
 | 插件 | 包名 | 形态 | 平台 | 说明 |
