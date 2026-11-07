@@ -1,9 +1,9 @@
 # 内部开发测试与外部交付分离方案
 
-> 状态：待验收（实现已提交，本机主要回归通过，完整 CI、Windows/Linux 与真实 DSH 沙箱待验）。完成：否。更新日期：2026-11-07（Asia/Shanghai）。完成日期：—。
+> 状态：已完成（按用户确定的 macOS 范围，完整 CI 通过，测试修正已提交对账；Windows/Linux 与真实 DSH 沙箱暂缓）。完成：是。更新日期：2026-11-07（Asia/Shanghai）。完成日期：2026-11-07。
 > 本轮使命：拆分内部开发测试与外部交付的入口、输入和执行职责，取消共享本机配置的强制前置条件。
 > 实现 commit：`fafaab2838b9d796f997d5d1e7d9e134aea45b5b`（入口、输入、测试与文档）；`a5210df82747f491cdfe583dd8a15a781e3d914e`（合并远端 Linux Web 支持并适配新入口）。
-> 当前验收基线：`a5210df82747f491cdfe583dd8a15a781e3d914e`；合并复验在提交前相同代码树执行，随后仅回写文档。此前基于 `4fec7b318839b3ce38ce857fc0afa246b6da605e` 的执行记录保留，不能冒充合并版本的全量验收。
+> 当前验收基线：`4049f6fa5e57802c64ff0b6fd5cee9bfa99d42a9`（本次测试环境修正）；完整 CI 在该提交的相同代码树执行，报告 `.tmp/ci/run-4xMM9a/report.json`。测试结束后仅回写本文。此前执行记录保留，不混用验收基线。
 > 归档：未归档。关联：[现行配置协议](configuration-v2.md)、[现行安装指南](profile-install.md)、[旧方案历史](archive/local-configuration-design.md)。
 
 ## 1. 目标与边界
@@ -138,26 +138,26 @@ pnpm run install-plugins --profile my-web
 
 | 阶段 | 内容 | 出口条件 | 状态 / commit |
 |---|---|---|---|
-| M1 | 拆分 dev.mjs/install.mjs 及参数读取；去掉本机 JSON 前置；实现安装环境解析 | 无目标配置可开发测试，profile 必填且环境解析可核验；A1–A3 | 已提交（见文首），macOS 回归通过；Windows/Linux 未执行 |
-| M2 | 调整现有 install/status，保留现有缓存策略、install 既有检查和写入保护 | 缓存复用/必要时构建打包行为不变，目标预检有效，真实交付可用；A4–A7 | 已提交（见文首），预检/缓存与此前 L4 通过；独立外部宿主套件受阻 |
-| M3 | 更新 CI/文档/测试，移除多余命令和旧初始化机制 | macOS/Windows 必要检查通过，旧调用无自动转发；A8–A9 | 已提交（见文首）；完整 CI 与 Windows/Linux 待验 |
+| M1 | 拆分 dev.mjs/install.mjs 及参数读取；去掉本机 JSON 前置；实现安装环境解析 | 无目标配置可开发测试，profile 必填且环境解析可核验；A1–A3 | 已提交（见文首），macOS 通过；其他平台暂缓 |
+| M2 | 调整现有 install/status，保留现有缓存策略、install 既有检查和写入保护 | 缓存复用/必要时构建打包行为不变，目标预检有效，真实交付可用；A4–A7 | macOS 通过，含独立外部宿主套件；测试准备修正已提交 |
+| M3 | 更新 CI/文档/测试，移除多余命令和旧初始化机制 | 当前范围 macOS 必要检查通过，旧调用无自动转发；A8–A9 | macOS 完整 CI 通过，实现提交已对账 |
 
 先复用已有能力完成边界拆分，再删除旧路径；不为拆分而重写工具链、harness 或插件。
 
 ## 5. 验收项
 
-以下均为新方案的必要验收。结果列按本次 macOS 执行记录，Windows 全部未执行，不能据此关闭跨平台验收。使用独立 fixture 与一次性 profile，不修改用户日常环境。
+2026-11-07 用户明确“windows 和 linux 先不管，就看完整 ci”，当前必要验收限定本机 macOS。下表保留原跨平台目标以便追溯；Windows/Linux 与真实 DSH 沙箱为暂缓项，不计为通过，也不阻塞本次 macOS 结论。使用独立 fixture 与一次性 profile，不修改用户日常环境。
 
 | 编号 | 可观察结果 | 验证方式 | 当前结果 |
 |---|---|---|---|
-| A1 | 删除/损坏旧 local.json 或放入非法 target，不影响内部 build/ci；无用户指定的安装目标也可完成完整流程 | fixture 拒绝依赖检查 + 两平台真实内部 CI，保留 L4/L5 报告 | 部分通过：CFG-01、类型检查、L1–L5；完整 CI 受阻 |
+| A1 | 删除/损坏旧 local.json 或放入非法 target，不影响内部 build/ci；无用户指定的安装目标也可完成完整流程 | fixture 拒绝依赖检查 + 两平台真实内部 CI，保留 L4/L5 报告 | macOS 通过：CFG-01 与完整 CI |
 | A2 | dev.mjs 拒绝外部 install/status，install.mjs 拒绝开发测试命令；各自拒绝不适用参数，外部 DSH 环境不影响内部开发测试 | CLI 测试，检查调用和目录变更 | 通过：CFG-02/04、L3 物理入口测试 |
 | A3 | 只填 profile 可解析准备好的 Node/DSH 环境，无需 JSON；覆盖有效，缺 profile/宿主歧义/平台冲突报错；status 不写入、不构建 | 两平台 Node/DSH 布局与 home 规则测试，含 workspace .bin 干扰、多安装、显式覆盖和缺项 | macOS 通过：CFG-03/05、L3 status；Windows 未执行 |
 | A4 | 缺目标、版本/平台不符或损坏包时 profile 字节不变；install 缺可复用产物时按原流程准备 | 预检故障测试及目标前后快照 | 通过：L3 profile-install、ART/TGT fast 预检 |
 | A5 | install 的 reuse-tarball / reuse-build / rebuild、--rebuild 行为保持；dry-run 不构建或安装；不自动执行功能验收 | 缓存命中/失效和调用监测测试，复用现有缓存测试 | 通过：L1 缓存与 L3 install/pack/profile-install |
 | A6 | 外部写入只提供 install，status 只读；旧 stable-install 不自动转发；内部固定包验收缺包或报告不完整不能通过，install 不要求或冒用验收记录 | 入口拒绝测试、固定包验收正反例和报告断言 | 通过：CFG-04、L3、ART fast 与已执行真实 ART 用例 |
-| A7 | 两平台一次性 Web profile 可真实安装固定包，spec/包字节/配置保留正确；中途失败报告实际部分结果 | 复用真实目标套件；隔离安装和故障注入，不将安装成功冒充插件能力验收 | 受阻：TGT 独立宿主依赖安装超时；L4 tarball 通过不能代替本项 |
-| A8 | 两平台 dev.mjs 完整 CI 通过，报告不缺失；外部目录不被清理 | 环境测试、L1–L5 与目录保留断言 | 未通过：环境套件受阻；单独 L1–L5 通过，Windows 未执行 |
+| A7 | 两平台一次性 Web profile 可真实安装固定包，spec/包字节/配置保留正确；中途失败报告实际部分结果 | 复用真实目标套件；隔离安装和故障注入，不将安装成功冒充插件能力验收 | macOS 通过：TGT-04、TGT-05-real、TGT-06-real |
+| A8 | 两平台 dev.mjs 完整 CI 通过，报告不缺失；外部目录不被清理 | 环境测试、L1–L5 与目录保留断言 | macOS 通过：run-4xMM9a；其他平台暂缓 |
 | A9 | 继续使用的子命令/package scripts 保留名称并指向对应脚本；被移除项不再执行业务；CI 无 config init/target bind 前置；旧 bootstrap 不执行业务，被移除命令只输出说明，旧配置不删除或自动迁移 | 引用检查、CLI 回归与文件快照 | 通过：CFG-01/04/06、L3 入口、ISO-05 定向复验 |
 
 ## 6. 决策、风险与实施记录
@@ -207,3 +207,20 @@ pnpm run install-plugins --profile my-web
 2026-11-07 提交前文档对齐与远端合并：用户授权检查后提交并 push。修正正文“尚未实现”、real 测试必填路径示例和 README 历史 CI 表述，补齐文件捕获说明。拉取远端发现 `6010087` / `d217388` 已新增 Linux Web 与 WSL 工作区配置，因此合并保留这些变更，安装入口改用共用平台解析，Linux 文档同步为新命令，不恢复已废弃配置系统。
 
 实现提交与合并提交见文首。合并后的 macOS 验证：`build --check` 通过，fast 28 项通过（`.tmp/environment-tests/run-0YTObh/report.json`），L1–L3 230 通过、1 项平台跳过、0 失败，Chromium L5 通过（`.tmp/l5/run-SEIiW5/report.json`）；相对链接、冲突标记及 diff 检查通过。提交后仅回写文档，代码树与此次复验一致。完整 CI 未重新执行，Windows/Linux 和真实 DSH 沙箱未执行；继续保持待验收，不将提交或推送当作验收完成。
+
+### 2026-11-07 macOS 完整 CI 复验
+
+用户明确暂不验证 Windows/Linux，真实 DSH 沙箱问题后续再处理，本次集中验证 macOS 完整 CI。修正两处测试准备：TGT 独立宿主安装沿用调用者包管理配置及缓存，避免每个交付用例重复冷下载；TOOL-04 仍保留全新 checkout、空 store、冻结锁文件与模块解析隔离，但通过 pnpm 11 支持的 `pnpm_config_registry` 传入当前 registry。探测用临时文件捕获，不复制认证配置。仅冷安装超时从 5 分钟增至 10 分钟，整项上限 15 分钟，后续构建/运行检查仍各限 5 分钟。
+
+定位证据：TGT-04 定向复验通过；TOOL-04 在 5 分钟时仍下载 701 个依赖中的最后一个，报告 `.tmp/environment-tests/run-zSCDZ7/report.json`。本机直接探测确认 pnpm 11 忽略 `npm_config_registry`，读取 `pnpm_config_registry`；修正后完整 CI 中冷安装用时 1 分 11 秒，TOOL-04 全项约 104 秒。此前失败记录保留，不改写。
+
+执行 `node scripts/dev.mjs ci --test-browser chromium`，总耗时约 6 分钟，全部阶段退出码为 0：
+
+- 环境 all：42/42 通过，含真实独立宿主、tarball 和干净冻结安装；`.tmp/environment-tests/run-WIbK9J/report.json`。
+- 类型检查通过；L1–L3：230 通过、1 项平台跳过、0 失败。
+- L4 通过：`.tmp/l4/run-tlthhX/report.json`；L5 Chromium 通过：`.tmp/l5/run-vmTlwO/report.json`。
+- 汇总：`.tmp/ci/run-4xMM9a/report.json`，`ok: true`；完整日志 `/private/tmp/dsh-ci-current.log`。
+
+本次两处测试修正尚未提交；macOS 验收通过，待提交对账。Windows/Linux 与真实 DSH 沙箱未执行，按用户决定暂缓，不作为通过记录。
+
+2026-11-07 用户随后授权提交并 push：两处测试修正已提交为 `4049f6fa5e57802c64ff0b6fd5cee9bfa99d42a9`，与上述完整 CI 的代码树一致；随后仅更新本文状态与提交记录。本轮按确认后的 macOS 范围完成，暂缓项保留为后续工作。
