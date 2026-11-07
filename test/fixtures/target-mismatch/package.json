@@ -15,7 +15,7 @@
     "bundle": { "patch": "./cordis.patch.yml" },
     "targets": {
       "surfaces": ["headless"],
-      "platforms": ["windows", "mac"]
+      "platforms": ["windows", "mac", "linux"]
     }
   }
 }

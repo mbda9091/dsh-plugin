@@ -29,7 +29,7 @@ async function prepare(f: ReturnType<typeof fixture>, names: string[]) {
   assert.equal(result.status, 0, result.stderr + result.stdout)
   const cli = realpathSync(join(host, 'node_modules/@deepseek-ai/dsh/lib/bin.js'))
   assert.notEqual(cli, realpathSync(join(f.root, 'node_modules/@deepseek-ai/dsh/lib/bin.js')))
-  const fields = { dshCli: cli, home, profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : 'mac' }
+  const fields = { dshCli: cli, home, profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'mac' : 'linux' }
   env.DSH_PNPM = process.env.DSH_ENV_TEST_PNPM
   const context = loadCommandContext(fields, f.root, env, 'target')
   const runner = inspectTarget(context).runner, runDir = join(f.root, '.formal-run'); mkdirSync(runDir)

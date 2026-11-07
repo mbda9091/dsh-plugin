@@ -26,7 +26,7 @@ interface PackageUnderTest {
 }
 
 const ALLOWED_SURFACES = ['desktop', 'web']
-const ALLOWED_PLATFORMS = ['windows', 'mac']
+const ALLOWED_PLATFORMS = ['windows', 'mac', 'linux']
 const SKIP_DIRS = new Set(['node_modules', 'dist'])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -90,13 +90,11 @@ function scenarioPrefix(surfaces: readonly string[], platforms: readonly string[
       : surfaces.includes('web')
         ? 'Web'
         : (language === 'zh' ? '未声明' : 'Undeclared')
-  const platform = platforms.includes('windows') && platforms.includes('mac')
+  const labels = [['windows', 'Windows'], ['mac', 'macOS'], ['linux', 'Linux']] as const
+  const platform = labels.every(([platform]) => platforms.includes(platform))
     ? (language === 'zh' ? '通用平台' : 'All platforms')
-    : platforms.includes('windows')
-      ? 'Windows'
-      : platforms.includes('mac')
-        ? 'macOS'
-        : (language === 'zh' ? '未声明' : 'Undeclared')
+    : labels.filter(([platform]) => platforms.includes(platform)).map(([, label]) => label).join(' / ')
+      || (language === 'zh' ? '未声明' : 'Undeclared')
   return language === 'zh' ? `【${surface} · ${platform}】` : `[${surface} · ${platform}]`
 }
 
@@ -310,7 +308,7 @@ describe('L2 package contracts: test fixtures', () => {
     const dsh = record(manifest['dsh'], 'web-hello dsh')
     const targets = record(dsh['targets'], 'web-hello targets')
     assert.deepEqual(stringArray(targets['surfaces']), ['web'])
-    assert.deepEqual(stringArray(targets['platforms']), ['windows', 'mac'])
+    assert.deepEqual(stringArray(targets['platforms']), ['windows', 'mac', 'linux'])
     const client = record(dsh['client'], 'web-hello dsh.client')
     assert.equal(client['platform'], 'web')
     assert.equal(client['immediately'], true)
@@ -327,7 +325,7 @@ describe('L2 package contracts: test fixtures', () => {
     const dsh = record(manifest['dsh'], 'target-mismatch dsh')
     const targets = record(dsh['targets'], 'target-mismatch targets')
     assert.deepEqual(stringArray(targets['surfaces']), ['headless'])
-    assert.deepEqual(stringArray(targets['platforms']), ['windows', 'mac'])
+    assert.deepEqual(stringArray(targets['platforms']), ['windows', 'mac', 'linux'])
 
     const patch = readFileSync(join(fixtures, 'target-mismatch', 'cordis.patch.yml'), 'utf8')
     assert.match(patch, /^\s*- id: target-mismatch$/m)

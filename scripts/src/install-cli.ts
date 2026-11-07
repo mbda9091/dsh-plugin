@@ -6,7 +6,7 @@ import { runProfileInstall } from './commands/profile-install.js'
 import { runStatus } from './commands/status.js'
 
 const usage = `Usage: node scripts/install.mjs install|status --profile NAME [options]
-Target: --dsh-cli PATH, --home PATH, --platform mac|windows (defaults to current Node/DSH environment; Web only).
+Target: --dsh-cli PATH, --home PATH, --platform mac|windows|linux (defaults to current Node/DSH environment; Web only).
 Install: --only PACKAGE,... --dry-run --rebuild --archive-root PATH --pnpm-script PATH
 Status: --manifest PATH (optional installed-file comparison)
 No local configuration or named targets. install reuses cached packages or builds/packs as needed.

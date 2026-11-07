@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
@@ -31,7 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     env:
@@ -46,7 +46,7 @@ jobs:
           node-version: '24'
       - run: npm install --global pnpm@11.28.5
       - run: pnpm install --frozen-lockfile
-      - run: node node_modules/playwright-core/cli.js install chromium
+      - run: node node_modules/playwright-core/cli.js install --with-deps chromium
       # Real suite exports clean source, freezes again in a fresh store/home,
       # probes public DSH/internal pnpm and a real tgz. DEV also verifies persistent
       # Web lifecycle, source links, revised code loading and safe reset in a fixture.
@@ -57,7 +57,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     env:
@@ -75,7 +75,7 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
       - name: Install matching Chromium
-        run: node node_modules/playwright-core/cli.js install chromium
+        run: node node_modules/playwright-core/cli.js install --with-deps chromium
       - name: Environment evidence gate, type check and L1-L5 (shared local entry)
         run: node scripts/dev.mjs ci --keep
       # Raw logs, screenshots and traces stay on the ephemeral runner. They may

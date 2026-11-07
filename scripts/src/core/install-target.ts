@@ -5,6 +5,7 @@ import { envValue } from './config.js'
 import type { ConfigOverrides, InstallTarget } from './config.js'
 import { assertExternalDsh, webDsh } from './config-tools.js'
 import { runToTemporaryFiles } from './exec.js'
+import { platformFromNode } from './targets.js'
 
 /** DSH 0.2.2-rc.1 dsh-home-paths contract: explicit > DSH_HOME > ~/.dsh. */
 export function installHome(explicit: string | undefined, env: NodeJS.ProcessEnv, userHome = homedir()): string {
@@ -53,7 +54,7 @@ export function resolveInstallTarget(options: ConfigOverrides, root: string, env
   if (options.target !== undefined) throw new Error('--target was removed; pass --profile and optional --dsh-cli/--home')
   if (!options.profile || !/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(options.profile)) throw new Error('--profile is required and must be a valid profile name')
   if (options.surface !== undefined && options.surface !== 'web') throw new Error('installation supports Web only')
-  const platform = process.platform === 'darwin' ? 'mac' : process.platform === 'win32' ? 'windows' : undefined
+  const platform = platformFromNode()
   if (!platform || (options.platform !== undefined && options.platform !== platform)) throw new Error('target platform must match the current supported machine')
   if (options.dshCli !== undefined && (!options.dshCli.trim() || /[\0\r\n]/.test(options.dshCli))) throw new Error('invalid --dsh-cli path')
   const dshCli = options.dshCli === undefined ? nodeDsh(root, env) : resolve(options.dshCli)

@@ -27,6 +27,12 @@ export function renderWebPatch(text: string, root: string, path = 'Web template'
   const values = rows(doc.toJS({ maxAliasCount: 100 }), path)
   let expanded = 0
   for (const [index, row] of values.entries()) {
+    if (row.id === 'workspace-controller' && isRecord(row.config)
+      && row.config.documentsDirectory === '${repoRoot}/.local/dsh-dev/home/documents') {
+      doc.setIn([index, 'config', 'documentsDirectory'], join(root, '.local/dsh-dev/home/documents'))
+    }
+  }
+  for (const [index, row] of values.entries()) {
     if (row.id !== 'hmr' || !isRecord(row.config) || !Array.isArray(row.config.root)) continue
     for (const [entry, value] of row.config.root.entries()) {
       if (typeof value !== 'string' || !value.startsWith('${repoRoot}/')) {

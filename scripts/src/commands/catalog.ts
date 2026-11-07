@@ -60,7 +60,7 @@ export function runCatalog(options: CatalogOptions): number {
   lines.push('')
   lines.push('- 桌面应用（目标平台）：安装形态为“桌面”或“通用”、且平台覆盖目标平台的插件。')
   lines.push('- Web（目标平台）：安装形态为“Web”或“通用”、且平台覆盖目标平台的插件。')
-  lines.push('- 平台列为“通用平台”的插件同时覆盖 macOS 与 Windows。')
+  lines.push('- 平台列为“通用平台”的插件同时覆盖 macOS、Windows 与 Linux。')
 
   const content = `${lines.join('\n')}\n`
 

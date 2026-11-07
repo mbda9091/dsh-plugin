@@ -17,7 +17,7 @@ it('L3 Web launcher ignores legacy config from another cwd, forwards args and re
     const capture = join(f.root, 'capture.json')
     writeFileSync(f.entry, `#!/usr/bin/env node
       require('node:fs').writeFileSync(process.env.TEST_CAPTURE, JSON.stringify({
-        args: process.argv.slice(2), cwd: process.cwd(), patch: require('node:fs').readFileSync(process.argv[4], 'utf8'),
+        args: process.argv.slice(2), cwd: process.cwd(), patch: require('node:fs').readFileSync(process.argv[process.argv.indexOf('--patch') + 1], 'utf8'),
         pnpmShim: require('node:fs').readFileSync(require('node:path').join(process.env.PATH.split(require('node:path').delimiter)[0], process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'), 'utf8'),
       }));
       ${fakeWebServer(7)}
@@ -29,7 +29,7 @@ it('L3 Web launcher ignores legacy config from another cwd, forwards args and re
     })
     assert.equal(code, 7)
     const recorded = JSON.parse(readFileSync(capture, 'utf8')) as { args: string[]; cwd: string; patch: string; pnpmShim: string }
-    assert.deepEqual(recorded.args, ['web', '--patch', patch, '--no-open', '--host', '127.0.0.1', '--port', '0'])
+    assert.deepEqual(recorded.args, ['--profile', 'web', '--patch', patch, '--no-open', '--host', '127.0.0.1', '--port', '0'])
     assert.equal(recorded.cwd, f.root)
     assert.equal(recorded.patch, readFileSync(patch, 'utf8'))
     assert.ok(recorded.pnpmShim.includes(process.execPath))
@@ -60,7 +60,7 @@ it('L3 Web startup timeout redacts diagnostics and terminates the server', async
   } finally { removeDir(f.root) }
 })
 
-it('L3 Web default browser passes the URL to the OS handler without a PowerShell subprocess', { skip: process.platform !== 'win32' && process.platform !== 'darwin' }, async (t) => {
+it('L3 Web default browser passes the URL to the OS handler without a PowerShell subprocess', { skip: !['win32', 'darwin', 'linux'].includes(process.platform) }, async (t) => {
   const f = configFixture()
   const spawn = childProcess.spawn
   const opened: Array<{ command: string; args: readonly string[] }> = []
@@ -70,7 +70,7 @@ it('L3 Web default browser passes the URL to the OS handler without a PowerShell
     developmentPatch(f)
     writeFileSync(f.entry, `#!/usr/bin/env node\n${fakeWebServer(0, '?a=1&b=two%20words')}`)
     t.mock.method(childProcess, 'spawn', (command: string, args: readonly string[], options: childProcess.SpawnOptions) => {
-      if (command === 'open' || command.endsWith('rundll32.exe')) {
+      if (command === 'open' || command === 'xdg-open' || command.endsWith('rundll32.exe')) {
         opened.push({ command, args })
         return spawn(process.execPath, ['-e', ''], options)
       }

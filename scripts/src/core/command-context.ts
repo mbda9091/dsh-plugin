@@ -1,3 +1,4 @@
+import { platformFromNode } from './targets.js'
 import { delimiter, dirname, join, resolve } from 'node:path'
 import { envValue } from './config.js'
 import type { ConfigOverrides, InstallTarget } from './config.js'
@@ -69,7 +70,7 @@ export function operationTarget(context: CommandContext): InstallTarget {
   if (context.purpose !== 'development') throw new Error('installation/status requires a development or explicit target context')
   const home = join(context.root, '.local/dsh-dev/home')
   safeConfigPath(context.root, home)
-  return { name: 'development', dshCli: '', home, profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : 'mac' }
+  return { name: 'development', dshCli: '', home, profile: 'web', surface: 'web', platform: platformFromNode() }
 }
 
 export function configuredPnpm(context: CommandContext): string {

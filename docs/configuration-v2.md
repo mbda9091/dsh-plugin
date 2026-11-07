@@ -51,7 +51,7 @@ node scripts/install.mjs install --profile my-web
 node scripts/install.mjs status --profile my-web
 ```
 
-`profile` 必填。只支持本机 Web；platform 默认当前系统，可显式传 `mac` / `windows`，不匹配时报错。`--surface`、`--target` 已移除。
+`profile` 必填。只支持本机 Web；platform 默认当前系统，可显式传 `mac` / `windows` / `linux`，不匹配时报错。`--surface`、`--target` 已移除。
 
 外部 DSH 默认从当前 Node 的 npm 全局包布局解析，PATH 中同一 Node 的别名可参与定位；存在配套 npm 时，以当前 Node 执行 `npm prefix --global` 读取全局安装前缀（包括 Windows 的 AppData 布局），workspace DSH 不可作为安装宿主；缺失、多个候选或不支持的布局要求显式 `--dsh-cli`。不扫描 Electron 或其他私人 runtime。
 

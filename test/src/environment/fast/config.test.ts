@@ -40,7 +40,7 @@ it('CFG-03 home follows explicit environment default and tilde rules; profile re
   assert.equal(c.target!.surface, 'web')
   assert.equal(c.env.DSH_PROFILE_DIR, join(f.personal, 'profiles/custom'))
   assert.throws(() => loadCommandContext({ profile: 'web', target: 'old' }, f.root, {}, 'target'), /removed/)
-  assert.throws(() => loadCommandContext({ profile: 'web', platform: 'linux' }, f.root, {}, 'target'), /platform/)
+  assert.throws(() => loadCommandContext({ profile: 'web', platform: process.platform === 'linux' ? 'mac' : 'linux' }, f.root, {}, 'target'), /platform/)
 }))
 it('CFG-04 entrypoints reject cross-purpose and retired options without side effects', () => environmentCase('CFG-04', async f => {
   const before = snapshot(f.root)
