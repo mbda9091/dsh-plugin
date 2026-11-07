@@ -17,12 +17,15 @@ import { readPackage } from '../../../../scripts/.build/core/artifact-package.js
 import { checkFixtureCapabilities } from '../../harness/fixture-capability.js'
 
 async function prepare(f: ReturnType<typeof fixture>, names: string[]) {
-  const prepared = prepareIsolation(f, true)
+  prepareIsolation(f, true)
   const host = join(f.root, '.formal-host'), preparation = join(f.root, '.formal-preparation'), home = join(f.root, '.formal-home')
   mkdirSync(host); mkdirSync(preparation)
   writeFileSync(join(host, 'package.json'), JSON.stringify({ private: true, dependencies: { '@deepseek-ai/dsh': workspaceDshVersion } }))
   writeFileSync(join(host, 'pnpm-workspace.yaml'), readFileSync(join(sourceRoot, 'pnpm-workspace.yaml'), 'utf8').replace(/packages:\r?\n(?:  .*\r?\n)+/, 'packages: []\n'))
-  const env: NodeJS.ProcessEnv = { ...prepared.env, CI: 'true' }
+  // These cases verify target delivery, not a cold package cache. Keep the
+  // caller's registry/proxy/credentials/store, as real installation does.
+  // TOOL-04 separately verifies a clean checkout and initially empty store.
+  const env: NodeJS.ProcessEnv = { ...process.env, CI: 'true' }
   for (const key of Object.keys(env)) if (/^(DSH_|NODE_OPTIONS$|NODE_PATH$)/i.test(key)) delete env[key]
   const result = await runToFilesAsync(process.execPath, [process.env.DSH_ENV_TEST_PNPM!, 'install'], {
     cwd: host, env, timeoutMs: 300_000, stdoutPath: join(preparation, 'install.out'), stderrPath: join(preparation, 'install.err') })

@@ -3,15 +3,25 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, realpathSync
 import { delimiter, dirname, join } from 'node:path'
 import { environmentTest as it } from '../../harness/environment.js'
 import { checkPnpm, workspaceDsh } from '../../../../scripts/.build/core/toolchain.js'
-import { runToFiles } from '../../../../scripts/.build/core/exec.js'
+import { runToFiles, runToTemporaryFiles } from '../../../../scripts/.build/core/exec.js'
 import { writePnpmShim } from '../../../../scripts/.build/core/pnpm.js'
 import { readPackage } from '../../../../scripts/.build/core/artifact-package.js'
 import { environmentCase, sourceRoot } from '../../harness/environment.js'
 
-it('TOOL-04 clean frozen install, public CLI, internal pnpm and real tarball (TOOL-03/05 real)', { timeout: 600_000 }, () => environmentCase('TOOL-04', async f => {
+it('TOOL-04 clean frozen install, public CLI, internal pnpm and real tarball (TOOL-03/05 real)', { timeout: 900_000 }, () => environmentCase('TOOL-04', async f => {
   const selected = process.env.DSH_ENV_TEST_PNPM
   assert.ok(selected, 'real suite requires --pnpm-script pointing to prepared pnpm/bin/pnpm.cjs')
   checkPnpm(selected, sourceRoot)
+  // A clean store must not silently switch the caller to another registry.
+  // Query only the endpoint; never copy credentials into the fixture/report.
+  const registryResult = runToTemporaryFiles(f.root, process.execPath, [selected, 'config', 'get', 'registry'], {
+    cwd: sourceRoot, env: process.env, timeoutMs: 30000,
+  })
+  assert.equal(registryResult.status, 0, 'cannot resolve the current pnpm registry')
+  const registry = registryResult.stdout.trim()
+  const registryUrl = new URL(registry)
+  assert.ok(['http:', 'https:'].includes(registryUrl.protocol), 'invalid pnpm registry')
+  assert.ok(!registryUrl.username && !registryUrl.password, 'clean install requires a registry without embedded credentials')
   // A separate copy of the prepared public pnpm package makes the child PATH
   // independent of global DSH and private runtimes, without downloading tools.
   const tool = join(f.root, 'prepared-pnpm')
@@ -37,6 +47,7 @@ it('TOOL-04 clean frozen install, public CLI, internal pnpm and real tarball (TO
     npm_config_userconfig: join(user, '.npmrc'), npm_config_globalconfig: join(user, 'global.npmrc'),
     pnpm_config_store_dir: join(f.root, 'store'), npm_config_store_dir: join(f.root, 'store'),
     npm_config_cache: join(f.root, 'cache'), CI: 'true',
+    pnpm_config_registry: registry,
   })
   writeFileSync(env.npm_config_userconfig!, ''); writeFileSync(env.npm_config_globalconfig!, '')
   const trace = join(f.root, 'node-trace.jsonl')
@@ -57,14 +68,16 @@ it('TOOL-04 clean frozen install, public CLI, internal pnpm and real tarball (TO
   `)
   env.NODE_OPTIONS = `--require ${JSON.stringify(hook)}`
   const evidence: { label: string; status: number | null }[] = []
-  const run = (label: string, command: string, args: string[], cwd = clean) => {
-    const result = runToFiles(command, args, { cwd, env, timeoutMs: 300_000, stdoutPath: join(f.root, `${label}.out`), stderrPath: join(f.root, `${label}.err`) })
+  const run = (label: string, command: string, args: string[], cwd = clean, timeoutMs = 300_000) => {
+    const result = runToFiles(command, args, { cwd, env, timeoutMs, stdoutPath: join(f.root, `${label}.out`), stderrPath: join(f.root, `${label}.err`) })
     evidence.push({ label, status: result.status })
     assert.equal(result.status, 0, `${label}: ${result.stderr}\n${result.stdout}`)
     return result.stdout
   }
   const lock = readFileSync(join(clean, 'pnpm-lock.yaml'))
-  run('frozen-install', process.execPath, [pnpm, 'install', '--frozen-lockfile'])
+  // This is deliberately the cold-cache case: allow slow downloads without
+  // increasing the timeout of subsequent build and runtime checks.
+  run('frozen-install', process.execPath, [pnpm, 'install', '--frozen-lockfile'], clean, 600_000)
   assert.deepEqual(readFileSync(join(clean, 'pnpm-lock.yaml')), lock)
   const host = workspaceDsh(clean)
   const bin = join(f.root, 'bin'); writePnpmShim(bin, pnpm); env.PATH = `${bin}${delimiter}${env.PATH}`
