@@ -53,7 +53,8 @@ it('ISO-03 real lifecycle success keep startup install timeout and handled inter
 
 it('ISO-05 declared CI matrix uses shared environment and functional gate with locked real host', { timeout: 180_000 }, () => environmentCase('ISO-05', async f => {
   const workflow = readFileSync(join(sourceRoot, '.github/workflows/tests.yml'), 'utf8')
-  assert.match(workflow, /windows-latest, macos-latest/)
+  assert.match(workflow, /macos-latest, ubuntu-latest/)
+  assert.doesNotMatch(workflow, /windows-latest/)
   assert.match(workflow, /node-version: '24'/); assert.match(workflow, /pnpm install --frozen-lockfile/)
   assert.doesNotMatch(workflow, /(?:npm|pnpm) (?:install|add).*global.*(?:@deepseek-ai\/dsh| dsh)/)
   assert.match(workflow, /node scripts\/dev.mjs ci/)
