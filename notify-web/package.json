@@ -1,6 +1,6 @@
 {
   "name": "@mbda9091/notify-web",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "type": "module",
   "description": "Browser system notifications for approvals and turn ends on the Web surface",

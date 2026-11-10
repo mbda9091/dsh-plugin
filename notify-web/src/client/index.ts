@@ -89,12 +89,58 @@ interface Cursor {
   readonly seq: number
 }
 
+/**
+ * Live client state exposed as `window.__NOTIFY_WEB__` so a page can be
+ * triaged from its own console without reading the Host or network panel.
+ */
+interface NotifyWebDebug {
+  /** Current `Notification.permission`, or `'unsupported'`. */
+  permission: string
+  /** Whether the SSE response body is currently open. */
+  connected: boolean
+  /** Whether this tab owns the notification Web Lock. */
+  leader: boolean
+  /** Epoch of the latest `sync` frame. */
+  epoch?: string
+  /** Delivery sequence of the latest `sync` or `update` frame. */
+  seq?: number
+  /** Local time of the latest frame. */
+  lastEventAt?: number
+  /** Last stream/permission problem, cleared on a successful connect. */
+  lastError?: string
+  /** Abort the current stream and open a fresh one; available while installed. */
+  reconnect?(): void
+}
+
+/** Shared debug object; fields mutate in place so console references stay live. */
+const debug: NotifyWebDebug = {
+  permission: 'unknown',
+  connected: false,
+  leader: false,
+}
+
+/** Publish the debug object on the page's global scope. */
+function publishDebug(): void {
+  ;(globalThis as typeof globalThis & { __NOTIFY_WEB__?: NotifyWebDebug }).__NOTIFY_WEB__ = debug
+}
+
+/**
+ * Record one or more diagnostic fields.
+ *
+ * @param patch - fields to merge into {@link debug}.
+ */
+function setDebug(patch: Partial<NotifyWebDebug>): void {
+  Object.assign(debug, patch)
+  publishDebug()
+}
+
 /** Widen the global object with the shell markers this module probes. */
 declare global {
   interface Window {
     readonly __ModuleLoader__: DshClientModuleLoader
     readonly dshDesktopBoot?: unknown
     readonly __DSH_TRANSPORT__?: { readonly ownsHost?: boolean }
+    readonly __NOTIFY_WEB__?: NotifyWebDebug
   }
 }
 
@@ -196,6 +242,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
   const storageKey = `notify-web:cursor:${base.pathname}`
   const seenKey = `notify-web:seen:${base.pathname}`
   const lockName = `notify-web:${base.pathname}`
+  console.info(`[notify-web] client installed at ${base.pathname} (${endpoint.href})`)
 
   /**
    * Load the bounded, expiring set of notification ids another leader may have
@@ -235,6 +282,31 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
   let restorePending = true
   let disposed = false
   let leaderAbort: AbortController | undefined
+  let leaderRun: Promise<void> | undefined
+  /** Last permission value already explained in the console. */
+  let explainedPermission: string | undefined
+  /** Whether a permission-suppressed notification has been reported. */
+  let reportedSuppression = false
+
+  /**
+   * Read the current permission, publish it, and explain a change once.
+   *
+   * @returns the current permission.
+   */
+  const explainPermission = (): string => {
+    const permission = notificationPermission()
+    setDebug({ permission })
+    if (permission !== explainedPermission) {
+      explainedPermission = permission
+      reportedSuppression = false
+      if (permission === 'granted') console.info('[notify-web] notification permission granted')
+      else if (permission === 'denied') console.warn('[notify-web] notification permission is denied; allow this origin in the browser site settings, then run window.__NOTIFY_WEB__.reconnect()')
+      else if (permission === 'default') console.info('[notify-web] notification permission is not decided; the page asks on load and again on the next click')
+      else console.info(`[notify-web] notification permission=${permission}`)
+    }
+    return permission
+  }
+  explainPermission()
 
   const saveSeen = (): void => {
     const cutoff = Date.now() - SEEN_TTL_MS
@@ -299,7 +371,15 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
   }
 
   const show = (id: string, tag: string, content: NotificationContent, sessionId: string, force = false): void => {
-    if (notificationPermission() !== 'granted' || shown.has(id) || (!force && seen.has(id))) return
+    const permission = explainPermission()
+    if (permission !== 'granted') {
+      if (!reportedSuppression) {
+        reportedSuppression = true
+        console.info(`[notify-web] notification suppressed: permission=${permission}`)
+      }
+      return
+    }
+    if (shown.has(id) || (!force && seen.has(id))) return
     let notification: Notification
     try {
       notification = new Notification(content.title, {
@@ -385,6 +465,12 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
       pending.set(update.id, update)
       showApproval(update, restorePending)
     }
+    setDebug({
+      epoch: payload.epoch,
+      ...typeof payload.seq === 'number' ? { seq: payload.seq } : {},
+      lastEventAt: Date.now(),
+    })
+    console.info(`[notify-web] sync epoch=${payload.epoch} seq=${String(payload.seq)} pending=${pending.size}`)
     for (const id of [...shown.keys()]) {
       if (idKind(id) === 'approval' && !pending.has(id)) closeNotification(id)
     }
@@ -396,8 +482,15 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     }
   }
 
+  let reportedFirstUpdate = false
   const applyUpdatePayload = (payload: UpdatePayload): void => {
     if (payload.update === undefined || typeof payload.seq !== 'number' || !Number.isSafeInteger(payload.seq)) return
+    setDebug({ seq: payload.seq, lastEventAt: Date.now() })
+    if (!reportedFirstUpdate) {
+      reportedFirstUpdate = true
+      console.info(`[notify-web] first notification update: ${payload.update.type}/${payload.update.kind}`)
+    }
+    console.debug?.(`[notify-web] update ${payload.update.type}/${payload.update.kind} seq=${payload.seq}`)
     applyUpdate(payload.update)
     if (currentEpoch !== undefined) {
       cursor = { epoch: currentEpoch, seq: payload.seq }
@@ -459,16 +552,27 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
       headers: { accept: 'text/event-stream' },
     })
     if (!response.ok) {
+      setDebug({ connected: false, lastError: `HTTP ${response.status}` })
       const error = new Error(`notify-web stream failed: ${response.status}`) as Error & { status?: number }
       error.status = response.status
       throw error
     }
-    if (response.body === null) throw new Error('notify-web stream has no body')
-    await readStream(response.body, signal)
+    if (response.body === null) {
+      setDebug({ connected: false, lastError: 'response body is missing' })
+      throw new Error('notify-web stream has no body')
+    }
+    setDebug({ connected: true, lastError: undefined })
+    console.info(`[notify-web] notification stream open (HTTP ${response.status})`)
+    try {
+      await readStream(response.body, signal)
+    } finally {
+      setDebug({ connected: false })
+    }
   }
 
   const consumeLoop = async (signal: AbortSignal): Promise<void> => {
     let backoff = RETRY_BASE_MS
+    let lastReportedError: string | undefined
     while (!signal.aborted) {
       const startedAt = Date.now()
       let status: number | undefined
@@ -476,6 +580,15 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
         await connectOnce(signal)
       } catch (error) {
         status = (error as { status?: number }).status
+        const text = status === undefined ? String(error) : `HTTP ${status}`
+        setDebug({ connected: false, lastError: text })
+        if (text !== lastReportedError) {
+          lastReportedError = text
+          const hint = status === 401 || status === 403
+            ? ' (the browser session may be unauthenticated; reopen the authenticated DSH URL)'
+            : ''
+          console.warn(`[notify-web] notification stream error: ${text}${hint}`)
+        }
       }
       if (signal.aborted) break
       if (Date.now() - startedAt >= RETRY_STABLE_MS) backoff = RETRY_BASE_MS
@@ -488,11 +601,21 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
   }
 
   const startLeader = (): void => {
-    if (disposed || leaderAbort !== undefined || notificationPermission() !== 'granted') return
+    if (disposed || leaderAbort !== undefined) return
+    const permission = explainPermission()
+    if (permission !== 'granted') {
+      setDebug({ leader: false })
+      return
+    }
     const controller = new AbortController()
     leaderAbort = controller
+    const previousRun = leaderRun
     const run = async (): Promise<void> => {
+      // Let the previous consumer finish cleanup before publishing new state.
+      if (previousRun !== undefined) await previousRun
       if (controller.signal.aborted) return
+      setDebug({ leader: true })
+      console.info('[notify-web] notification leader lock acquired')
       // Read shared state only when taking over, never over an active stream's
       // newer in-memory cursor (storage may be blocked or writes may fail).
       const stored = loadCursor()
@@ -500,7 +623,11 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
         cursor = stored
       }
       restorePending = true
-      await consumeLoop(controller.signal)
+      try {
+        await consumeLoop(controller.signal)
+      } finally {
+        setDebug({ leader: false, connected: false })
+      }
     }
     const locks = (navigator as Navigator & {
       locks?: {
@@ -512,21 +639,40 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
       }
     }).locks
     if (locks === undefined) {
-      void run()
+      leaderRun = run()
       return
     }
-    void locks.request(lockName, { mode: 'exclusive' }, run).catch((error) => {
+    leaderRun = locks.request(lockName, { mode: 'exclusive' }, run).catch((error) => {
       console.warn('[notify-web] notification lock failed; consuming without the lock:', error)
-      if (!controller.signal.aborted) void run()
+      if (!controller.signal.aborted) return run()
     })
   }
+
+  /**
+   * Force a fresh stream. Useful after changing the site's notification
+   * permission while this page stayed focused.
+   */
+  const reconnect = (): void => {
+    if (disposed) return
+    const permission = explainPermission()
+    if (permission !== 'granted') {
+      console.warn(`[notify-web] reconnect ignored: permission=${permission}`)
+      return
+    }
+    leaderAbort?.abort()
+    leaderAbort = undefined
+    restorePending = true
+    startLeader()
+  }
+  debug.reconnect = reconnect
 
   const removeGesture = (): void => {
     window.removeEventListener('pointerdown', onGesture, true)
     window.removeEventListener('keydown', onGesture, true)
   }
   const requestPermission = async (retryOnGesture: boolean): Promise<void> => {
-    if (notificationPermission() !== 'default') {
+    const initial = explainPermission()
+    if (initial !== 'default') {
       startLeader()
       return
     }
@@ -536,7 +682,9 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
       console.warn('[notify-web] cannot request notification permission:', error)
     }
     if (disposed) return
-    if (retryOnGesture && notificationPermission() === 'default') {
+    const settled = explainPermission()
+    if (retryOnGesture && settled === 'default') {
+      console.info('[notify-web] the browser has not decided yet; click the page once to retry the permission prompt')
       // Some browsers require user activation. Arm one fallback only after the
       // initial request settles, so interactions cannot open concurrent prompts.
       window.addEventListener('pointerdown', onGesture, true)
@@ -560,10 +708,10 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     closeAll()
   }
   const onPageShow = (): void => {
-    if (notificationPermission() === 'granted') startLeader()
+    if (explainPermission() === 'granted') startLeader()
   }
   const onFocus = (): void => {
-    if (notificationPermission() === 'granted') startLeader()
+    if (explainPermission() === 'granted') startLeader()
   }
   window.addEventListener('pagehide', onPageHide)
   window.addEventListener('pageshow', onPageShow)
@@ -580,6 +728,9 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     leaderAbort = undefined
     closeAll()
     seen.clear()
+    setDebug({ connected: false, leader: false })
+    delete debug.reconnect
+    publishDebug()
   })
 
   return () => {
@@ -600,7 +751,12 @@ window.__ModuleLoader__.load({
     return {
       inject: ['uiWorkspace', 'locale'],
       apply(ctx) {
-        if (isDesktopShell()) return
+        setDebug({ permission: notificationPermission() })
+        console.info('[notify-web] client module activated')
+        if (isDesktopShell()) {
+          console.info('[notify-web] desktop shell detected; browser notifications stay with the desktop host')
+          return
+        }
         if (typeof Notification === 'undefined') {
           console.info('[notify-web] this browser has no Notification API; browser notifications are off')
           return

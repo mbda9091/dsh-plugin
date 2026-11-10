@@ -80,6 +80,7 @@ interface Fixture {
   readonly fetchUrls: string[]
   readonly retryDelays: number[]
   readonly pendingRetries: number
+  readonly global: Record<string, unknown>
   runRetry(): void
   apply(): void
   emitWindow(type: string): void
@@ -289,6 +290,7 @@ function createFixture(options: FixtureOptions = {}): Fixture {
     },
     fetchUrls,
     retryDelays,
+    global: sandbox,
     get pendingRetries() { return timers.size },
     runRetry() {
       const next = timers.entries().next().value
@@ -348,6 +350,30 @@ describe('L3 notify-web client: wiring', () => {
     const fixture = createFixture({ notification: false })
     assert.doesNotThrow(() => fixture.apply())
     assert.equal(fixture.fetchUrls.length, 0)
+  })
+
+  it('publishes permission/connection diagnostics and reconnects after a grant', async () => {
+    const fixture = createFixture({ permission: 'default', permissionRequest: () => 'default' })
+    fixture.apply()
+    const debug = fixture.global['__NOTIFY_WEB__'] as {
+      permission: string
+      connected: boolean
+      leader: boolean
+      lastError?: string
+      reconnect?: () => void
+    } | undefined
+    assert.equal(debug?.permission, 'default')
+    assert.equal(debug?.connected, false)
+    assert.equal(debug?.leader, false)
+    assert.equal(typeof debug?.reconnect, 'function')
+    assert.equal(fixture.fetchUrls.length, 0)
+
+    fixture.notification.permission = 'granted'
+    debug?.reconnect?.()
+    await waitFor(() => fixture.fetchUrls.length === 1)
+    await waitFor(() => debug?.leader === true)
+    await waitFor(() => debug?.connected === true)
+    assert.equal(debug?.lastError, undefined)
   })
 })
 
@@ -455,6 +481,28 @@ describe('L3 notify-web client: SSE notifications', () => {
 })
 
 describe('L3 notify-web client: reconnect regressions', () => {
+  it('keeps diagnostics accurate after active reconnects without Web Locks', async (t) => {
+    const fixture = createFixture()
+    t.after(() => fixture.dispose())
+    fixture.apply()
+    const debug = fixture.global['__NOTIFY_WEB__'] as {
+      connected: boolean
+      leader: boolean
+      reconnect(): void
+    }
+    await waitFor(() => debug.connected)
+    debug.reconnect()
+    debug.reconnect()
+    assert.equal(fixture.fetchUrls.length, 1, 'replacement waits for old consumer cleanup')
+    await waitFor(() => fixture.fetchUrls.length === 2 && debug.connected)
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(debug.leader, true)
+    assert.equal(debug.connected, true)
+    fixture.sendSync({ version: 1, epoch: 'e', seq: 1,
+      pending: [approval('session-1:approval:a1', 'pwsh', 'x')], replay: [] })
+    await waitFor(() => fixture.notifications.length === 1)
+  })
+
   for (const storageFailure of ['read-write', 'write'] as const) {
     it(`keeps the in-memory cursor when storage fails (${storageFailure})`, async (t) => {
       const fixture = createFixture({ manualTimers: true, storageFailure, storage: new Map([
