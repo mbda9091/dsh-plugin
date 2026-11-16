@@ -3,7 +3,7 @@ import { isRecord, readJson } from './json.js'
 
 export const browserChecks = {
   baseline: ['no-custom-plugins'],
-  fixture: ['slot-interaction-theme-locale-reload', 'question-real-tool-sse', 'question-ptc-received-sse', 'question-leader-handover',
+  fixture: ['notification-reopen-continues', 'slot-interaction-theme-locale-reload', 'question-real-tool-sse', 'question-ptc-received-sse', 'question-leader-handover',
     'notification-en', 'notification-zh', 'notification-denied'],
 } as const
 

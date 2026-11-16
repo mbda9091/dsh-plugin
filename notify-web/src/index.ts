@@ -4,7 +4,7 @@
  * The Host owns the shared notification source and exposes its serializable
  * updates through an authenticated Server-Sent Events route on the DSH
  * Connection `/api` bridge. The browser Client is the only consumer; the
- * operating system notification and tab focus remain the page's job.
+ * page delegates persistent notifications and clicks to a narrow worker.
  *
  * @module @mbda9091/notify-web
  */
@@ -18,6 +18,7 @@ import { createQuestionSource } from './questions.js'
 import { PROTOCOL_VERSION } from './protocol.js'
 import type { PendingUpdate, WebNotificationUpdate as NotificationUpdate } from './protocol.js'
 import { assertTarget } from './targets.js'
+import { notificationWorker } from './worker.js'
 
 export { createQuestionSource, questionProjection } from './questions.js'
 
@@ -336,6 +337,12 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   }
 
   ctx.effect(() => {
+    const disposeWorker = connection.fetch.register({
+      path: '/api/notify-web/worker.js', methods: ['GET'], requestBody: 'buffered',
+      fetch: async () => new Response(notificationWorker, { headers: {
+        'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache',
+      } }),
+    })
     const disposeOptions = connection.fetch.register({
       path: '/api/notify-web/options', methods: ['GET'], requestBody: 'buffered',
       fetch: async () => Response.json({ version: PROTOCOL_VERSION, notifyOnQuestion: options.notifyOnQuestion },
@@ -356,6 +363,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
       for (const client of [...clients]) client.close()
       void disposeRoute()
       void disposeOptions()
+      void disposeWorker()
     }
   }, 'notify-web: notification source and SSE route')
 }

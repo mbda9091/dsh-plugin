@@ -25,6 +25,7 @@ import type { ApprovalShowUpdate } from '@mbda9091/notify-host'
 import { PROTOCOL_VERSION } from '../protocol.js'
 import type { PendingUpdate, QuestionShowUpdate, WebNotificationUpdate as NotificationUpdate } from '../protocol.js'
 import { observeQuestions } from './question-requests.js'
+import { persistentNotifications } from './persistent-notifications.js'
 import type { QuestionObserver, QuestionRemote, ReceivedQuestion } from './question-requests.js'
 import type { Context } from '@deepseek-ai/cordis'
 
@@ -116,6 +117,8 @@ interface NotifyWebDebug {
   lastEventAt?: number
   /** Last stream/permission problem, cleared on a successful connect. */
   lastError?: string
+  /** Navigation is independent of the SSE/notification lifecycle. */
+  navigationError?: 'session navigation failed'
   /** Abort the current stream and open a fresh one; available while installed. */
   reconnect?(): void
 }
@@ -249,6 +252,11 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
   }
 
   const base = new URL('.', document.baseURI)
+  const persistent = persistentNotifications(base)
+  const reportNotificationError = (error: unknown): void => {
+    setDebug({ lastError: 'notification delivery failed' })
+    console.warn('[notify-web] notification delivery failed:', error)
+  }
   const endpoint = new URL('api/notify-web/events', base)
   endpoint.searchParams.set('protocol', String(PROTOCOL_VERSION))
   // Older consumers silently discard unknown notification kinds and can hold
@@ -303,7 +311,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
   }
 
   /** Notifications currently on screen, keyed by Host notification id. */
-  const shown = new Map<string, Notification>()
+  const shown = new Map<string, Pick<Notification, 'close'>>()
   /** Ids already shown; bounded to avoid replaying very old messages. */
   const seen = loadSeen()
   /** Latest turn-end notification per Session. */
@@ -363,6 +371,38 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     saveSeen()
   }
 
+  const installNotificationNavigation = (): void => {
+    if (persistent === undefined || disposed) return
+    const open = (id: string, sessionId: string): void => {
+      remember(id)
+      try {
+        uiWorkspace.openSession(sessionId)
+        setDebug({ navigationError: undefined })
+      } catch {
+        setDebug({ navigationError: 'session navigation failed' })
+        console.warn('[notify-web] cannot open the clicked session; notifications remain active')
+      }
+    }
+    const onNotificationClick = (event: MessageEvent): void => {
+      const source = event.source as ServiceWorker | null
+      if (source?.scriptURL !== persistent.script.href || event.data?.type !== 'notify-web:open') return
+      if (typeof event.data.id !== 'string' || typeof event.data.sessionId !== 'string') return
+      open(event.data.id, event.data.sessionId)
+      event.ports[0]?.postMessage('opened')
+    }
+    navigator.serviceWorker.addEventListener('message', onNotificationClick)
+    add(() => navigator.serviceWorker.removeEventListener('message', onNotificationClick))
+    const target = new URL(window.location.href)
+    const sessionId = target.searchParams.get('notify-web-session')
+    const id = target.searchParams.get('notify-web-id')
+    if (sessionId && id) {
+      target.searchParams.delete('notify-web-session')
+      target.searchParams.delete('notify-web-id')
+      window.history.replaceState(window.history.state, '', target.href)
+      open(id, sessionId)
+    }
+  }
+
   const loadCursor = (): Cursor | undefined => {
     try {
       const raw = localStorage.getItem(storageKey)
@@ -386,6 +426,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
 
   const closeNotification = (id: string): void => {
     const notification = shown.get(id)
+    if (persistent !== undefined) void persistent.close(id).catch(reportNotificationError)
     if (notification === undefined) return
     shown.delete(id)
     for (const [sessionId, value] of turnEndBySession) {
@@ -412,7 +453,18 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
       }
       return
     }
-    if (shown.has(id) || (!force && seen.has(id))) return
+    if (shown.has(id) || ((!force || persistent !== undefined) && seen.has(id))) return
+    if (persistent !== undefined) {
+      shown.set(id, { close() {} })
+      remember(id)
+      void persistent.show(id, sessionId, content.title, content.body, tag).catch(error => {
+        shown.delete(id)
+        seen.delete(id)
+        saveSeen()
+        reportNotificationError(error)
+      })
+      return
+    }
     let notification: Notification
     try {
       notification = new Notification(content.title, {
@@ -543,10 +595,10 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     const epochChanged = currentEpoch !== undefined && payload.epoch !== currentEpoch
     const reset = payload.reset === true || epochChanged
     if (reset) {
-      closeAll(true)
-      seen.clear()
+      if (persistent === undefined) closeAll(true)
+      if (persistent === undefined) seen.clear()
       try {
-        localStorage.removeItem(seenKey)
+        if (persistent === undefined) localStorage.removeItem(seenKey)
       } catch {
         // Storage can be unavailable.
       }
@@ -570,6 +622,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
       if ((idKind(id) === 'approval' || (idKind(id) === 'question' && !legacyQuestions.has(id))) && !pending.has(id)) closeNotification(id)
     }
     for (const update of payload.replay ?? []) applyUpdate(update)
+    if (persistent !== undefined) void persistent.reconcile(new Set([...pending.keys(), ...legacyQuestions])).catch(reportNotificationError)
     restorePending = false
     if (typeof payload.seq === 'number' && Number.isSafeInteger(payload.seq) && payload.seq >= 0) {
       cursor = { epoch: payload.epoch, seq: payload.seq }
@@ -809,7 +862,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
   const onPageHide = (): void => {
     leaderAbort?.abort()
     leaderAbort = undefined
-    closeAll()
+    if (persistent === undefined) closeAll()
   }
   const onPageShow = (): void => {
     if (explainPermission() === 'granted') startLeader()
@@ -831,11 +884,20 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     disposed = true
     leaderAbort?.abort()
     leaderAbort = undefined
-    closeAll()
+    if (persistent === undefined) closeAll()
     seen.clear()
     setDebug({ connected: false, leader: false })
     delete debug.reconnect
     publishDebug()
+  })
+
+  // A click may launch a cold page while the Workspace is still activating.
+  // Finish the consumer and its cleanup first; navigation must never abort it.
+  void Promise.resolve().then(installNotificationNavigation).catch(() => {
+    if (!disposed) {
+      setDebug({ navigationError: 'session navigation failed' })
+      console.warn('[notify-web] cannot restore notification navigation; notifications remain active')
+    }
   })
 
   return () => {

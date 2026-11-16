@@ -14,7 +14,7 @@ declare global {
     __L5_NOTIFICATIONS__: {
       requests: number
       interactionsAtRequest: number[]
-      calls: Array<{ title: string; body: string; tag: string; closed: boolean }>
+      calls: Array<{ title: string; body: string; tag: string; closed: boolean; data?: { id: string; sessionId: string } }>
     }
   }
 }
@@ -36,9 +36,10 @@ let browser: Browser | undefined
 let deadline: NodeJS.Timeout | undefined
 let currentCheck = 'browser-start'
 
-/** Replace only the OS notification API; the real client plugin still runs. */
-async function stubNotifications(context: BrowserContext, denied = false): Promise<void> {
-  await context.addInitScript(({ denied }) => {
+/** Existing SSE/UI checks use the page fallback; worker registration is checked separately. */
+async function stubNotifications(context: BrowserContext, denied = false, persistent = false): Promise<void> {
+  await context.addInitScript(({ denied, persistent }) => {
+    if (!persistent) Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: undefined })
     const state: Window['__L5_NOTIFICATIONS__'] = { requests: 0, interactionsAtRequest: [], calls: [] }
     window.__L5_NOTIFICATIONS__ = state
     let interactions = 0
@@ -55,17 +56,25 @@ async function stubNotifications(context: BrowserContext, denied = false): Promi
       }
       readonly record: Window['__L5_NOTIFICATIONS__']['calls'][number]
       constructor(title: string, options: NotificationOptions = {}) {
-        this.record = { title, body: options.body ?? '', tag: options.tag ?? '', closed: false }
+        this.record = { title, body: options.body ?? '', tag: options.tag ?? '', closed: false, data: options.data }
         state.calls.push(this.record)
       }
       close() { this.record.closed = true }
     }
     Object.defineProperty(window, 'Notification', { configurable: true, value: StubNotification })
-  }, { denied })
+    if (persistent) {
+      ServiceWorkerRegistration.prototype.showNotification = async function(title, options) { new StubNotification(title, options) }
+      ServiceWorkerRegistration.prototype.getNotifications = async function(options) {
+        return state.calls.filter(item => !item.closed && (!options?.tag || item.tag === options.tag)).map(item => ({
+          data: item.data, close() { item.closed = true },
+        })) as Notification[]
+      }
+    }
+  }, { denied, persistent })
 }
 
 /** Fresh browser contexts, strict error gate, and diagnostics even when an assertion fails. */
-async function check(name: string, body: (page: Page, context: BrowserContext, directory: string) => Promise<void>, denied = false): Promise<void> {
+async function check(name: string, body: (page: Page, context: BrowserContext, directory: string) => Promise<void>, denied = false, persistent = false): Promise<void> {
   currentCheck = name
   assert.ok(browser)
   const directory = join(artifacts!, name)
@@ -74,12 +83,13 @@ async function check(name: string, body: (page: Page, context: BrowserContext, d
   const errors: string[] = []
   const knownHostErrors: string[] = []
   await context.tracing.start({ screenshots: true, snapshots: true, sources: true })
-  await stubNotifications(context, denied)
+  await stubNotifications(context, denied, persistent)
   const page = await context.newPage()
   page.setDefaultTimeout(15_000)
   page.setDefaultNavigationTimeout(30_000)
-  page.on('pageerror', error => errors.push(`pageerror: ${error.message}`))
-  page.on('console', message => {
+  const monitor = (page: Page): void => {
+    page.on('pageerror', error => errors.push(`pageerror: ${error.message}`))
+    page.on('console', message => {
     if (message.type() !== 'error') return
     const location = message.location().url
     // DSH 0.2.1-rc.2 falls back to a generic glyph when native icon extraction
@@ -92,7 +102,10 @@ async function check(name: string, body: (page: Page, context: BrowserContext, d
       && message.text() === 'Failed to load resource: the server responded with a status of 404 (Not Found)') {
       knownHostErrors.push(`${location}: ${message.text()}`)
     } else errors.push(`console: ${message.text()} (${location})`)
-  })
+    })
+  }
+  monitor(page)
+  context.on('page', monitor)
   try {
     await body(page, context, directory)
   } catch (error) {
@@ -100,9 +113,10 @@ async function check(name: string, body: (page: Page, context: BrowserContext, d
     throw error
   } finally {
     // Diagnose the original failure even if the page itself has crashed.
-    writeFileSync(join(directory, 'aria.txt'), await page.locator('body').ariaSnapshot().catch(() => 'page unavailable'))
-    writeFileSync(join(directory, 'fixture.json'), JSON.stringify(await page.evaluate(() => window.__DSH_WEB_HELLO__ ?? null).catch(() => null), null, 2))
-    await page.screenshot({ path: join(directory, 'page.png') }).catch(() => {})
+    const evidencePage = page.isClosed() ? context.pages().at(-1) ?? page : page
+    writeFileSync(join(directory, 'aria.txt'), await evidencePage.locator('body').ariaSnapshot().catch(() => 'page unavailable'))
+    writeFileSync(join(directory, 'fixture.json'), JSON.stringify(await evidencePage.evaluate(() => window.__DSH_WEB_HELLO__ ?? null).catch(() => null), null, 2))
+    await evidencePage.screenshot({ path: join(directory, 'page.png') }).catch(() => {})
     await context.tracing.stop({ path: join(directory, 'trace.zip') }).catch(() => {})
     await context.close()
     writeFileSync(join(directory, 'errors.json'), JSON.stringify(errors, null, 2))
@@ -158,8 +172,8 @@ async function switchLocale(page: Page, language: 'en' | 'zh'): Promise<void> {
   await send.waitFor({ state: 'visible' })
 }
 
-async function prepareFixture(page: Page, name: string): Promise<void> {
-  await open(page, false)
+async function prepareFixture(page: Page, name: string, alreadyOpen = false): Promise<void> {
+  if (!alreadyOpen) await open(page, false)
   const workspace = join(workspaceRoot!, name)
   mkdirSync(workspace, { recursive: true })
   // A restored session can already render the slot. Wait for THIS setup to
@@ -210,8 +224,47 @@ try {
       await page.getByRole('tree', { name: 'Sessions', exact: true }).waitFor({ state: 'visible' })
     })
   } else {
+    await check('notification-reopen-continues', async (page, context) => {
+      await prepareFixture(page, 'persistent-before-close')
+      await notify(page, 'complete')
+      await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.length === 1)
+      const data = await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls[0]!.data!)
+      await page.close()
+      const reopened = await context.newPage()
+      const target = new URL(url!)
+      target.searchParams.set('notify-web-session', data.sessionId)
+      target.searchParams.set('notify-web-id', data.id)
+      await reopened.goto(target.href)
+      await reopened.waitForFunction(() => (window as unknown as { __NOTIFY_WEB__?: { connected: boolean } }).__NOTIFY_WEB__?.connected === true)
+      await prepareFixture(reopened, 'persistent-after-close', true)
+      await notify(reopened, 'complete')
+      await reopened.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.length === 1)
+      await notify(reopened, 'question')
+      await notify(reopened, 'question-release')
+      await reopened.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.length === 2)
+      await answerQuestion(reopened)
+    }, false, true)
     await check('slot-interaction-theme-locale-reload', async (page, _context, directory) => {
       await prepareFixture(page, 'matrix')
+      // Exercise the real authenticated worker route and browser activation;
+      // OS click delivery remains a manual check, not simulated by this assertion.
+      assert.equal(await page.evaluate(async () => {
+        const container = Reflect.get(Object.getPrototypeOf(navigator), 'serviceWorker', navigator) as ServiceWorkerContainer
+        const registration = await container.register(new URL('api/notify-web/worker.js', document.baseURI), { updateViaCache: 'none' })
+        if (!registration.active) {
+          const worker = registration.installing ?? registration.waiting
+          if (!worker) throw new Error('worker not installed')
+          await new Promise<void>((resolve, reject) => {
+            const changed = () => {
+              if (worker.state === 'activated') resolve()
+              if (worker.state === 'redundant') reject(new Error('worker redundant'))
+            }
+            worker.addEventListener('statechange', changed)
+            changed()
+          })
+        }
+        return registration.scope === new URL('api/notify-web/', document.baseURI).href
+      }), true)
       // Real authenticated SSE must connect and persist its initial cursor.
       await page.waitForFunction(() => localStorage.getItem('notify-web:v3:cursor:/') !== null)
       assert.deepEqual(await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls), [])

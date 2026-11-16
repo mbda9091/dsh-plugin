@@ -58,6 +58,9 @@ interface ApprovalShow {
 }
 
 interface FixtureOptions {
+  readonly serviceWorker?: object
+  readonly pageUrl?: string
+  readonly openSessionError?: boolean
   readonly notifyOnQuestion?: boolean
   readonly permission?: string
   readonly permissionRequest?: () => string | Promise<string>
@@ -142,6 +145,8 @@ function createFixture(options: FixtureOptions = {}): Fixture {
   const windowListeners = new Map<string, Set<() => void>>()
   let focusCount = 0
   const windowObject = {
+    location: { href: options.pageUrl ?? 'http://127.0.0.1:10089/' },
+    history: { state: null, replaceState() {} },
     focus: () => {
       focusCount += 1
     },
@@ -164,6 +169,7 @@ function createFixture(options: FixtureOptions = {}): Fixture {
   const opened: string[] = []
   const uiWorkspace = {
     openSession: (sessionId: string) => {
+      if (options.openSessionError) throw new Error('session navigation not ready')
       opened.push(sessionId)
     },
   }
@@ -267,7 +273,7 @@ function createFixture(options: FixtureOptions = {}): Fixture {
       __ModuleLoader__: { load: (entry: ClientEntry) => { loaded = entry } },
     }),
     document: { baseURI: 'http://127.0.0.1:10089/' },
-    navigator: options.locks === undefined ? {} : { locks: options.locks },
+    navigator: { locks: options.locks, serviceWorker: options.serviceWorker },
     Notification: notification,
     localStorage,
     fetch: fetchImpl,
@@ -408,6 +414,62 @@ describe('L3 notify-web client: wiring', () => {
 })
 
 describe('L3 notify-web client: SSE notifications', () => {
+  it('starts notifications even when the clicked session cannot be opened during startup', async t => {
+    const calls: string[] = []
+    const serviceWorker = { addEventListener() {}, removeEventListener() {}, register: async () => ({
+      active: {}, getNotifications: async () => [], showNotification: async (title: string) => { calls.push(title) },
+    }) }
+    const fixture = createFixture({ serviceWorker, openSessionError: true,
+      pageUrl: 'http://127.0.0.1:10089/?notify-web-session=old&notify-web-id=old:turn-end:1' })
+    t.after(() => fixture.dispose())
+    assert.doesNotThrow(() => fixture.apply())
+    await waitFor(() => fixture.fetchUrls.length === 1)
+    fixture.sendSync({ version: 3, epoch: 'e', seq: 0, reset: false, pending: [approval('new:approval:1', 'test', 'test')], replay: [] })
+    await waitFor(() => calls.length === 1)
+  })
+  it('keeps worker notifications on page exit, dedupes reopen and withdraws across owners', async t => {
+    const notifications: Array<{ data: { id: string }; closed: boolean; close(): void }> = []
+    const registration = {
+      active: {},
+      async getNotifications() { return notifications.filter(item => !item.closed) },
+      async showNotification(_title: string, options: { data: { id: string } }) {
+        const item = { data: options.data, closed: false, close() { item.closed = true } }
+        notifications.push(item)
+      },
+    }
+    const serviceWorker = { register: async () => registration, addEventListener() {}, removeEventListener() {} }
+    const storage = new Map<string, string>()
+    const first = createFixture({ serviceWorker, storage }); t.after(() => first.dispose())
+    first.apply()
+    await waitFor(() => first.fetchUrls.length === 1)
+    const id = 'session-1:approval:keep'
+    const sync = { version: 3, epoch: 'e', seq: 0, reset: true, pending: [approval(id, 'test', 'test')], replay: [] }
+    first.sendSync(sync)
+    await waitFor(() => notifications.length === 1)
+    first.emitWindow('pagehide')
+    first.dispose()
+    assert.equal(notifications[0]!.closed, false)
+    const second = createFixture({ serviceWorker, storage }); t.after(() => second.dispose())
+    second.apply()
+    await waitFor(() => second.fetchUrls.length === 1)
+    second.sendSync(sync)
+    await new Promise(resolve => setTimeout(resolve, 20))
+    assert.equal(notifications.length, 1, 'reopening must not show the same notification again')
+    second.sendUpdate({ seq: 1, update: { type: 'withdraw', kind: 'approval', id } })
+    await waitFor(() => notifications[0]!.closed)
+    assert.equal(second.notifications.length, 0, 'persistent path must not create page notifications')
+    second.dispose()
+    const reopened = createFixture({ serviceWorker, storage, now: () => Date.now() + 60 * 60_000,
+      pageUrl: `http://127.0.0.1:10089/?notify-web-session=session-1&notify-web-id=${encodeURIComponent(id)}` })
+    t.after(() => reopened.dispose())
+    reopened.apply()
+    await waitFor(() => reopened.opened.length === 1)
+    assert.deepEqual(reopened.opened, ['session-1'])
+    await waitFor(() => reopened.fetchUrls.length === 1)
+    reopened.sendSync(sync)
+    await new Promise(resolve => setTimeout(resolve, 20))
+    assert.equal(notifications.length, 1, 'click receipt survives reset even when old seen records expired')
+  })
   it('preserves a card rejection and withdraws its legacy notification', async t => {
     const fixture = createFixture(); t.after(() => fixture.dispose())
     fixture.apply()

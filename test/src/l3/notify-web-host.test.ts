@@ -5,6 +5,8 @@ import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { SessionProjectionRegistry } from '@deepseek-ai/dsh-session-projection'
 import { Context } from '@deepseek-ai/cordis'
 import { apply } from '@mbda9091/notify-web'
+import vm from 'node:vm'
+import type { MessagePort } from 'node:worker_threads'
 
 /**
  * L3: the Web Host notification broker.
@@ -158,6 +160,37 @@ function protocolRequest(input: string, init?: RequestInit): Request {
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
 describe('L3 notify-web host: SSE route', () => {
+  it('serves a worker that closes before opening and reuses a live page', async t => {
+    const host = createHost(); t.after(() => host.dispose())
+    await apply(host.ctx)
+    const response = await host.route('/api/notify-web/worker.js').fetch(new Request('http://localhost/api/notify-web/worker.js'))
+    assert.match(response.headers.get('content-type')!, /javascript/)
+    const handlers = new Map<string, (event: unknown) => void>()
+    const calls: string[] = []
+    let windows: Array<{ url: string; focus(): Promise<void>; postMessage(data: unknown, ports: MessagePort[]): void }> = []
+    const scope = {
+      location: { href: 'http://localhost/nested/api/notify-web/worker.js' },
+      addEventListener: (name: string, callback: (event: unknown) => void) => handlers.set(name, callback),
+      clients: { matchAll: async () => windows, openWindow: async (url: string) => { calls.push(url) } },
+    }
+    vm.runInNewContext(await response.text(), { self: scope, URL, MessageChannel, setTimeout, clearTimeout })
+    async function click() {
+      let work: Promise<void> | undefined
+      handlers.get('notificationclick')!({
+        notification: { data: { id: 'test:question:1', sessionId: 'test-session' }, close: () => calls.push('close') },
+        waitUntil: (value: Promise<void>) => { work = value },
+      })
+      assert.equal(calls.at(-1), 'close', 'close synchronously, before navigation')
+      await work
+    }
+    await click()
+    assert.deepEqual(calls, ['close', 'http://localhost/nested/?notify-web-session=test-session&notify-web-id=test%3Aquestion%3A1'])
+    windows = [{ url: 'http://localhost/nested/', focus: async () => { calls.push('focus') },
+      postMessage: (_data, ports) => { calls.push('message'); ports[0]!.postMessage('opened'); ports[0]!.close() } }]
+    calls.length = 0
+    await click()
+    assert.deepEqual(calls, ['close', 'focus', 'message'])
+  })
   it('exposes the question switch to the receiving page without session data', async t => {
     const host = createHost(); t.after(() => host.dispose())
     await apply(host.ctx, { notifyOnQuestion: false })
