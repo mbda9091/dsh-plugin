@@ -62,7 +62,9 @@ async function stubNotifications(context: BrowserContext, denied = false, persis
       close() { this.record.closed = true }
     }
     Object.defineProperty(window, 'Notification', { configurable: true, value: StubNotification })
-    if (persistent) {
+    // Init scripts also run on Chromium's initial about:blank, where the
+    // secure-context-only worker API is absent. The DSH page must expose it.
+    if (persistent && typeof ServiceWorkerRegistration !== 'undefined') {
       ServiceWorkerRegistration.prototype.showNotification = async function(title, options) { new StubNotification(title, options) }
       ServiceWorkerRegistration.prototype.getNotifications = async function(options) {
         return state.calls.filter(item => !item.closed && (!options?.tag || item.tag === options.tag)).map(item => ({
@@ -226,6 +228,7 @@ try {
   } else {
     await check('notification-reopen-continues', async (page, context) => {
       await prepareFixture(page, 'persistent-before-close')
+      assert.equal(await page.evaluate(() => typeof ServiceWorkerRegistration), 'function', 'persistent notification check requires the real worker API on the DSH page')
       await notify(page, 'complete')
       await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.length === 1)
       const data = await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls[0]!.data!)
