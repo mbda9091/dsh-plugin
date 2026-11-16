@@ -5,6 +5,7 @@ import { assertArtifactsUnchanged } from './artifacts.js'
 import { isRecord } from './json.js'
 import type { TestReport } from './test-run.js'
 import { platformFromNode, type Target } from './targets.js'
+import { browserChecks } from './browser-results.js'
 
 export const artifactSteps = {
   l4: ['context', 'package-contracts', 'profile-init', 'install-artifacts', 'host-capabilities', 'web-artifacts', 'cleanup'],
@@ -55,7 +56,7 @@ export function validateVerification(set: ArtifactSet, value: unknown, target: T
     kinds.push('l5'); validateArtifactReport(value.functions.l5, 'l5', set, value.startedAt)
     const browser = value.functions.browser
     for (const mode of ['baseline', 'fixture'] as const) {
-      const expected = mode === 'baseline' ? ['no-custom-plugins'] : ['slot-interaction-theme-locale-reload', 'notification-en', 'notification-zh', 'notification-denied']
+      const expected = browserChecks[mode]
       const results: unknown = isRecord(browser) ? browser[mode] : undefined
       if (!Array.isArray(results) || results.length !== expected.length || results.some((r, i) => !isRecord(r) || r.name !== expected[i] || r.ok !== true)) throw new Error('incomplete artifact browser evidence')
     }

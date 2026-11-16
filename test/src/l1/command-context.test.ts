@@ -49,6 +49,16 @@ it('L1 command context: absent tools never trigger discovery; unrelated browsers
   } finally { removeDir(f.root) }
 })
 
+it('L1 command context: Firefox uses an isolated Playwright browser without discovering Chrome', () => {
+  const f = configFixture()
+  try {
+    const settings = loadCommandContext({}, f.root, { ...f.env, DSH_E2E_BROWSER: 'firefox', CHROME_PATH: 'missing-chrome' }, 'test')
+    assert.equal(settings.config.test.browser, 'firefox')
+    assert.doesNotThrow(() => checkTestBrowser(settings))
+    assert.equal(commandEnv(settings).DSH_E2E_BROWSER, 'firefox')
+  } finally { removeDir(f.root) }
+})
+
 it('L1 harness configuration: disposable homes override session settings and do not read the personal patch', () => {
   const f = configFixture()
   try {

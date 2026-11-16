@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
 import vm from 'node:vm'
+import { randomUUID } from 'node:crypto'
 import { repoRoot } from '../harness/tmp.js'
 
 /**
@@ -57,6 +58,7 @@ interface ApprovalShow {
 }
 
 interface FixtureOptions {
+  readonly notifyOnQuestion?: boolean
   readonly permission?: string
   readonly permissionRequest?: () => string | Promise<string>
   readonly desktop?: boolean
@@ -69,6 +71,7 @@ interface FixtureOptions {
 }
 
 interface Fixture {
+  receiveQuestion(sessionId: string, callId?: string): { answer(): void; fail(error: Error): void; result: Promise<{ answers: [] }> }
   readonly client: {
     readonly inject: readonly string[]
     apply(ctx: unknown): void
@@ -166,6 +169,8 @@ function createFixture(options: FixtureOptions = {}): Fixture {
   }
 
   const zh: Record<string, string> = {
+    'question.title': '需要你的回复',
+    'question.body': '有问题等待你回答，请返回会话查看。',
     'approval.title': '需要确认权限',
     'approval.body': '{toolName} 正在请求授权',
     'approval.body.reason': '{toolName} 正在请求授权：{reason}',
@@ -176,6 +181,8 @@ function createFixture(options: FixtureOptions = {}): Fixture {
     'turnEnd.error.body': '{message}',
   }
   const en: Record<string, string> = {
+    'question.title': 'Reply needed',
+    'question.body': 'A question needs your answer; return to the conversation.',
     'approval.title': 'Approval required',
     'approval.body': '{toolName} is requesting permission',
     'approval.body.reason': '{toolName} is requesting permission: {reason}',
@@ -198,10 +205,19 @@ function createFixture(options: FixtureOptions = {}): Fixture {
   }
 
   const disposers: Array<() => void> = []
+  type QuestionListener = (this: { sessionId: string }, request: {
+    questions: Array<{ id: string; question: string }>; wait?: { callId: string }
+  }, next: () => Promise<{ answers: [] }>) => Promise<{ answers: [] }>
+  let questionListener: QuestionListener | undefined
   const ctx = {
     get: (name: string): unknown => {
       if (name === 'uiWorkspace') return uiWorkspace
       if (name === 'locale') return locale
+      if (name === 'remote') return { $on: (_event: string, listener: QuestionListener) => {
+        questionListener = listener
+        return () => { questionListener = undefined }
+      } }
+      if (name === 'sessions') return { scopeOf: (owner: { sessionId: string }) => owner.sessionId }
       return undefined
     },
     effect: (callback: () => () => void) => {
@@ -229,6 +245,9 @@ function createFixture(options: FixtureOptions = {}): Fixture {
   const fetchUrls: string[] = []
   let streamController: ReadableStreamDefaultController<Uint8Array> | undefined
   const fetchImpl = async (input: URL | string, init: { signal: AbortSignal }): Promise<unknown> => {
+    if (new URL(input).pathname.endsWith('/options')) return {
+      ok: true, json: async () => ({ version: 3, notifyOnQuestion: options.notifyOnQuestion ?? true }),
+    }
     fetchUrls.push(String(input))
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
@@ -257,6 +276,7 @@ function createFixture(options: FixtureOptions = {}): Fixture {
     TextDecoder,
     ReadableStream,
     AbortController,
+    crypto: { randomUUID },
     console: { info: () => {}, warn: () => {}, error: () => {} },
     setTimeout: options.manualTimers === true ? (callback: () => void, delay: number) => {
       retryDelays.push(delay)
@@ -279,6 +299,16 @@ function createFixture(options: FixtureOptions = {}): Fixture {
 
   let applied = false
   return {
+    receiveQuestion(sessionId, callId) {
+      assert.ok(questionListener, 'early Remote listener must be registered')
+      let answer!: () => void
+      let fail!: (error: Error) => void
+      const next = new Promise<{ answers: [] }>((resolve, reject) => { answer = () => resolve({ answers: [] }); fail = reject })
+      const result = questionListener.call({ sessionId }, {
+        questions: [{ id: 'q', question: 'A or B?' }], ...(callId ? { wait: { callId } } : {}),
+      }, () => next)
+      return { answer, fail, result }
+    },
     get client() {
       return plugin
     },
@@ -335,9 +365,9 @@ async function waitFor(condition: () => boolean): Promise<void> {
 }
 
 describe('L3 notify-web client: wiring', () => {
-  it('needs Workspace navigation and locale only', () => {
+  it('registers Remote observation before waiting for application UI services', () => {
     const fixture = createFixture()
-    assert.deepEqual([...fixture.client.inject], ['uiWorkspace', 'locale'])
+    assert.deepEqual([...fixture.client.inject], ['remote'])
   })
 
   it('does nothing in the Desktop shell', () => {
@@ -378,12 +408,124 @@ describe('L3 notify-web client: wiring', () => {
 })
 
 describe('L3 notify-web client: SSE notifications', () => {
+  it('preserves a card rejection and withdraws its legacy notification', async t => {
+    const fixture = createFixture(); t.after(() => fixture.dispose())
+    fixture.apply()
+    const request = fixture.receiveQuestion('s')
+    await waitFor(() => fixture.notifications.length === 1)
+    const error = new Error('card cancelled')
+    request.fail(error)
+    await assert.rejects(request.result, value => value === error)
+    assert.equal(fixture.notifications[0]!.closed, true)
+  })
+  it('notifies a legacy request on receipt, passes the answer through, and closes on settlement', async t => {
+    const fixture = createFixture(); t.after(() => fixture.dispose())
+    fixture.apply()
+    await waitFor(() => fixture.fetchUrls.length === 1)
+    const request = fixture.receiveQuestion('s')
+    await waitFor(() => fixture.notifications.length === 1)
+    fixture.sendSync({ version: 3, epoch: 'e', seq: 0, reset: true, pending: [], replay: [] })
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(fixture.notifications[0]!.closed, false, 'SSE cannot close a live request without a call ID')
+    fixture.emitWindow('pagehide')
+    assert.equal(fixture.notifications[0]!.closed, true)
+    fixture.emitWindow('pageshow')
+    await waitFor(() => fixture.notifications.length === 2)
+    request.answer()
+    assert.deepEqual(await request.result, { answers: [] })
+    assert.equal(fixture.notifications[1]!.closed, true)
+  })
+
+  it('does not notify when a request settles before options arrive or questions are disabled', async t => {
+    for (const disabled of [false, true]) {
+      const fixture = createFixture({ notifyOnQuestion: !disabled }); t.after(() => fixture.dispose())
+      fixture.apply()
+      const request = fixture.receiveQuestion('s')
+      if (!disabled) request.answer()
+      await new Promise(resolve => setImmediate(resolve))
+      assert.equal(fixture.notifications.length, 0)
+      request.answer()
+      assert.deepEqual(await request.result, { answers: [] })
+    }
+  })
+
+  it('remembers receipt before the SSE candidate arrives without notifying from the tool alone', async t => {
+    const fixture = createFixture(); t.after(() => fixture.dispose())
+    fixture.apply()
+    fixture.receiveQuestion('s', 'c')
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(fixture.notifications.length, 0)
+    fixture.sendSync({ version: 3, epoch: 'e', seq: 1, pending: [{
+      type: 'show', kind: 'question', id: 's:question:c', sessionId: 's', seq: 1, at: 1, question: 'Ready?',
+    }], replay: [] })
+    await waitFor(() => fixture.notifications.length === 1)
+  })
+
+  it('deduplicates a question across sync/replay, opens its session, and restores after reload', async () => {
+    const storage = new Map<string, string>()
+    const fixture = createFixture({ storage })
+    fixture.apply()
+    await waitFor(() => fixture.fetchUrls.length === 1)
+    const question = { type: 'show', kind: 'question', id: 's:question:c', sessionId: 's',
+      seq: 1, at: Date.now(), question: ' Which\n option? ' }
+    const sync = { version: 3, epoch: 'e', seq: 1, pending: [question], replay: [question] }
+    fixture.sendSync(sync)
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(fixture.notifications.length, 0, 'tool events alone must not notify')
+    fixture.receiveQuestion('s', 'c')
+    await waitFor(() => fixture.notifications.length === 1)
+    assert.equal(fixture.notifications[0]?.title, '需要你的回复')
+    assert.equal(fixture.notifications[0]?.options.body, 'Which option?')
+    fixture.sendSync(sync)
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(fixture.notifications.length, 1)
+    assert.ok([...storage.values()].every(value => !value.includes('Which')))
+    fixture.notifications[0]?.onclick?.()
+    assert.deepEqual(fixture.opened, ['s'])
+    fixture.dispose()
+    const reloaded = createFixture({ storage })
+    reloaded.apply()
+    await waitFor(() => reloaded.fetchUrls.length === 1)
+    reloaded.sendSync(sync)
+    await waitFor(() => reloaded.notifications.length === 1)
+    reloaded.sendSync({ ...sync, seq: 2, pending: [], replay: [] })
+    await waitFor(() => reloaded.notifications[0]?.closed === true)
+    reloaded.dispose()
+  })
+
+  it('withdraws only the answered question and leaves other pending questions visible', async () => {
+    const fixture = createFixture()
+    fixture.apply()
+    await waitFor(() => fixture.fetchUrls.length === 1)
+    const first = { type: 'show', kind: 'question', id: 's:question:c1', sessionId: 's', seq: 1, at: 1, question: 'First?' }
+    const second = { ...first, id: 's:question:c2', question: 'Second?' }
+    fixture.sendSync({ version: 3, epoch: 'e', seq: 1, pending: [first, second], replay: [] })
+    fixture.receiveQuestion('s', 'c1')
+    fixture.receiveQuestion('s', 'c2')
+    await waitFor(() => fixture.notifications.length === 2)
+    fixture.sendUpdate({ version: 3, seq: 2, update: { ...first, type: 'withdraw' } })
+    await waitFor(() => fixture.notifications[0]?.closed === true)
+    assert.equal(fixture.notifications[1]?.closed, false)
+    fixture.dispose()
+  })
+
+  it('rejects an unknown protocol without retrying or displaying unsupported payloads', async () => {
+    const fixture = createFixture({ manualTimers: true })
+    fixture.apply()
+    await waitFor(() => fixture.fetchUrls.length === 1)
+    fixture.sendSync({ version: 99, epoch: 'e', seq: 0, pending: [approval('s:approval:a', 'x', '')], replay: [] })
+    await waitFor(() => String((fixture.global.__NOTIFY_WEB__ as { lastError?: string }).lastError).includes('refresh'))
+    assert.equal(fixture.pendingRetries, 0)
+    assert.equal(fixture.notifications.length, 0)
+    fixture.dispose()
+  })
+
   it('shows a synced approval and opens its Session on click', async () => {
     const fixture = createFixture()
     fixture.apply()
     await waitFor(() => fixture.fetchUrls.length === 1)
     fixture.sendSync({
-      version: 1,
+      version: 3,
       epoch: 'epoch-1',
       seq: 0,
       reset: false,
@@ -407,7 +549,7 @@ describe('L3 notify-web client: SSE notifications', () => {
     const fixture = createFixture()
     fixture.apply()
     await waitFor(() => fixture.fetchUrls.length === 1)
-    fixture.sendSync({ version: 1, epoch: 'e', seq: 0, reset: false, pending: [], replay: [] })
+    fixture.sendSync({ version: 3, epoch: 'e', seq: 0, reset: false, pending: [], replay: [] })
     fixture.sendUpdate({
       type: 'update',
       seq: 1,
@@ -436,9 +578,9 @@ describe('L3 notify-web client: SSE notifications', () => {
     const fixture = createFixture()
     fixture.apply()
     await waitFor(() => fixture.fetchUrls.length === 1)
-    fixture.sendSync({ version: 1, epoch: 'e', seq: 0, reset: false, pending: [approval('session-1:approval:a1', 'pwsh', 'x')], replay: [] })
+    fixture.sendSync({ version: 3, epoch: 'e', seq: 0, reset: false, pending: [approval('session-1:approval:a1', 'pwsh', 'x')], replay: [] })
     await waitFor(() => fixture.notifications.length === 1)
-    fixture.sendSync({ version: 1, epoch: 'e', seq: 3, reset: true, pending: [], replay: [] })
+    fixture.sendSync({ version: 3, epoch: 'e', seq: 3, reset: true, pending: [], replay: [] })
     await waitFor(() => fixture.notifications[0]?.closed === true)
     assert.equal(fixture.notifications[0]?.closed, true)
   })
@@ -448,7 +590,7 @@ describe('L3 notify-web client: SSE notifications', () => {
     t.after(() => fixture.dispose())
     fixture.apply()
     await waitFor(() => fixture.fetchUrls.length === 1)
-    fixture.sendSync({ version: 1, epoch: 'epoch-1', seq: 5, reset: false, pending: [], replay: [] })
+    fixture.sendSync({ version: 3, epoch: 'epoch-1', seq: 5, reset: false, pending: [], replay: [] })
     fixture.closeStream()
     await waitFor(() => fixture.pendingRetries === 1)
     fixture.runRetry()
@@ -463,7 +605,7 @@ describe('L3 notify-web client: SSE notifications', () => {
     fixture.apply()
     await waitFor(() => fixture.fetchUrls.length === 1)
     fixture.sendSync({
-      version: 1,
+      version: 3,
       epoch: 'e',
       seq: 2,
       reset: false,
@@ -481,6 +623,26 @@ describe('L3 notify-web client: SSE notifications', () => {
 })
 
 describe('L3 notify-web client: reconnect regressions', () => {
+  it('does not wait for a legacy leader and explicitly negotiates the question protocol', async t => {
+    let requested = ''
+    const fixture = createFixture({ locks: { request: async (name, _options, callback) => {
+      requested = name
+      if (name === 'notify-web:/') return // A legacy tab holds this lock indefinitely.
+      await callback()
+    } } })
+    t.after(() => fixture.dispose())
+    fixture.apply()
+    await waitFor(() => requested !== '')
+    assert.equal(requested, 'notify-web:v3:/')
+    await waitFor(() => fixture.fetchUrls.length === 1)
+    assert.equal(new URL(fixture.fetchUrls[0]!).searchParams.get('protocol'), '3')
+    fixture.sendSync({ version: 3, epoch: 'new', seq: 1, pending: [{
+      type: 'show', kind: 'question', id: 'session-1:question:new', sessionId: 'session-1', seq: 1, at: 1000, question: 'A or B?',
+    }], replay: [] })
+    fixture.receiveQuestion('session-1', 'new')
+    await waitFor(() => fixture.notifications.length === 1)
+    assert.equal(fixture.notifications[0]!.options.body, 'A or B?')
+  })
   it('keeps diagnostics accurate after active reconnects without Web Locks', async (t) => {
     const fixture = createFixture()
     t.after(() => fixture.dispose())
@@ -498,7 +660,7 @@ describe('L3 notify-web client: reconnect regressions', () => {
     await new Promise(resolve => setImmediate(resolve))
     assert.equal(debug.leader, true)
     assert.equal(debug.connected, true)
-    fixture.sendSync({ version: 1, epoch: 'e', seq: 1,
+    fixture.sendSync({ version: 3, epoch: 'e', seq: 1,
       pending: [approval('session-1:approval:a1', 'pwsh', 'x')], replay: [] })
     await waitFor(() => fixture.notifications.length === 1)
   })
@@ -506,11 +668,11 @@ describe('L3 notify-web client: reconnect regressions', () => {
   for (const storageFailure of ['read-write', 'write'] as const) {
     it(`keeps the in-memory cursor when storage fails (${storageFailure})`, async (t) => {
       const fixture = createFixture({ manualTimers: true, storageFailure, storage: new Map([
-        ['notify-web:cursor:/', JSON.stringify({ epoch: 'e', seq: 1 })],
+        ['notify-web:v3:cursor:/', JSON.stringify({ epoch: 'e', seq: 1 })],
       ]) })
       t.after(() => fixture.dispose())
       fixture.apply()
-      fixture.sendSync({ version: 1, epoch: 'e', seq: 5, pending: [], replay: [] })
+      fixture.sendSync({ version: 3, epoch: 'e', seq: 5, pending: [], replay: [] })
       fixture.closeStream()
       await waitFor(() => fixture.pendingRetries === 1)
       fixture.runRetry()
@@ -518,7 +680,7 @@ describe('L3 notify-web client: reconnect regressions', () => {
       const url = new URL(fixture.fetchUrls[1] ?? '')
       assert.equal(url.searchParams.get('epoch'), 'e')
       assert.equal(url.searchParams.get('seq'), '5')
-      fixture.sendSync({ version: 1, epoch: 'e', seq: 6, pending: [], replay: [
+      fixture.sendSync({ version: 3, epoch: 'e', seq: 6, pending: [], replay: [
         { type: 'show', kind: 'turn-end', id: 's:turn-end:6', sessionId: 's', seq: 6, at: 1, reasonKind: 'completed' },
       ] })
       await waitFor(() => fixture.notifications.length === 1)
@@ -533,7 +695,7 @@ describe('L3 notify-web client: reconnect regressions', () => {
     t.after(() => fixture.dispose())
     fixture.apply()
     assert.equal(fixture.fetchUrls.length, 0)
-    storage.set('notify-web:cursor:/', JSON.stringify({ epoch: 'other-leader', seq: 9 }))
+    storage.set('notify-web:v3:cursor:/', JSON.stringify({ epoch: 'other-leader', seq: 9 }))
     assert.ok(acquire !== undefined)
     const running = acquire()
     await waitFor(() => fixture.fetchUrls.length === 1)
@@ -548,7 +710,7 @@ describe('L3 notify-web client: reconnect regressions', () => {
     const storage = new Map<string, string>()
     const fixture = createFixture({ storage, manualTimers: true })
     t.after(() => fixture.dispose())
-    const sync = { version: 1, epoch: 'e', seq: 1, reset: false, pending: [approval('session-1:approval:a1', 'pwsh', 'x')], replay: [] }
+    const sync = { version: 3, epoch: 'e', seq: 1, reset: false, pending: [approval('session-1:approval:a1', 'pwsh', 'x')], replay: [] }
     fixture.apply()
     fixture.sendSync(sync)
     await waitFor(() => fixture.notifications.length === 1)
@@ -573,7 +735,7 @@ describe('L3 notify-web client: reconnect regressions', () => {
   it('restores pending approvals after pagehide/pageshow and an epoch reset', async (t) => {
     const fixture = createFixture()
     t.after(() => fixture.dispose())
-    const sync = { version: 1, epoch: 'e', seq: 1, pending: [approval('session-1:approval:a1', 'pwsh', 'x')], replay: [] }
+    const sync = { version: 3, epoch: 'e', seq: 1, pending: [approval('session-1:approval:a1', 'pwsh', 'x')], replay: [] }
     fixture.apply()
     fixture.sendSync(sync)
     await waitFor(() => fixture.notifications.length === 1)

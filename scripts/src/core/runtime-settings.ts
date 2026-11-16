@@ -19,7 +19,7 @@ export function runtimeSettings(overrides: ConfigOverrides, env: NodeJS.ProcessE
   const browser = overrides.browser ?? 'edge'
   const testBrowser = overrides.testBrowser ?? (testing ? envValue(env, 'DSH_E2E_BROWSER') : undefined) ?? 'chrome'
   if (browser !== 'edge' && browser !== 'default') throw new Error('browser must be edge or default')
-  if (testBrowser !== 'chrome' && testBrowser !== 'chromium') throw new Error('test browser must be chrome or chromium')
+  if (testBrowser !== 'chrome' && testBrowser !== 'chromium' && testBrowser !== 'firefox') throw new Error('test browser must be chrome, chromium or firefox')
   return {
     tools: { pnpmScript: path(overrides.pnpmScript ?? envValue(env, 'DSH_PNPM')) },
     web: { browser, browserPath: path(overrides.browserPath), openBrowser: overrides.openBrowser ?? true, startupTimeoutMs: timeout(overrides.startupTimeoutMs, 30000) },

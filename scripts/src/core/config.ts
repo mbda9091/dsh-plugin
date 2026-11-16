@@ -21,7 +21,7 @@ export interface RepoConfig {
   version: 2
   tools: { pnpmScript: string | null }
   web: { browser: 'edge' | 'default'; browserPath: string | null; openBrowser: boolean; startupTimeoutMs: number }
-  test: { browser: 'chrome' | 'chromium'; browserPath: string | null; timeoutMs: number }
+  test: { browser: 'chrome' | 'chromium' | 'firefox'; browserPath: string | null; timeoutMs: number }
   targets: InstallTarget[]
   legacy: { dshCli: string | null }
 }

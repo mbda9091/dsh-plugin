@@ -1,8 +1,9 @@
 /**
  * Browser entry for `@mbda9091/notify-web`.
  *
- * The Host owns all trigger decisions and publishes serializable updates on an
- * authenticated SSE route. This page consumes that stream, formats copy with the
+ * The Host publishes notification candidates and durable lifetimes on an
+ * authenticated SSE route. Questions additionally require Client receipt of the
+ * Remote request. This page consumes that stream, formats copy with the
  * active Client locale, shows or withdraws OS notifications, and focuses its own
  * tab when one is clicked.
  *
@@ -13,13 +14,19 @@
  */
 import {
   approvalContent,
+  questionContent,
   fallbackTranslate,
   turnEndContent,
   zh,
   en,
 } from '@mbda9091/notify-core'
 import type { NotificationContent, Translate, TurnEndReason } from '@mbda9091/notify-core'
-import type { ApprovalShowUpdate, NotificationUpdate } from '@mbda9091/notify-host'
+import type { ApprovalShowUpdate } from '@mbda9091/notify-host'
+import { PROTOCOL_VERSION } from '../protocol.js'
+import type { PendingUpdate, QuestionShowUpdate, WebNotificationUpdate as NotificationUpdate } from '../protocol.js'
+import { observeQuestions } from './question-requests.js'
+import type { QuestionObserver, QuestionRemote, ReceivedQuestion } from './question-requests.js'
+import type { Context } from '@deepseek-ai/cordis'
 
 /** Client locale namespace owned by this plugin. */
 const NS = 'notify-web'
@@ -53,6 +60,7 @@ interface DshClientPlugin {
 interface DshClientContext {
   get(name: string): unknown
   effect?(callback: () => () => void, label?: string): () => void
+  inject?(names: string[], callback: (ctx: DshClientContext) => void): unknown
 }
 
 /** The Workspace navigation service as consumed here. */
@@ -72,7 +80,7 @@ interface SyncPayload {
   readonly epoch?: string
   readonly seq?: number
   readonly reset?: boolean
-  readonly pending?: readonly ApprovalShowUpdate[]
+  readonly pending?: readonly PendingUpdate[]
   readonly replay?: readonly NotificationUpdate[]
 }
 
@@ -210,9 +218,10 @@ function jitter(base: number): number {
  * Extract one notification id's family from its stable identity.
  *
  * @param id - notification id.
- * @returns `'approval'`, `'turn-end'`, or `undefined`.
+ * @returns the pending/turn-end family, or `undefined`.
  */
-function idKind(id: string): 'approval' | 'turn-end' | undefined {
+function idKind(id: string): 'approval' | 'question' | 'turn-end' | undefined {
+  if (id.includes(':question:')) return 'question'
   if (id.includes(':approval:')) return 'approval'
   if (id.includes(':turn-end:')) return 'turn-end'
   return undefined
@@ -225,11 +234,13 @@ function idKind(id: string): 'approval' | 'turn-end' | undefined {
  * @param locale - Client locale registry, when present.
  * @returns disposer for every listener, stream, and notification.
  */
-function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefined): () => void {
+function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefined, ctx: DshClientContext, observer: QuestionObserver): () => void {
   const disposers: Array<() => void> = []
   const add = (dispose: (() => void) | undefined): void => {
     if (typeof dispose === 'function') disposers.push(dispose)
   }
+  const lifetime = new AbortController()
+  add(() => lifetime.abort())
   const t: Translate = locale === undefined || typeof locale.bind !== 'function'
     ? fallbackTranslate('zh')
     : (key, params) => locale.bind(NS)(key, params)
@@ -239,9 +250,30 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
 
   const base = new URL('.', document.baseURI)
   const endpoint = new URL('api/notify-web/events', base)
-  const storageKey = `notify-web:cursor:${base.pathname}`
-  const seenKey = `notify-web:seen:${base.pathname}`
-  const lockName = `notify-web:${base.pathname}`
+  endpoint.searchParams.set('protocol', String(PROTOCOL_VERSION))
+  // Older consumers silently discard unknown notification kinds and can hold
+  // their lock forever. They must not own this protocol's delivery or cursor.
+  const storageKey = `notify-web:v${PROTOCOL_VERSION}:cursor:${base.pathname}`
+  const seenKey = `notify-web:v${PROTOCOL_VERSION}:seen:${base.pathname}`
+  const lockName = `notify-web:v${PROTOCOL_VERSION}:${base.pathname}`
+  const receiptKey = `notify-web:v${PROTOCOL_VERSION}:question-received:${base.pathname}`
+  const candidates = new Map<string, QuestionShowUpdate>()
+  const legacyQuestions = new Set<string>()
+  const loadReceipts = (): string[] => {
+    try {
+      const value: unknown = JSON.parse(localStorage.getItem(receiptKey) ?? '[]')
+      return Array.isArray(value) ? value.filter((id): id is string => typeof id === 'string').slice(-SEEN_LIMIT) : []
+    } catch { return [] }
+  }
+  const received = new Set(loadReceipts())
+  const saveReceipt = (id: string, remove = false): void => {
+    const ids = new Set([...loadReceipts(), ...received])
+    if (remove) { ids.delete(id); received.delete(id) }
+    else { ids.add(id); received.add(id) }
+    try { localStorage.setItem(receiptKey, JSON.stringify([...ids].slice(-SEEN_LIMIT))) } catch { /* BroadcastChannel still covers live peers. */ }
+  }
+  const receipts = typeof BroadcastChannel === 'undefined' ? undefined : new BroadcastChannel(receiptKey)
+  add(() => receipts?.close())
   console.info(`[notify-web] client installed at ${base.pathname} (${endpoint.href})`)
 
   /**
@@ -281,6 +313,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
   /** Restore pending notifications once per page activation/leader tenure. */
   let restorePending = true
   let disposed = false
+  let incompatibleProtocol = false
   let leaderAbort: AbortController | undefined
   let leaderRun: Promise<void> | undefined
   /** Last permission value already explained in the console. */
@@ -365,8 +398,8 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     }
   }
 
-  const closeAll = (): void => {
-    for (const id of [...shown.keys()]) closeNotification(id)
+  const closeAll = (preserveLegacy = false): void => {
+    for (const id of [...shown.keys()]) if (!preserveLegacy || !legacyQuestions.has(id)) closeNotification(id)
     turnEndBySession.clear()
   }
 
@@ -424,6 +457,61 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     show(update.id, `dsh-approval:${update.id}`, content, update.sessionId, force)
   }
 
+  const showQuestion = (update: QuestionShowUpdate, force = false): void => {
+    candidates.set(update.id, update)
+    if (!received.has(update.id) && !loadReceipts().includes(update.id)) return
+    show(update.id, `dsh-question:${update.id}`, questionContent(update.question, t), update.sessionId, force)
+  }
+
+  const receive = (id: string): void => {
+    received.add(id)
+    while (received.size > SEEN_LIMIT) received.delete(received.values().next().value!)
+    const candidate = candidates.get(id)
+    if (candidate !== undefined && debug.leader) showQuestion(candidate)
+  }
+  if (receipts !== undefined) receipts.onmessage = event => {
+    if (typeof event.data === 'string') receive(event.data)
+  }
+  const onReceiptStorage = (event: StorageEvent): void => {
+    if (event.key === receiptKey) for (const id of loadReceipts()) receive(id)
+  }
+  window.addEventListener('storage', onReceiptStorage)
+  add(() => window.removeEventListener('storage', onReceiptStorage))
+  const onQuestionReceived = (item: ReceivedQuestion, restore = false): void => {
+    // Approval cards already have their own notification channel.
+    if (item.request.questions.some(question => question.intent?.kind === 'approval')) return
+    const sessions = ctx.get('sessions') as { scopeOf(owner: Context): string | undefined } | undefined
+    const sessionId = sessions?.scopeOf(item.owner)
+    if (sessionId === undefined) return
+    const callId = item.request.wait?.callId
+    const id = `${sessionId}:question:${callId ?? `request-${item.id}`}`
+    if (item.settled) {
+      // Legacy requests have no logged call identity: their own waterfall owns
+      // their lifetime. Identified questions use the durable SSE withdrawal.
+      if (callId === undefined) { closeNotification(id); legacyQuestions.delete(id) }
+      return
+    }
+    if (callId !== undefined) {
+      // The Host switch already gates these SSE candidates. Record receipt now,
+      // even when the foreground wait ends before a later network round trip.
+      saveReceipt(id)
+      receive(id)
+      receipts?.postMessage(id)
+      return
+    }
+    void (async () => {
+      const response = await fetch(new URL('api/notify-web/options', base), { cache: 'no-store', credentials: 'same-origin', signal: lifetime.signal })
+      if (!response.ok) throw new Error(`notification options: HTTP ${response.status}`)
+      const options = await response.json() as { version?: number; notifyOnQuestion?: boolean }
+      if (disposed || item.settled || item.request.signal?.aborted || options.version !== PROTOCOL_VERSION || options.notifyOnQuestion !== true) return
+      // The Host forwards a blocking waterfall to one browser answerer.
+      // No guessed mapping from question text to a tool call is needed.
+      legacyQuestions.add(id)
+      show(id, `dsh-question:${id}`, questionContent(item.request.questions[0]?.question ?? '', t), sessionId, restore)
+    })().catch(error => { if (!disposed) console.warn('[notify-web] question receipt failed:', error) })
+  }
+  add(observer.subscribe(onQuestionReceived))
+
   const showTurnEnd = (update: NotificationUpdate & { type: 'show'; kind: 'turn-end' }): void => {
     const reason: TurnEndReason = update.errorMessage === undefined
       ? { kind: update.reasonKind }
@@ -438,18 +526,24 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
 
   const applyUpdate = (update: NotificationUpdate): void => {
     if (update.type === 'withdraw') {
+      if (update.kind === 'question') { candidates.delete(update.id); saveReceipt(update.id, true) }
       closeNotification(update.id)
       return
     }
     if (update.kind === 'approval') showApproval(update)
-    else showTurnEnd(update)
+    else if (update.kind === 'question') showQuestion(update)
+    else if (update.kind === 'turn-end') showTurnEnd(update)
   }
 
   const applySync = (payload: SyncPayload): void => {
+    const activeQuestions = new Set((payload.pending ?? []).filter(item => item.kind === 'question').map(item => item.id))
+    for (const id of candidates.keys()) {
+      if (!activeQuestions.has(id)) { candidates.delete(id); saveReceipt(id, true) }
+    }
     const epochChanged = currentEpoch !== undefined && payload.epoch !== currentEpoch
     const reset = payload.reset === true || epochChanged
     if (reset) {
-      closeAll()
+      closeAll(true)
       seen.clear()
       try {
         localStorage.removeItem(seenKey)
@@ -459,11 +553,12 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     }
     if (typeof payload.epoch !== 'string') return
     currentEpoch = payload.epoch
-    const pending = new Map<string, ApprovalShowUpdate>()
+    const pending = new Map<string, PendingUpdate>()
     for (const update of payload.pending ?? []) {
       if (typeof update.id !== 'string' || typeof update.sessionId !== 'string') continue
       pending.set(update.id, update)
-      showApproval(update, restorePending)
+      if (update.kind === 'approval') showApproval(update, restorePending)
+      else if (update.kind === 'question') showQuestion(update, restorePending)
     }
     setDebug({
       epoch: payload.epoch,
@@ -472,7 +567,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     })
     console.info(`[notify-web] sync epoch=${payload.epoch} seq=${String(payload.seq)} pending=${pending.size}`)
     for (const id of [...shown.keys()]) {
-      if (idKind(id) === 'approval' && !pending.has(id)) closeNotification(id)
+      if ((idKind(id) === 'approval' || (idKind(id) === 'question' && !legacyQuestions.has(id))) && !pending.has(id)) closeNotification(id)
     }
     for (const update of payload.replay ?? []) applyUpdate(update)
     restorePending = false
@@ -484,6 +579,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
 
   let reportedFirstUpdate = false
   const applyUpdatePayload = (payload: UpdatePayload): void => {
+    if (currentEpoch === undefined) return
     if (payload.update === undefined || typeof payload.seq !== 'number' || !Number.isSafeInteger(payload.seq)) return
     setDebug({ seq: payload.seq, lastEventAt: Date.now() })
     if (!reportedFirstUpdate) {
@@ -513,6 +609,12 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     } catch {
       return
     }
+    if (event === 'sync' && (parsed as SyncPayload)?.version !== PROTOCOL_VERSION) {
+      incompatibleProtocol = true
+      currentEpoch = undefined
+      closeAll()
+      throw new Error('notify-web protocol mismatch; refresh this page after restarting DSH')
+    }
     if (event === 'sync') applySync(parsed as SyncPayload)
     else if (event === 'update') applyUpdatePayload(parsed as UpdatePayload)
   }
@@ -524,7 +626,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     try {
       while (!signal.aborted) {
         const { done, value } = await reader.read()
-        if (done) break
+        if (done || signal.aborted || disposed) break
         buffer += decoder.decode(value, { stream: true })
         buffer = buffer.replaceAll('\r\n', '\n')
         let boundary = buffer.indexOf('\n\n')
@@ -535,6 +637,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
         }
       }
     } finally {
+      await reader.cancel().catch(() => {})
       reader.releaseLock()
     }
   }
@@ -552,6 +655,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
       headers: { accept: 'text/event-stream' },
     })
     if (!response.ok) {
+      if (response.status === 426) incompatibleProtocol = true
       setDebug({ connected: false, lastError: `HTTP ${response.status}` })
       const error = new Error(`notify-web stream failed: ${response.status}`) as Error & { status?: number }
       error.status = response.status
@@ -586,11 +690,11 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
           lastReportedError = text
           const hint = status === 401 || status === 403
             ? ' (the browser session may be unauthenticated; reopen the authenticated DSH URL)'
-            : ''
+            : status === 426 ? ' (refresh this page to load the current notification client)' : ''
           console.warn(`[notify-web] notification stream error: ${text}${hint}`)
         }
       }
-      if (signal.aborted) break
+      if (signal.aborted || incompatibleProtocol) break
       if (Date.now() - startedAt >= RETRY_STABLE_MS) backoff = RETRY_BASE_MS
       const authFailure = status === 401 || status === 403
       const delay = authFailure ? AUTH_RETRY_MS : Math.min(RETRY_MAX_MS, jitter(backoff))
@@ -709,6 +813,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
   }
   const onPageShow = (): void => {
     if (explainPermission() === 'granted') startLeader()
+    for (const item of observer.snapshot()) onQuestionReceived(item, true)
   }
   const onFocus = (): void => {
     if (explainPermission() === 'granted') startLeader()
@@ -749,7 +854,7 @@ window.__ModuleLoader__.load({
   id: '@mbda9091/notify-web',
   factory(_require: (name: string) => unknown): DshClientPlugin {
     return {
-      inject: ['uiWorkspace', 'locale'],
+      inject: ['remote'],
       apply(ctx) {
         setDebug({ permission: notificationPermission() })
         console.info('[notify-web] client module activated')
@@ -761,17 +866,25 @@ window.__ModuleLoader__.load({
           console.info('[notify-web] this browser has no Notification API; browser notifications are off')
           return
         }
-        const uiWorkspace = ctx.get('uiWorkspace') as UiWorkspaceService | undefined
-        if (uiWorkspace === undefined || typeof uiWorkspace.openSession !== 'function') {
-          console.warn('[notify-web] uiWorkspace is unavailable; browser notifications are off')
-          return
+        const remote = ctx.get('remote') as QuestionRemote | undefined
+        if (remote === undefined) throw new Error('[notify-web] Remote events are unavailable')
+        const observer = observeQuestions(remote)
+        ctx.effect?.(() => () => observer.dispose(), 'notify-web: early question observer')
+        const activate = (ctx: DshClientContext): void => {
+          const uiWorkspace = ctx.get('uiWorkspace') as UiWorkspaceService | undefined
+          if (uiWorkspace === undefined || typeof uiWorkspace.openSession !== 'function') {
+            console.warn('[notify-web] uiWorkspace is unavailable; browser notifications are off')
+            return
+          }
+          const locale = ctx.get('locale') as LocaleService | undefined
+          if (typeof ctx.effect === 'function') {
+            ctx.effect(() => install(uiWorkspace, locale, ctx, observer), 'notify-web: SSE notification consumer')
+            return
+          }
+          install(uiWorkspace, locale, ctx, observer)
         }
-        const locale = ctx.get('locale') as LocaleService | undefined
-        if (typeof ctx.effect === 'function') {
-          ctx.effect(() => install(uiWorkspace, locale), 'notify-web: SSE notification consumer')
-          return
-        }
-        install(uiWorkspace, locale)
+        if (ctx.inject !== undefined) ctx.inject(['uiWorkspace', 'locale'], activate)
+        else activate(ctx)
       },
     }
   },

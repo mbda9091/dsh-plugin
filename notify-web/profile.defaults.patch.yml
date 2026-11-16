@@ -1,6 +1,7 @@
 - id: notify-web
   name: '@mbda9091/notify-web'
   config:
+    notifyOnQuestion: true
     notifyOnApproval: true
     approvalDelayMs: 300
     notifyOnTurnEnd: true

@@ -62,6 +62,6 @@ it('L3 shipped notify configuration exposes only user notification options', asy
   const { parse } = await import('yaml')
   const rows = parse(readFileSync(join(repoRoot, 'notify-web/profile.defaults.patch.yml'), 'utf8'))
   assert.deepEqual(rows, [{ id: 'notify-web', name: '@mbda9091/notify-web', config: {
-    notifyOnApproval: true, approvalDelayMs: 300, notifyOnTurnEnd: true, notifyOnTurnError: true,
+    notifyOnQuestion: true, notifyOnApproval: true, approvalDelayMs: 300, notifyOnTurnEnd: true, notifyOnTurnError: true,
   } }])
 })

@@ -82,7 +82,7 @@ export function configuredPnpm(context: CommandContext): string {
 }
 
 export function checkTestBrowser(context: CommandContext): void {
-  if (context.config.test.browser === 'chromium') return // Playwright locates its matching downloaded browser.
+  if (context.config.test.browser === 'chromium' || context.config.test.browser === 'firefox') return // Playwright locates its matching downloaded browser.
   const path = context.config.test.browserPath ?? discoverBrowser('chrome', context.env)
   context.config.test.browserPath = path
   if (path === null) throw new Error('test.browserPath: Chrome is not configured; use --test-browser-path or --test-browser chromium')

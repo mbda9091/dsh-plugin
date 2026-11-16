@@ -174,7 +174,8 @@ it('L3 L5: a successful process must still supply every successful browser check
   const root = makeTempDir('browser-results')
   try {
     assert.throws(() => assertBrowserResults(root, 'baseline'), /ENOENT/)
-    const good = ['slot-interaction-theme-locale-reload', 'notification-en', 'notification-zh', 'notification-denied']
+    const good = ['slot-interaction-theme-locale-reload', 'question-real-tool-sse', 'question-ptc-received-sse', 'question-leader-handover',
+      'notification-en', 'notification-zh', 'notification-denied']
       .map(name => ({ name, ok: true }))
     for (const invalid of [[], good.slice(1), [...good, good[0]], good.map((entry, i) => i === 1 ? { ...entry, ok: false } : entry), [good[0], good[1], good[1], good[3]]]) {
       write(root, 'results.json', JSON.stringify(invalid))
