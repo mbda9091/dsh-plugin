@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+security_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if [ ! -x "$security_dir/.venv/bin/python" ]; then
+    echo 'Security tools are not installed. Run: .security/setup.sh' >&2
+    exit 2
+fi
+exec "$security_dir/.venv/bin/python" "$security_dir/scan.py" "$@"

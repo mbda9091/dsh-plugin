@@ -1,0 +1,6 @@
+title = "Project secret scanning"
+
+[extend]
+useDefault = true
+
+# Add project-specific rules below. Keep the built-in rules enabled.

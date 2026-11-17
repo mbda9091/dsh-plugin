@@ -1,0 +1,14 @@
+[project]
+name = "local-code-security"
+version = "0.1.0"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "semgrep==1.185.0",
+  "presidio-analyzer==2.2.366",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = []

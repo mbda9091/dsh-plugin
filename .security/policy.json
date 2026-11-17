@@ -1,0 +1,11 @@
+{
+  "excluded_paths": [],
+  "max_file_bytes": 5242880,
+  "pii_allowlist": [
+    {
+      "entity": "EMAIL_ADDRESS",
+      "regex": "(?i)[^@]+@(?:[a-z0-9-]+\\.)*(?:example\\.(?:com|org|net)|example|invalid|test)"
+    }
+  ],
+  "custom_patterns": []
+}

@@ -1,0 +1,39 @@
+# Starter rules. Expand with rules for your project's languages/frameworks.
+# Local rules keep routine scans offline. Messages must not contain matched code.
+rules:
+  - id: python-eval
+    languages: [python]
+    severity: ERROR
+    message: Review dynamic code execution; replace eval with a constrained parser.
+    pattern: eval(...)
+  - id: python-exec
+    languages: [python]
+    severity: ERROR
+    message: Review dynamic code execution; remove exec where possible.
+    pattern: exec(...)
+  - id: python-shell-command
+    languages: [python]
+    severity: ERROR
+    message: Use an argument list and shell=False for subprocess calls.
+    pattern-either:
+      - pattern: subprocess.$FUNC(..., shell=True, ...)
+      - pattern: os.system(...)
+      - pattern: os.popen(...)
+  - id: python-unsafe-yaml
+    languages: [python]
+    severity: ERROR
+    message: Use yaml.safe_load for untrusted YAML.
+    pattern: yaml.load($DATA)
+  - id: javascript-eval
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Review dynamic code execution; replace eval with a constrained parser.
+    pattern: eval(...)
+  - id: javascript-child-process-exec
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Review shell execution; prefer execFile with an argument array.
+    patterns:
+      - pattern-either:
+          - pattern: child_process.exec(...)
+          - pattern: child_process.execSync(...)

@@ -479,6 +479,8 @@ node scripts/install.mjs status --profile my-web
 
 ## 9. Git 约定
 
+- 本地安全检查使用 `repo-security`：首次克隆后运行 `.security/setup.sh`（需 uv，安装独立扫描器环境并启用本仓库 pre-commit）；手动检查用 `.security/run staged|head|history`，诊断用 `repo-security doctor .`。提交前自动扫描暂存快照；历史扫描需显式执行，不自动安装 pre-push。规则／脚本入库，`.security/.venv/`、`bin/` 和安装清单不入库。项目例外必须逐项审阅并限定来源，不为通过扫描整体排除测试或文档。
+
 - 当前输入规则见 [环境输入](docs/configuration-v2.md)。开发与安装分别读取必要参数，不读取旧 JSON/迁移状态，不自动写配置。只有安装读取 DSH_HOME 并要求 --profile；内部始终使用受管数据目录。pnpm/测试浏览器允许明确列出的环境覆盖。旧配置和备份不删除，不提交机器路径或凭据。Node 由调用方选择，DSH_NODE 不参与启动。
 
 - 主分支 `main`，提交保持可读历史。
