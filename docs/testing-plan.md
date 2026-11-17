@@ -1159,3 +1159,10 @@ L4/L5 从本机 JSON 取工具和测试参数，始终使用一次性 home/profi
 | 桌面端 L5 与更深的恢复场景 | **当前延期/未覆盖**：Electron 壳、真实重启、Toast/声音不进现有 Web CI；Host 重启后跨进程恢复待审批、后台冻结/勿扰等场景需要另定需求和验收方案，不能因 CI 通过而视为已覆盖 | 本文 §2、§4、§18；通知方案 §11.11 |
 
 P0 与环境 M1–M6 已实现；当前双平台及后续提交 CI 状态见 §19.8，各阶段分别验收。本文 M6 的 UI 组件测试仍按真实 UI 需求安排，与环境 M6 正式目标交付是不同里程碑；`headless` / Linux 当前是保留场景。
+
+
+### 角色插件 M3 隔离契约（2026-11-15）
+
+新增 role-agent 的 L3 引擎／模拟 Hindsight 协议测试，及真实 DSH Web 的 `role-agent-v1` Host-only 能力契约（测试夹具位于 `test/fixtures/role-agent-contract`）。契约验证专属 preset、局部人格／状态／工具、普通模式不变、subagent排除、实际工具未配置失败、合成模型两轮请求的快照去重及消息落盘。固定 tarball 通过 `verify-artifacts` 登记能力证据，未知 Host-only 包继续拒绝；原 notify-web 的浏览器／SSE 验收保留。
+
+这些是隔离宿主／协议检查，不验证真实 Hindsight 语义或成长效果。用户本轮明确没有服务，只做实现及隔离契约；真实接口、内部模型审计、中文召回、费用、持续成长和其他平台均待验。全量回归的历史 L5 报告夹具改为显式选择 chromium，消除对已废弃 local.json 的依赖。最新报告在 `.tmp/l4`、`.tmp/l5` 与 `dist/verification`，不得以旧失败或旧成功覆盖本次实际状态。

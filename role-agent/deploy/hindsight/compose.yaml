@@ -1,0 +1,76 @@
+name: role-agent-memory
+
+x-hindsight-image: &hindsight-image ghcr.io/vectorize-io/hindsight:1.2.1@sha256:d2bc230a714e933affd63753e181a0579328fdcbbc021800a76e0bc7b6e76b31
+
+services:
+  models:
+    image: *hindsight-image
+    # Initialize the new named volume; the application mounts it read-only.
+    user: "0:0"
+    entrypoint: [python, /opt/role-agent/download-models.py]
+    volumes:
+      - ./download-models.py:/opt/role-agent/download-models.py:ro
+      - models:/models
+    restart: "no"
+
+  db:
+    image: pgvector/pgvector:pg18@sha256:38681dc6eaf55308e2a4c6de392d131652dcfac70e1263e35cd9b5ea3fe39782
+    environment:
+      POSTGRES_USER: hindsight
+      POSTGRES_DB: hindsight
+      POSTGRES_PASSWORD: ${HINDSIGHT_DB_PASSWORD:?Set a URL-safe database password in .env}
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U hindsight -d hindsight"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  hindsight:
+    image: *hindsight-image
+    stop_grace_period: 75s
+    ports:
+      - "127.0.0.1:${HINDSIGHT_API_PORT:-8888}:8888"
+      - "127.0.0.1:${HINDSIGHT_UI_PORT:-9999}:9999"
+    environment:
+      HINDSIGHT_API_DATABASE_URL: postgresql://hindsight:${HINDSIGHT_DB_PASSWORD:?Set HINDSIGHT_DB_PASSWORD}@db:5432/hindsight
+      HINDSIGHT_API_LLM_PROVIDER: deepseek
+      HINDSIGHT_API_LLM_BASE_URL: https://api.deepseek.com
+      HINDSIGHT_API_LLM_API_KEY: ${DEEPSEEK_API_KEY:?Set DEEPSEEK_API_KEY in .env}
+      HINDSIGHT_API_LLM_MODEL: ${HINDSIGHT_LLM_MODEL:-deepseek-flash}
+      HINDSIGHT_API_LLM_EXTRA_BODY: '{"thinking":{"type":"disabled"}}'
+      HINDSIGHT_API_LLM_MAX_CONCURRENT: "2"
+      HINDSIGHT_API_LLM_MAX_RETRIES: "2"
+      HINDSIGHT_API_LLM_TIMEOUT: "120"
+      HINDSIGHT_API_WORKER_ID: role-agent-memory
+      HINDSIGHT_API_RETAIN_CHUNK_SIZE: "3000"
+      HINDSIGHT_API_RETAIN_MAX_COMPLETION_TOKENS: "16000"
+      HINDSIGHT_API_EMBEDDINGS_PROVIDER: local
+      HINDSIGHT_API_EMBEDDINGS_LOCAL_MODEL: /models/embedding
+      HINDSIGHT_API_EMBEDDINGS_LOCAL_FORCE_CPU: "true"
+      HINDSIGHT_API_EMBEDDINGS_LOCAL_MAX_CONCURRENT: "1"
+      HINDSIGHT_API_EMBEDDINGS_LOCAL_TRUST_REMOTE_CODE: "false"
+      HINDSIGHT_API_RERANKER_PROVIDER: local
+      HINDSIGHT_API_RERANKER_LOCAL_MODEL: /models/reranker
+      HINDSIGHT_API_RERANKER_LOCAL_FORCE_CPU: "true"
+      HINDSIGHT_API_ENABLE_OBSERVATIONS: "false"
+      HINDSIGHT_API_ENABLE_AUTO_CONSOLIDATION: "false"
+      HINDSIGHT_API_TENANT_EXTENSION: hindsight_api.extensions.builtin.tenant:ApiKeyTenantExtension
+      HINDSIGHT_API_TENANT_API_KEY: ${ROLE_HINDSIGHT_API_KEY:?Set a separate local service key in .env}
+      HINDSIGHT_CP_DATAPLANE_API_KEY: ${ROLE_HINDSIGHT_API_KEY:?Set ROLE_HINDSIGHT_API_KEY}
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    volumes:
+      - models:/models:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      models:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  postgres:
+  models:

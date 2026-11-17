@@ -1,0 +1,66 @@
+[
+  {
+    "label": "memory40",
+    "directory": ".tmp/m3/memory-Zn5VfW"
+  },
+  {
+    "label": "B0-S",
+    "directory": ".tmp/m3/dsh-B0-S-dut3Lj"
+  },
+  {
+    "label": "B1-S",
+    "directory": ".tmp/m3/dsh-B1-S-49Hf21"
+  },
+  {
+    "label": "B2-S",
+    "directory": ".tmp/m3/dsh-B2-S-YxrTYK"
+  },
+  {
+    "label": "B0-R",
+    "directory": ".tmp/m3/dsh-B0-R-C0gi6v"
+  },
+  {
+    "label": "B1-R",
+    "directory": ".tmp/m3/dsh-B1-R-utl3Hj"
+  },
+  {
+    "label": "B2-R-1",
+    "directory": ".tmp/m3/dsh-B2-R-H78U52"
+  },
+  {
+    "label": "B2-R-2",
+    "directory": ".tmp/m3/dsh-B2-R-6bRXET"
+  },
+  {
+    "label": "B2-no-feedback",
+    "directory": ".tmp/m3/dsh-B2-S-OQ9eJh"
+  },
+  {
+    "label": "B2-two-trials",
+    "directory": ".tmp/m3/dsh-B2-S-q88vmP"
+  },
+  {
+    "label": "B2-context-restart",
+    "directory": ".tmp/m3/dsh-B2-S-uYa1HD"
+  },
+  {
+    "label": "B2-reflection-restart",
+    "directory": ".tmp/m3/dsh-B2-S-3AHcDJ"
+  },
+  {
+    "label": "B2-injection",
+    "directory": ".tmp/m3/dsh-B2-I-XY0mfY"
+  },
+  {
+    "label": "service-recovery",
+    "directory": ".tmp/m3/service-r1IRuC"
+  },
+  {
+    "label": "capacity-resources",
+    "directory": ".tmp/m3/service-UvChSI"
+  },
+  {
+    "label": "B2-shipping-defaults",
+    "directory": ".tmp/m3/dsh-B2-S-odeywu"
+  }
+]

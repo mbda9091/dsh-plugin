@@ -1,0 +1,27 @@
+# Linux-only opt-in for a proxy reachable only on the host's loopback interface.
+# Use together with compose.yaml; keep the same pair for all lifecycle commands.
+services:
+  models:
+    network_mode: host
+    environment:
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: 127.0.0.1,localhost
+      HF_HUB_ETAG_TIMEOUT: "30"
+      HF_HUB_DOWNLOAD_TIMEOUT: "120"
+  db:
+    ports:
+      - "127.0.0.1:${HINDSIGHT_DB_PORT:-55432}:5432"
+  hindsight:
+    network_mode: host
+    ports: !reset []
+    environment:
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: 127.0.0.1,localhost
+      HINDSIGHT_API_DATABASE_URL: postgresql://hindsight:${HINDSIGHT_DB_PASSWORD:?Set HINDSIGHT_DB_PASSWORD}@127.0.0.1:${HINDSIGHT_DB_PORT:-55432}/hindsight
+      HINDSIGHT_API_HOST: 127.0.0.1
+      HINDSIGHT_API_PORT: ${HINDSIGHT_API_PORT:-8888}
+      HINDSIGHT_CP_HOSTNAME: 127.0.0.1
+      HINDSIGHT_CP_PORT: ${HINDSIGHT_UI_PORT:-9999}
+      HINDSIGHT_CP_DATAPLANE_API_URL: http://127.0.0.1:${HINDSIGHT_API_PORT:-8888}

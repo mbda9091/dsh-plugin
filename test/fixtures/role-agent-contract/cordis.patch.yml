@@ -1,0 +1,3 @@
+- insert:
+    - id: role-agent-contract
+      name: '@mbda9091/role-agent-contract'

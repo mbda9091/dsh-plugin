@@ -23,6 +23,8 @@
 
 ## 功能支线
 
+- [持续成长的角色扮演 Agent](companion/README.md)：按[调研依据](companion/role-agent-research.md)、[总体设计](companion/role-agent-design.md)、[初步落地](companion/role-agent-initial-plan.md)分工维护。M1 与 [M1.5 DSH 适配](companion/role-agent-dsh-adaptation.md)设计已完成，[M2 选型与成本](companion/role-agent-memory-evaluation.md)已按三方记忆／角色成长分工修订，M3 已有[角色插件](../role-agent/README.md)及[真实工程／短轨迹验收](companion/role-agent-m3-acceptance.md)，长期成长收益和部分费用未闭合；[M4 方案](companion/role-agent-m4-plan.md)已交付，反馈修补已实施，其余建设与持续试用未开始。 新增 [M5 标准工具对齐](companion/role-agent-m5-plan.md)，排除子 Agent，其余有效标准能力保留；已实现并完成隔离工具／长材料验证，交付记录见 M5 附件。
+
 | 文档 | 使命 | 结果与核验边界 |
 |---|---|---|
 | [Web 通知](archive/notification-host-design.md) | 共享通知触发、认证 SSE 与浏览器投递 | 当前 Web 功能已完成，2026-11-07 用户确认人工验证并归档；历史证据边界保留，Desktop 不纳入当前交付 |

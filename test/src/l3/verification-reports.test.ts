@@ -149,7 +149,9 @@ for (const phase of ['build', 'compile-browser', 'prerequisites', 'cleanup', 'su
           syncBuiltinESMExports();
         ` : ''}
         const { runL5 } = await import('./scripts/.build/commands/l5.js');
-        process.exitCode = await runL5({ keep: false, timeoutMs: 1000 });
+        const { loadCommandContext } = await import('./scripts/.build/core/command-context.js');
+        const context = loadCommandContext({ testBrowser: 'chromium' }, undefined, process.env, 'test');
+        process.exitCode = await runL5({ keep: false, timeoutMs: 1000 }, context);
       `)
       const result = runToFiles(process.execPath, [join(root, 'entry.mjs')], {
         env: { ...process.env, DSH_CLI: phase === 'prerequisites' ? join(root, 'missing-dsh') : process.execPath },

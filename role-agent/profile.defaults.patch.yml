@@ -1,0 +1,5 @@
+- id: role-agent
+  name: '@mbda9091/role-agent'
+  config:
+    endpoint: http://127.0.0.1:8888
+    apiKeyEnv: ROLE_HINDSIGHT_API_KEY

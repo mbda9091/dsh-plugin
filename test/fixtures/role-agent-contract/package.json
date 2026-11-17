@@ -1,0 +1,1 @@
+{"name":"@mbda9091/role-agent-contract","version":"0.0.0","private":true,"type":"module","exports":{".":"./index.js"},"files":["index.js","live.js","cordis.patch.yml","m5.js"],"dsh":{"bundle":{"patch":"./cordis.patch.yml"},"targets":{"surfaces":["web"],"platforms":["linux","mac","windows"]}}}

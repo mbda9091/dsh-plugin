@@ -18,10 +18,10 @@ function manifest(root: string, id: string, platforms: string[], surfaces = ['we
 describe('L1 L4 non-manifest plugin selection', () => {
   it('selects notify-web for link and tarball smoke coverage on both platforms', () => {
     const mac = selectL4Plugins(repoRoot, { surface: 'web', platform: 'mac' })
-    assert.deepEqual(mac.links.map(plugin => plugin.dirName), ['notify-web'])
+    assert.deepEqual(mac.links.map(plugin => plugin.dirName), ['notify-web', 'role-agent'])
     assert.equal(mac.tarball.packageName, '@mbda9091/notify-web')
     const windows = selectL4Plugins(repoRoot, { surface: 'web', platform: 'windows' })
-    assert.deepEqual(windows.links.map(plugin => plugin.dirName), ['notify-web'])
+    assert.deepEqual(windows.links.map(plugin => plugin.dirName), ['notify-web', 'role-agent'])
     assert.equal(windows.tarball.packageName, '@mbda9091/notify-web')
     for (const platform of ['mac', 'windows'] as const) {
       const target = { surface: 'web' as const, platform }

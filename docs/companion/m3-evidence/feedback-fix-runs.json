@@ -1,0 +1,26 @@
+[
+  {
+    "label": "feedback-first",
+    "directory": ".tmp/m3/dsh-B2-F-PLdr5M"
+  },
+  {
+    "label": "normal-method-progression",
+    "directory": ".tmp/m3/dsh-B2-S-JniSQT"
+  },
+  {
+    "label": "feedback-repeat-missed-registration",
+    "directory": ".tmp/m3/dsh-B2-F-LtJa7L"
+  },
+  {
+    "label": "feedback-time-guard",
+    "directory": ".tmp/m3/dsh-B2-F-dg33YX"
+  },
+  {
+    "label": "feedback-final-1",
+    "directory": ".tmp/m3/dsh-B2-F-JaFylI"
+  },
+  {
+    "label": "feedback-final-2",
+    "directory": ".tmp/m3/dsh-B2-F-kuHV9o"
+  }
+]

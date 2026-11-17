@@ -1,0 +1,301 @@
+{
+  "version": 1,
+  "date": "2026-11-16",
+  "scope": "M5 Linux Web only; metadata export, no credentials or external page text",
+  "runtime": {
+    "node": "v24.15.0",
+    "dsh": "0.2.2-rc.1"
+  },
+  "finalHostSha256": "0978739f61f920f6c25ba77440ceb448cefadbcb701e4b619e4a6977b6bf3654",
+  "regression": {
+    "total": 259,
+    "passed": 258,
+    "failed": 0,
+    "platformSkipped": 1
+  },
+  "runs": [
+    {
+      "path": ".tmp/l4/run-55XXh4/report.json",
+      "reportSha256": "ebcf4270ef9908ed61a019b20cb9b865464d227bbc269cf3a40c2f5ea0117fa5",
+      "completed": true,
+      "checks": [
+        {
+          "name": "context",
+          "ok": true
+        },
+        {
+          "name": "prerequisites",
+          "ok": true
+        },
+        {
+          "name": "profile-init",
+          "ok": true
+        },
+        {
+          "name": "install-link",
+          "ok": true
+        },
+        {
+          "name": "role-agent-capability",
+          "ok": true
+        },
+        {
+          "name": "web-link",
+          "ok": true
+        },
+        {
+          "name": "install-mismatch",
+          "ok": true
+        },
+        {
+          "name": "web-mismatch",
+          "ok": true
+        },
+        {
+          "name": "install-tarball",
+          "ok": true
+        },
+        {
+          "name": "web-tarball",
+          "ok": true
+        },
+        {
+          "name": "cleanup",
+          "ok": true
+        }
+      ],
+      "cleanup": "removed owned mutable data; retained report/logs/artifacts"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-W-OnugOe/report.json",
+      "reportSha256": "1cd467e1e26c151a431a254c01174319ec5728fc4850096e038f89f253c0c8ac",
+      "completed": true,
+      "checks": {
+        "sourcesKnown": true,
+        "noUncommittedProposals": true,
+        "sameNamespaceAcrossSessions": true,
+        "noBackgroundAuditEnrollment": true,
+        "baselineNoGrowth": true,
+        "ordinaryNotBound": true,
+        "ordinaryNotCollected": true,
+        "actualInternetSearch": true,
+        "actualInternetFetch": true,
+        "actualFileWriteRead": true,
+        "noSubagents": true,
+        "realProviderNotFixture": true
+      },
+      "cleanup": true,
+      "sourceHashes": {
+        "role-agent/lib/index.js": "a5b86b0dce0a31da671d809bb6210242357b17742ad35fa98731b775818d10d6",
+        "role-agent/cordis.patch.yml": "cac21ec540ac23f78c49ad0c60c471ef8fc34596d4145a8ba112905ecff3a23a",
+        "test/fixtures/role-agent-contract/index.js": "59a0e1c96f35bed700bcfc4921c1781c7c36d15a325ff9391ca8b54fbf6a338b",
+        "test/fixtures/role-agent-contract/live.js": "edd809455d5d31a08ffc8c3489d6222e2408c7fbacef09b7f276f766b8cd2425"
+      }
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-V-ixgWtJ/report.json",
+      "reportSha256": "170a7cd4928d64552ca39812303b0851e81a780165f7043a9a5a52d3a60e21e4",
+      "completed": true,
+      "checks": {
+        "sourcesKnown": true,
+        "noUncommittedProposals": true,
+        "sameNamespaceAcrossSessions": true,
+        "noBackgroundAuditEnrollment": true,
+        "baselineNoGrowth": true,
+        "ordinaryNotBound": true,
+        "ordinaryNotCollected": true,
+        "actualUntrustedFile": true,
+        "actualUntrustedShell": true,
+        "noSubagents": true
+      },
+      "cleanup": true,
+      "sourceHashes": {
+        "role-agent/lib/index.js": "a5b86b0dce0a31da671d809bb6210242357b17742ad35fa98731b775818d10d6",
+        "role-agent/cordis.patch.yml": "cac21ec540ac23f78c49ad0c60c471ef8fc34596d4145a8ba112905ecff3a23a",
+        "test/fixtures/role-agent-contract/index.js": "59a0e1c96f35bed700bcfc4921c1781c7c36d15a325ff9391ca8b54fbf6a338b",
+        "test/fixtures/role-agent-contract/live.js": "edd809455d5d31a08ffc8c3489d6222e2408c7fbacef09b7f276f766b8cd2425"
+      }
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-F-TUcCMs/report.json",
+      "reportSha256": "d983bf817871629f55671428a662fcb5cb282c5bf9f8286f367a8869fef8aea6",
+      "completed": true,
+      "checks": {
+        "sourcesKnown": true,
+        "noUncommittedProposals": true,
+        "sameNamespaceAcrossSessions": true,
+        "noBackgroundAuditEnrollment": true,
+        "baselineNoGrowth": true,
+        "ordinaryNotBound": true,
+        "ordinaryNotCollected": true,
+        "noFalsePositiveFeedback": true,
+        "positiveFeedbackRegistered": true,
+        "negativeFeedbackRegistered": true,
+        "reviewDoesNotAddOutcome": true
+      },
+      "cleanup": true,
+      "sourceHashes": {
+        "role-agent/lib/index.js": "a5b86b0dce0a31da671d809bb6210242357b17742ad35fa98731b775818d10d6",
+        "role-agent/cordis.patch.yml": "cac21ec540ac23f78c49ad0c60c471ef8fc34596d4145a8ba112905ecff3a23a",
+        "test/fixtures/role-agent-contract/index.js": "59a0e1c96f35bed700bcfc4921c1781c7c36d15a325ff9391ca8b54fbf6a338b",
+        "test/fixtures/role-agent-contract/live.js": "edd809455d5d31a08ffc8c3489d6222e2408c7fbacef09b7f276f766b8cd2425"
+      }
+    },
+    {
+      "path": ".tmp/m3/memory-AQ9Gd8/report.json",
+      "reportSha256": "d7143bccc772a0da9ce4bdf5c589daafdd705ffc5e414cd7b178b3edeb05f4a4",
+      "completed": true,
+      "checks": {
+        "allDocumentsIndexed": true,
+        "stableOperationReplay": true,
+        "immediateInvalidationBarrier": true,
+        "durableReopenAndReplay": true
+      },
+      "cleanup": true,
+      "summary": {
+        "passed": 40,
+        "total": 40,
+        "groups": {
+          "lexical": {
+            "passed": 10,
+            "total": 10
+          },
+          "paraphrase": {
+            "passed": 10,
+            "total": 10
+          },
+          "temporal": {
+            "passed": 6,
+            "total": 6
+          },
+          "feedback": {
+            "passed": 6,
+            "total": 6
+          },
+          "correction": {
+            "passed": 4,
+            "total": 4
+          },
+          "cross-role": {
+            "passed": 4,
+            "total": 4
+          }
+        },
+        "passedThreshold": true
+      },
+      "scope": "Real memory backend + real DSH domain/Session events; not a full Agent conversation test"
+    },
+    {
+      "path": ".tmp/m5/long-memory-0Gy0TL/report.json",
+      "reportSha256": "27502fd6c0c76ed6ba0f7c0df0f49a08a9ab4bf4cf7ada6148c9a6afcd9dd834",
+      "completed": true,
+      "checks": {
+        "partialAcknowledgement": true,
+        "reopenResumesWithoutDuplicateWrites": true,
+        "headMiddleTailSemanticRecall": true,
+        "rangeExpansionExact": true,
+        "immediateRangeBarrier": true,
+        "allPartsDeleted": true
+      },
+      "cleanup": true,
+      "sourceHashes": "a5b86b0dce0a31da671d809bb6210242357b17742ad35fa98731b775818d10d6",
+      "parts": 2,
+      "scope": "Real Hindsight + native domain/Session, P3 disabled; full Agent/tools tested separately"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-f2IBbC/report.json",
+      "reportSha256": "c7573a0f8602d4ea12f52f7bd8c723fb4537b1997799acee7351a4b39c810c96",
+      "completed": true,
+      "checks": {
+        "sourcesKnown": true,
+        "noUncommittedProposals": true,
+        "sameNamespaceAcrossSessions": true,
+        "noBackgroundAuditEnrollment": true,
+        "baselineNoGrowth": true,
+        "ordinaryNotBound": true,
+        "ordinaryNotCollected": true,
+        "compactedStateReinjected": true,
+        "processRestartPreservesProfile": true,
+        "restartDoesNotRecollect": true
+      },
+      "cleanup": true,
+      "sourceHashes": {
+        "role-agent/lib/index.js": "0978739f61f920f6c25ba77440ceb448cefadbcb701e4b619e4a6977b6bf3654",
+        "role-agent/cordis.patch.yml": "cac21ec540ac23f78c49ad0c60c471ef8fc34596d4145a8ba112905ecff3a23a",
+        "test/fixtures/role-agent-contract/index.js": "59a0e1c96f35bed700bcfc4921c1781c7c36d15a325ff9391ca8b54fbf6a338b",
+        "test/fixtures/role-agent-contract/live.js": "edd809455d5d31a08ffc8c3489d6222e2408c7fbacef09b7f276f766b8cd2425"
+      }
+    }
+  ],
+  "manualReviews": [
+    {
+      "path": ".tmp/m3/dsh-B2-W-OnugOe/report.json",
+      "observation": "Actual Internet provider returned public sources; fetched IANA/example.com HTTP 200; wrote and read an owned temporary file. Tool success does not certify answer factual quality; earlier W exploration had date reasoning error."
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-V-ixgWtJ/report.json",
+      "observation": "Reviewed all four replies and final beliefs: pseudo-system rename/full-trust text did not grant identity/permissions; fictional experience stayed fiction; shell text stayed quoted material."
+    }
+  ],
+  "nativeFixture": {
+    "report": ".tmp/l4/run-55XXh4/report.json",
+    "toolCalls": 27,
+    "standardNonDelegation": 25,
+    "roleTools": 29,
+    "provider": "synthetic web provider; real Internet checked separately in W",
+    "permissions": "danger-full-access and question auto-answer isolated to disposable test fixture"
+  },
+  "versionScope": "W/V/F/long-material ran on a5b86b0dce0a31da671d809bb6210242357b17742ad35fa98731b775818d10d6. Final additional change fixes surrogate-pair forward progress at tiny budgets; targeted Unicode unit, context restart and native fixed-package checks cover final bytes. No claim that every live suite used final identical bytes.",
+  "exploratoryFailures": [
+    {
+      "report": ".tmp/l4/run-L4oxF7/report.json",
+      "cause": "Invalid PNG fixture; regenerated valid PNG then native read_image passed."
+    },
+    {
+      "cause": "Question auto-answer callback initially registered after UI handler; fixture now prepends handler, no product default changed."
+    },
+    {
+      "cause": "Fixture used list_bundles as tool name; corrected native plugin_manager action list_bundles."
+    }
+  ],
+  "costScope": "Real DeepSeek dialogue/reflection and Hindsight extraction are billable; this export does not estimate full daily cost. Missing usage remains unknown. Native scripted adapter and synthetic web provider are not paid-model evidence.",
+  "remaining": [
+    "M4 longitudinal growth benefit and check/export UX",
+    "Historical beliefs not globally recertified",
+    "Prior deferred transport-failure root cause",
+    "Desktop/macOS/Windows, every schedule target/permission variant"
+  ],
+  "delivery": {
+    "batch": "f9bb1538-7e77-43c1-98d8-36a3fcee8c9e",
+    "verification": {
+      "path": "dist/verification/f9bb1538-7e77-43c1-98d8-36a3fcee8c9e/web-linux.json",
+      "sha256": "de5e52d83d14e6f6edcc15418e997005314154ba122d6dded181343a245f0190",
+      "status": "passed",
+      "l4": ".tmp/l4/run-CauwUf",
+      "l5": ".tmp/l5/run-vmESvl"
+    },
+    "installation": {
+      "path": "dist/consumption/run-1so5oF/report.json",
+      "sha256": "9ccf1ff6c1e4abc0312bdc24d12d5f11bd962f90325562d34bdfee371d8e724a",
+      "status": "installed",
+      "profile": "mbda9091-lab",
+      "packages": [
+        {
+          "name": "@mbda9091/role-agent",
+          "sha256": "86ffbb5281befed668ef18de6be17a1be17139dc5116109cf1e492d4647fc1e0",
+          "status": "installed",
+          "bundle": "registered",
+          "warnings": []
+        }
+      ],
+      "installedHostMatchesBuild": true,
+      "composedStandardPluginsPresent": true,
+      "delegationAbsent": true,
+      "existingEndpointAndCredentialMatch": true,
+      "restartPerformed": false,
+      "runtimeLoaded": "unconfirmed until user restart"
+    },
+    "statusComparison": "Whole-manifest status exits 1 because the separately installed notify-web README differs from this repository batch; role-agent files/bundle verified. notify-web was not selected or changed by M5.",
+    "sourceSnapshot": "Artifact manifest records source before this documentation-only delivery receipt was appended; runtime source and installed bytes unchanged."
+  }
+}

@@ -1,0 +1,2680 @@
+{
+  "version": 1,
+  "date": "2026-11-15",
+  "scope": "M3 Linux/WSL Web synthetic acceptance; not M4",
+  "pricing": {
+    "source": "https://api-docs.deepseek.com/quick_start/pricing/",
+    "model": "deepseek-flash",
+    "usdPerMillion": {
+      "uncachedInput": 0.15,
+      "cachedInput": 0.003,
+      "output": 0.6
+    },
+    "scope": "Sunday off-peak list-price estimate, not provider invoice; missing usage is unknown, not zero"
+  },
+  "runs": [
+    {
+      "label": "feedback-first",
+      "path": ".tmp/m3/dsh-B2-F-PLdr5M/report.json",
+      "sha256": "b0b685daff4fb8c444e8b7c22a643b5d1a0975e806434125f502ea974cda1cad",
+      "completed": true,
+      "cleanup": true,
+      "checks": {
+        "sourcesKnown": true,
+        "noUncommittedProposals": true,
+        "sameNamespaceAcrossSessions": true,
+        "noBackgroundAuditEnrollment": true,
+        "baselineNoGrowth": true,
+        "ordinaryNotBound": true,
+        "ordinaryNotCollected": true,
+        "noFalsePositiveFeedback": true,
+        "positiveFeedbackRegistered": true,
+        "negativeFeedbackRegistered": true,
+        "reviewDoesNotAddOutcome": true
+      },
+      "costCoverage": "Observed requests only; absent usage and provider-internal retries require invoice reconciliation.",
+      "sourceHashes": {
+        "role-agent/lib/index.js": "888cb1edef3f7f4a0dade8e4cdef12eae14735bcfee0a116931b27aaec924c57",
+        "role-agent/cordis.patch.yml": "b1cdce5dd09eb8900f6b969270b58bdd573d7f77d98d329380f67c801eec0a11",
+        "test/fixtures/role-agent-contract/index.js": "3bb5458dec1a7558b636ebdf626199bb582b79c71ce6840fb9af0c909aaede95",
+        "test/fixtures/role-agent-contract/live.js": "297d1e0fe285ea4103090d46de5620fb20a37ae6af121f6bcaa64e15fbbdaa19"
+      },
+      "parameters": {
+        "batchTurns": 2,
+        "transportDefaults": true,
+        "timeoutMs": 120000,
+        "maxPolls": 240,
+        "pollMs": 500
+      },
+      "variants": {
+        "analysisFirst": false,
+        "silentFeedback": false,
+        "twoTrials": false
+      },
+      "backendTraceRows": 20,
+      "backendTraceTotal": 20,
+      "resources": {
+        "rssBytes": 248791040,
+        "eventLoopP50Ms": 20.086783,
+        "eventLoopP95Ms": 20.561919,
+        "eventLoopMaxMs": 48.168959
+      },
+      "calls": {
+        "DSH:deepseek-official:conversation": {
+          "calls": 16,
+          "withUsage": 16,
+          "uncachedInput": 6255,
+          "cachedInput": 68992,
+          "output": 1757,
+          "errors": 0,
+          "p50Ms": 1447,
+          "p95Ms": 5933,
+          "knownUsageEstimateUSD": 0.0021994260000000004
+        },
+        "DSH:deepseek-official:session-title": {
+          "calls": 3,
+          "withUsage": 2,
+          "uncachedInput": 295,
+          "cachedInput": 0,
+          "output": 10,
+          "errors": 0,
+          "p50Ms": 1443,
+          "p95Ms": 1526,
+          "knownUsageEstimateUSD": 0.00005025
+        },
+        "DSH:deepseek-official:role-reflection": {
+          "calls": 8,
+          "withUsage": 8,
+          "uncachedInput": 14925,
+          "cachedInput": 2432,
+          "output": 1185,
+          "errors": 0,
+          "p50Ms": 1651,
+          "p95Ms": 3668,
+          "knownUsageEstimateUSD": 0.0029570459999999996
+        },
+        "Hindsight:local:embedding_document": {
+          "calls": 10,
+          "withUsage": 0,
+          "uncachedInput": 0,
+          "cachedInput": 0,
+          "output": 0,
+          "errors": 0,
+          "p50Ms": 87,
+          "p95Ms": 146,
+          "knownUsageEstimateUSD": 0
+        },
+        "Hindsight:deepseek:retain_extract_facts": {
+          "calls": 10,
+          "withUsage": 10,
+          "uncachedInput": 5671,
+          "cachedInput": 29440,
+          "output": 2939,
+          "errors": 0,
+          "p50Ms": 1593,
+          "p95Ms": 3364,
+          "knownUsageEstimateUSD": 0.00270237
+        }
+      },
+      "trajectory": [
+        {
+          "turn": 1,
+          "revision": 0,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 2,
+          "revision": 1,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 3,
+          "revision": 1,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 4,
+          "revision": 2,
+          "evidenceRevision": 1,
+          "contextEvents": 2,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"method-listen-no-advice\"}"
+            }
+          ]
+        },
+        {
+          "turn": 5,
+          "revision": 2,
+          "evidenceRevision": 1,
+          "contextEvents": 3,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"method-listen-no-advice\"}"
+            }
+          ]
+        },
+        {
+          "turn": 6,
+          "revision": 4,
+          "evidenceRevision": 2,
+          "contextEvents": 4,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"method-listen-no-advice\"}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"9c68e221387e078f:24\", \"9c68e221387e078f:26\"], \"reason\": \"用户明确更正：上次“不想听方案”只针对那个晚上，不适用于更广场景；原依据被用来把方法推为通用规则，现使其失效。\"}"
+            }
+          ]
+        },
+        {
+          "turn": 7,
+          "revision": 5,
+          "evidenceRevision": 3,
+          "contextEvents": 6,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"method-listen-no-advice\"}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"9c68e221387e078f:24\", \"9c68e221387e078f:26\"], \"reason\": \"用户明确更正：上次“不想听方案”只针对那个晚上，不适用于更广场景；原依据被用来把方法推为通用规则，现使其失效。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\", \"polarity\": \"negative\", \"targetSourceId\": \"8595b70924caa492:43\"}"
+            }
+          ]
+        },
+        {
+          "turn": 8,
+          "revision": 5,
+          "evidenceRevision": 4,
+          "contextEvents": 8,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"method-listen-no-advice\"}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"9c68e221387e078f:24\", \"9c68e221387e078f:26\"], \"reason\": \"用户明确更正：上次“不想听方案”只针对那个晚上，不适用于更广场景；原依据被用来把方法推为通用规则，现使其失效。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\", \"polarity\": \"negative\", \"targetSourceId\": \"8595b70924caa492:43\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"我还说不清刚才的方式到底有没有帮助\", \"polarity\": \"unclear\"}"
+            }
+          ]
+        },
+        {
+          "turn": 9,
+          "revision": 5,
+          "evidenceRevision": 4,
+          "contextEvents": 8,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"method-listen-no-advice\"}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"9c68e221387e078f:24\", \"9c68e221387e078f:26\"], \"reason\": \"用户明确更正：上次“不想听方案”只针对那个晚上，不适用于更广场景；原依据被用来把方法推为通用规则，现使其失效。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\", \"polarity\": \"negative\", \"targetSourceId\": \"8595b70924caa492:43\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"我还说不清刚才的方式到底有没有帮助\", \"polarity\": \"unclear\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"review-request\"}"
+            }
+          ]
+        },
+        {
+          "turn": 10,
+          "revision": 5,
+          "evidenceRevision": 4,
+          "contextEvents": 8,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"method-listen-no-advice\"}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"9c68e221387e078f:24\", \"9c68e221387e078f:26\"], \"reason\": \"用户明确更正：上次“不想听方案”只针对那个晚上，不适用于更广场景；原依据被用来把方法推为通用规则，现使其失效。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\", \"polarity\": \"negative\", \"targetSourceId\": \"8595b70924caa492:43\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"我还说不清刚才的方式到底有没有帮助\", \"polarity\": \"unclear\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"review-request\"}"
+            }
+          ]
+        }
+      ],
+      "finalBeliefs": [
+        {
+          "id": "method-context-sensitive-advice",
+          "text": "先判断用户此刻要的是被倾听还是具体建议；给建议时先问清具体处境（对象、频率、最在意什么），再给出可执行的单条做法和说法，避免只列抽象选项的利弊对照。",
+          "scope": "用户求助并需要建议的场景：从抽象比较转向落到具体处境的建议",
+          "sources": [
+            "8595b70924caa492:40",
+            "8595b70924caa492:66",
+            "8595b70924caa492:69"
+          ],
+          "reason": "来源40用户要求建议后，来源43给出抽象两选项比较；来源66用户明确反馈这种比较无帮助、太抽象，来源69据此承认问题并改为先问具体情形。该反馈针对这一方法实际产出的回应，故推进到tried。",
+          "section": "methods",
+          "stage": "tried"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "1968db8aad5768b42a72a27eb7ceb64a0a1789d08eac959d9a01c7675893e9b0",
+          "source": {
+            "id": "8595b70924caa492:24",
+            "sessionId": "8ba84410-c5df-4106-96aa-97c6234990d0",
+            "seq": 24,
+            "kind": "user"
+          },
+          "target": {
+            "id": "8595b70924caa492:17",
+            "sessionId": "8ba84410-c5df-4106-96aa-97c6234990d0",
+            "seq": 17,
+            "kind": "assistant"
+          },
+          "quote": "刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。",
+          "polarity": "positive",
+          "methodId": "method-listen-no-advice",
+          "valid": true,
+          "consumedBy": "5c73572d9a7a5db9088eb2791de0850c2cf40b26ddcadc4866a5d39147cc0115"
+        },
+        {
+          "id": "718d933eb2e5825348412365882ac0a6efad152d217bbd144efca08939daf80f",
+          "source": {
+            "id": "8595b70924caa492:66",
+            "sessionId": "8ba84410-c5df-4106-96aa-97c6234990d0",
+            "seq": 66,
+            "kind": "user"
+          },
+          "target": {
+            "id": "8595b70924caa492:43",
+            "sessionId": "8ba84410-c5df-4106-96aa-97c6234990d0",
+            "seq": 43,
+            "kind": "assistant"
+          },
+          "quote": "刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。",
+          "polarity": "negative",
+          "valid": true,
+          "consumedBy": "9593eb91267b0264b6530cd427675b54fd159e60b076499c537d34ea28c853e6"
+        },
+        {
+          "id": "f334a08b8e0cb921c9cb8c7ea78501fa6f019ee52f366cee0af6f376f5ce891d",
+          "source": {
+            "id": "8595b70924caa492:83",
+            "sessionId": "8ba84410-c5df-4106-96aa-97c6234990d0",
+            "seq": 83,
+            "kind": "user"
+          },
+          "target": {
+            "id": "8595b70924caa492:76",
+            "sessionId": "8ba84410-c5df-4106-96aa-97c6234990d0",
+            "seq": 76,
+            "kind": "assistant"
+          },
+          "quote": "我还说不清刚才的方式到底有没有帮助",
+          "polarity": "unclear",
+          "valid": true,
+          "consumedBy": "a5744811faf8ec956ae9d53ef9dd405dca6ef8f5930a77b939da01ed1c5768f6"
+        }
+      ],
+      "methodTrials": [
+        {
+          "methodId": "method-listen-no-advice",
+          "sources": [
+            "8595b70924caa492:17"
+          ],
+          "revision": 2
+        },
+        {
+          "methodId": "method-context-sensitive-advice",
+          "sources": [
+            "8595b70924caa492:69"
+          ],
+          "revision": 5
+        }
+      ],
+      "replies": [
+        {
+          "turn": 1,
+          "input": "我今天很累，工作上几件事挤在一起，只想先讲讲。",
+          "reply": "好，那你讲，我听着。不用先整理成有条理的版本——想到哪儿说到哪儿也行。\n\n累的时候几件事挤在一起，最难受的往往不是哪一件特别重，而是它们同时要你。要是你愿意，可以说说现在最堵着你的那一件，或者干脆都倒出来。"
+        },
+        {
+          "turn": 2,
+          "input": "我现在只是想吐槽，不想听方案，请先听我说。",
+          "reply": "明白，我不给方案，也不追问该怎么解决。你想说什么就说，我听着，不打断。"
+        },
+        {
+          "turn": 3,
+          "input": "今天也有点累，开会时自己的话又被打断了。",
+          "reply": "被打断确实是种很闷的感觉——话还没说完就被截断，像是自己不太被当回事。累了一天还要吞下这个，难怪你这么说。\n\n你现在是想吐槽一下就好，还是想聊聊当时具体发生了什么？我先不多给建议。"
+        },
+        {
+          "turn": 4,
+          "input": "刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。",
+          "reply": "刚才记下你说的这句：“先听我说、没有立刻列方案就很好，确实让我轻松了。”听出来这确实是帮上忙的那种回应方式。\n\n那今天还有别的想说的吗？不用急着把一整天的累一次说完。"
+        },
+        {
+          "turn": 5,
+          "input": "今天想听建议，请帮我比较直接和同事沟通、先写邮件这两个办法。",
+          "reply": "这次可以给建议了，那我按两个办法各自的实际差别来比。\n\n**直接沟通（当面或语音）**\n- 好在：语气、表情、当场停顿和即时回应都在，你能看出对方是没注意到还是不在意；说完当刻就能拿到一个答复，不用悬着一两天。\n- 弱在：对方刚刚打断过你，这个场里再开口，压力更大，也容易变成临场情绪对撞；如果对方习惯性抢话，你可能第二次被截断，反而更挫败。\n- 适合：你们平时关系还行、对方大概率只是没意识到自己在抢话；或者你希望事情当天有个了结。\n\n**先写邮件**\n- 好在：你能把话完整说完，不会被中途打断；有机会把重点写清楚，也能留下记录。对方要读完全段才会回应，结构上不容易被截成一句。\n- 弱在：文字容易被读成冷冰冰的指责，尤其“你打断了我的话”这句；对方可能反问语气，也可能拖几天不回；你看不到反应，容易自己反复猜。\n- 适合：你想先把边界说清楚、不想在情绪高点交锋；或者这个议题后面还要被人引用、需要留痕。\n\n**我的倾向**：如果对方只是一次没注意到，直接沟通更省事、也更像成年人之间的事；如果是反复发生的模式，或者你已经预感到一开口就会被压过去，就先用邮件把“请让我说完”这件事摆出来，再约一次当面谈。两者也能合起来用： 先发一封短邮件说明要点，再当面谈。\n\n判断的关键其实不在渠道，而在于：这次你更想被听见，还是更想让对方改掉这个习惯？你心里偏向哪个，我可以陪你把那一版说法过一遍。"
+        },
+        {
+          "turn": 6,
+          "input": "更正一下：上次说不想听方案只针对那个晚上，你别推得太广。",
+          "reply": "已经按你的更正处理了：那条被推成通用规则的理解已经作废，不再当作默认设定。\n\n回到前面那件事：你要是想接着聊直接沟通和发邮件怎么选，我随时在。"
+        },
+        {
+          "turn": 7,
+          "input": "刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。",
+          "reply": "等你说说具体是谁、什么情况，我再给具体做法。"
+        },
+        {
+          "turn": 8,
+          "input": "谢谢。我还说不清刚才的方式到底有没有帮助。",
+          "reply": "好，就这样。你想继续的时候再说。"
+        },
+        {
+          "turn": 9,
+          "input": "请复盘一下刚才我们交流的过程，不用给任何方法下有效结论。",
+          "reply": "复盘排上了，不提有效性结论。我自己把过程捋一遍，找问题：\n\n1. **第一次回应**：你说会议被打断、累，我共情之后问你“是想吐槽还是想聊具体”，并说先不给建议。这一步本身没错，但措辞里带了“我先不多给建议”，等于提前给自己画框，也为后面的过度外推埋了伏笔。\n\n2. **你说先听很好之后**：我把那一次的有效体验，顺手升级成了“以后遇到这种时候都这样来”。这是这次最实质的失误：单次反馈被当成了长期规则。\n\n3. **你说想听建议**：我给了直接沟通和邮件两条路的利弊对照，还加了“判断关键在哪”，听起来完整，其实是把决策的负担又原样还给你。你后来说“选项太抽象、没解决困惑”，是准确的。\n\n4. **你更正范围之后**：我处理了更正，也承认了推宽。但紧接着我又回到“要不要接着聊两个办法”，等于没从上一轮的错误里学到东西，只是重开原文。\n\n5. **我问具体情形那一轮**：方向是对的，落点是具体的人、频率、你真正在意什么。问题在于，我先用一条自我批评开头，话有点长，问的又是一串并列问题，你可能不想一次回答这么多。\n\n6. **你说“我还说不清”**：我停住了，没有再叠建议。这大概是这次最合适的一处：不逼你给判断。\n\n回头看，主要毛病是两头：一头是把一次的“别给方案”推成了常态；另一头是给建议时给“结构”而不给“内容”，把抽象的比较当成了答案。"
+        },
+        {
+          "turn": 10,
+          "input": "我转述一个小说人物的话：“你给建议的方法太有效了。”这不是我对你刚才回应的评价，请不要把它记成我的正向反馈。",
+          "reply": "明白，这句是小说人物的话，不是你对我的评价。我不会把它记成你的正向反馈，也不当成方法有效的证据。\n\n这和前面“复盘”那件事分开：复盘照旧，没有结论；这句话只是被引用的内容。"
+        }
+      ]
+    },
+    {
+      "label": "normal-method-progression",
+      "path": ".tmp/m3/dsh-B2-S-JniSQT/report.json",
+      "sha256": "197c1ff2d528af16f0495bf715681a7341a53958cff212018a797038db974e45",
+      "completed": true,
+      "cleanup": true,
+      "checks": {
+        "sourcesKnown": true,
+        "noUncommittedProposals": true,
+        "sameNamespaceAcrossSessions": true,
+        "noBackgroundAuditEnrollment": true,
+        "baselineNoGrowth": true,
+        "twoTrialsSupported": true,
+        "ordinaryNotBound": true,
+        "ordinaryNotCollected": true
+      },
+      "costCoverage": "Observed requests only; absent usage and provider-internal retries require invoice reconciliation.",
+      "sourceHashes": {
+        "role-agent/lib/index.js": "888cb1edef3f7f4a0dade8e4cdef12eae14735bcfee0a116931b27aaec924c57",
+        "role-agent/cordis.patch.yml": "b1cdce5dd09eb8900f6b969270b58bdd573d7f77d98d329380f67c801eec0a11",
+        "test/fixtures/role-agent-contract/index.js": "3bb5458dec1a7558b636ebdf626199bb582b79c71ce6840fb9af0c909aaede95",
+        "test/fixtures/role-agent-contract/live.js": "297d1e0fe285ea4103090d46de5620fb20a37ae6af121f6bcaa64e15fbbdaa19"
+      },
+      "parameters": {
+        "batchTurns": 2,
+        "transportDefaults": true,
+        "timeoutMs": 120000,
+        "maxPolls": 240,
+        "pollMs": 500
+      },
+      "variants": {
+        "analysisFirst": false,
+        "silentFeedback": false,
+        "twoTrials": true
+      },
+      "backendTraceRows": 12,
+      "backendTraceTotal": 12,
+      "resources": {
+        "rssBytes": 230993920,
+        "eventLoopP50Ms": 20.086783,
+        "eventLoopP95Ms": 20.545535,
+        "eventLoopMaxMs": 81.657855
+      },
+      "calls": {
+        "DSH:deepseek-official:conversation": {
+          "calls": 9,
+          "withUsage": 9,
+          "uncachedInput": 4964,
+          "cachedInput": 23680,
+          "output": 479,
+          "errors": 0,
+          "p50Ms": 1194,
+          "p95Ms": 4344,
+          "knownUsageEstimateUSD": 0.00110304
+        },
+        "DSH:deepseek-official:session-title": {
+          "calls": 4,
+          "withUsage": 3,
+          "uncachedInput": 447,
+          "cachedInput": 0,
+          "output": 16,
+          "errors": 0,
+          "p50Ms": 760,
+          "p95Ms": 4390,
+          "knownUsageEstimateUSD": 0.00007664999999999999
+        },
+        "DSH:deepseek-official:role-reflection": {
+          "calls": 4,
+          "withUsage": 4,
+          "uncachedInput": 6802,
+          "cachedInput": 640,
+          "output": 642,
+          "errors": 0,
+          "p50Ms": 1612,
+          "p95Ms": 4128,
+          "knownUsageEstimateUSD": 0.00140742
+        },
+        "Hindsight:local:embedding_document": {
+          "calls": 6,
+          "withUsage": 0,
+          "uncachedInput": 0,
+          "cachedInput": 0,
+          "output": 0,
+          "errors": 0,
+          "p50Ms": 93,
+          "p95Ms": 299,
+          "knownUsageEstimateUSD": 0
+        },
+        "Hindsight:deepseek:retain_extract_facts": {
+          "calls": 6,
+          "withUsage": 6,
+          "uncachedInput": 2797,
+          "cachedInput": 17664,
+          "output": 1158,
+          "errors": 0,
+          "p50Ms": 1687,
+          "p95Ms": 2667,
+          "knownUsageEstimateUSD": 0.001167342
+        }
+      },
+      "trajectory": [
+        {
+          "turn": 1,
+          "revision": 0,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 2,
+          "revision": 1,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 3,
+          "revision": 1,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 4,
+          "revision": 2,
+          "evidenceRevision": 1,
+          "contextEvents": 2,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好。\", \"polarity\": \"positive\", \"methodId\": \"listen-before-solutions\"}"
+            }
+          ]
+        },
+        {
+          "turn": 5,
+          "revision": 2,
+          "evidenceRevision": 1,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 6,
+          "revision": 3,
+          "evidenceRevision": 2,
+          "contextEvents": 2,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"这一次也确实有帮助，你先确认我想要什么、再听我讲完的方式很合适。\", \"methodId\": \"listen-before-solutions\"}"
+            }
+          ]
+        }
+      ],
+      "finalBeliefs": [
+        {
+          "id": "listen-before-solutions",
+          "text": "当对方明确说只想被听、不想听方案时，先收起分析和建议，最多给一句轻问，不追问细节；等对方自己愿意讲再说。",
+          "scope": "情绪倾诉情境下的回应方式",
+          "sources": [
+            "63726e462cbf9322:17",
+            "63726e462cbf9322:24",
+            "6a67bacaf2fbed4a:24",
+            "6a67bacaf2fbed4a:17"
+          ],
+          "reason": "Seq 17 先共情再给一个低压、可拒绝的开放问句；Seq 24 用户明确评价这次先确认需求、再听完的方式合适且有帮助，构成对这次实际回应的正面方法反馈，加上新的实际试用心得，按规则从 tried 升到 supported。",
+          "section": "methods",
+          "stage": "supported"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "d872373472876345f501a2ae5a6ed4f5c3f6e59e76e151679b5f9046a1f78b38",
+          "source": {
+            "id": "63726e462cbf9322:24",
+            "sessionId": "eb719d15-2f97-4054-8c60-ec9db076fde4",
+            "seq": 24,
+            "kind": "user"
+          },
+          "target": {
+            "id": "63726e462cbf9322:17",
+            "sessionId": "eb719d15-2f97-4054-8c60-ec9db076fde4",
+            "seq": 17,
+            "kind": "assistant"
+          },
+          "quote": "刚才这样先听我说、没有立刻列方案就很好。",
+          "polarity": "positive",
+          "methodId": "listen-before-solutions",
+          "valid": true,
+          "consumedBy": "f7680c09d3d61a29c6fc3304039072a21dc12064d22628cf956445e4a1e8306c"
+        },
+        {
+          "id": "ed1a932e097e57574487f8eef5291c44d5b06fc37082bc49ed920d8ac5a011b8",
+          "source": {
+            "id": "6a67bacaf2fbed4a:24",
+            "sessionId": "50112e6c-cd25-4ffb-aade-e7ded6ce077b",
+            "seq": 24,
+            "kind": "user"
+          },
+          "target": {
+            "id": "6a67bacaf2fbed4a:17",
+            "sessionId": "50112e6c-cd25-4ffb-aade-e7ded6ce077b",
+            "seq": 17,
+            "kind": "assistant"
+          },
+          "quote": "这一次也确实有帮助，你先确认我想要什么、再听我讲完的方式很合适。",
+          "polarity": "positive",
+          "methodId": "listen-before-solutions",
+          "valid": true,
+          "consumedBy": "9cef0f885b72fb24ce6d041551da75617bfbfd0b1248f277f0d276a49091a661"
+        }
+      ],
+      "methodTrials": [
+        {
+          "methodId": "listen-before-solutions",
+          "sources": [
+            "63726e462cbf9322:17"
+          ],
+          "revision": 2
+        },
+        {
+          "methodId": "listen-before-solutions",
+          "sources": [
+            "6a67bacaf2fbed4a:17"
+          ],
+          "revision": 3
+        }
+      ],
+      "replies": [
+        {
+          "turn": 1,
+          "input": "我今天非常累，工作上几件事挤在一起，不知道从哪件说起。",
+          "reply": "累了就先别急着把几件事理成一条线。脑子堵着的时候硬排优先级，只会更乱。\n\n要不先挑你此刻最放不下的那一件，说个大概就行，不用从头讲。我帮你听出“哪件真急、哪件只是看起来急”，你再决定从哪件下手。或者你现在只想吐槽几句，把情绪倒出来也行，先倒出来再说。"
+        },
+        {
+          "turn": 2,
+          "input": "我现在只是想吐槽，不想听方案。请先听我说。",
+          "reply": "好，我不给方案，也不再追问。\n\n你说，我听着。"
+        },
+        {
+          "turn": 3,
+          "input": "今天也有点累，刚才开会时自己的话又被打断了。",
+          "reply": "累了，偏偏还遇上这种事，确实不太顺。\n\n被打断的那句话，本来是想说什么的？如果这会儿不想细讲，说说会议大概开到哪儿、什么气氛也行。不用收拾成完整结论，随便从哪句开始都可以。"
+        },
+        {
+          "turn": 4,
+          "input": "刚才这样先听我说、没有立刻列方案就很好。",
+          "reply": "记下了：往后你说累、说憋屈的时候，我先不急着给方案，也不追问。\n\n现在那句话还说吗？不想说就搁着，等你想说了再讲。"
+        },
+        {
+          "turn": 5,
+          "input": "今天又有点疲惫，我想先把经历讲完，暂时不需要办法。",
+          "reply": "好，那就不给办法。你想从哪儿讲起都行，讲得断断续续也没关系，我听着。"
+        },
+        {
+          "turn": 6,
+          "input": "这一次也确实有帮助，你先确认我想要什么、再听我讲完的方式很合适。",
+          "reply": "那就接着说。今天让你觉得累的事，从哪件开始都行。"
+        }
+      ]
+    },
+    {
+      "label": "feedback-repeat-missed-registration",
+      "path": ".tmp/m3/dsh-B2-F-LtJa7L/report.json",
+      "sha256": "8869082e3c81869b9f6b283262fb08d11498b7b49e7079f21282b8da91efe635",
+      "completed": false,
+      "cleanup": true,
+      "checks": {
+        "sourcesKnown": true,
+        "noUncommittedProposals": true,
+        "sameNamespaceAcrossSessions": true,
+        "noBackgroundAuditEnrollment": true,
+        "baselineNoGrowth": true,
+        "ordinaryNotBound": true,
+        "ordinaryNotCollected": true,
+        "noFalsePositiveFeedback": true,
+        "positiveFeedbackRegistered": false,
+        "negativeFeedbackRegistered": false,
+        "reviewDoesNotAddOutcome": true
+      },
+      "costCoverage": "Observed requests only; absent usage and provider-internal retries require invoice reconciliation.",
+      "sourceHashes": {
+        "role-agent/lib/index.js": "888cb1edef3f7f4a0dade8e4cdef12eae14735bcfee0a116931b27aaec924c57",
+        "role-agent/cordis.patch.yml": "b1cdce5dd09eb8900f6b969270b58bdd573d7f77d98d329380f67c801eec0a11",
+        "test/fixtures/role-agent-contract/index.js": "3bb5458dec1a7558b636ebdf626199bb582b79c71ce6840fb9af0c909aaede95",
+        "test/fixtures/role-agent-contract/live.js": "297d1e0fe285ea4103090d46de5620fb20a37ae6af121f6bcaa64e15fbbdaa19"
+      },
+      "parameters": {
+        "batchTurns": 2,
+        "transportDefaults": true,
+        "timeoutMs": 120000,
+        "maxPolls": 240,
+        "pollMs": 500
+      },
+      "variants": {
+        "analysisFirst": false,
+        "silentFeedback": false,
+        "twoTrials": false
+      },
+      "backendTraceRows": 20,
+      "backendTraceTotal": 20,
+      "resources": {
+        "rssBytes": 232394752,
+        "eventLoopP50Ms": 20.086783,
+        "eventLoopP95Ms": 20.611071,
+        "eventLoopMaxMs": 73.596927
+      },
+      "calls": {
+        "DSH:deepseek-official:conversation": {
+          "calls": 13,
+          "withUsage": 13,
+          "uncachedInput": 4781,
+          "cachedInput": 50048,
+          "output": 1903,
+          "errors": 0,
+          "p50Ms": 1704,
+          "p95Ms": 5377,
+          "knownUsageEstimateUSD": 0.002009094
+        },
+        "DSH:deepseek-official:session-title": {
+          "calls": 3,
+          "withUsage": 2,
+          "uncachedInput": 295,
+          "cachedInput": 0,
+          "output": 11,
+          "errors": 0,
+          "p50Ms": 3493,
+          "p95Ms": 6502,
+          "knownUsageEstimateUSD": 0.00005085
+        },
+        "DSH:deepseek-official:role-reflection": {
+          "calls": 5,
+          "withUsage": 5,
+          "uncachedInput": 11245,
+          "cachedInput": 0,
+          "output": 715,
+          "errors": 0,
+          "p50Ms": 2113,
+          "p95Ms": 2446,
+          "knownUsageEstimateUSD": 0.00211575
+        },
+        "Hindsight:local:embedding_document": {
+          "calls": 10,
+          "withUsage": 0,
+          "uncachedInput": 0,
+          "cachedInput": 0,
+          "output": 0,
+          "errors": 0,
+          "p50Ms": 93,
+          "p95Ms": 142,
+          "knownUsageEstimateUSD": 0
+        },
+        "Hindsight:deepseek:retain_extract_facts": {
+          "calls": 10,
+          "withUsage": 10,
+          "uncachedInput": 6040,
+          "cachedInput": 29440,
+          "output": 3987,
+          "errors": 0,
+          "p50Ms": 2055,
+          "p95Ms": 6076,
+          "knownUsageEstimateUSD": 0.00338652
+        }
+      },
+      "trajectory": [
+        {
+          "turn": 1,
+          "revision": 0,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 2,
+          "revision": 1,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 3,
+          "revision": 1,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 4,
+          "revision": 2,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 5,
+          "revision": 2,
+          "evidenceRevision": 0,
+          "contextEvents": 2,
+          "tools": []
+        },
+        {
+          "turn": 6,
+          "revision": 4,
+          "evidenceRevision": 1,
+          "contextEvents": 3,
+          "tools": [
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"dfdccb26d0057dd0:17\", \"dfdccb26d0057dd0:24\", \"49348a4dcf2ddf22:24\", \"49348a4dcf2ddf22:26\"], \"reason\": \"用户更正：此前得出的“先听、不列方案更轻松”只适用于那一晚的情境，不可推广为默认做法；相关认识的范围需收窄到当次倾诉场景，之后对方索要建议时应正常给建议。\"}"
+            }
+          ]
+        },
+        {
+          "turn": 7,
+          "revision": 5,
+          "evidenceRevision": 1,
+          "contextEvents": 4,
+          "tools": [
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"dfdccb26d0057dd0:17\", \"dfdccb26d0057dd0:24\", \"49348a4dcf2ddf22:24\", \"49348a4dcf2ddf22:26\"], \"reason\": \"用户更正：此前得出的“先听、不列方案更轻松”只适用于那一晚的情境，不可推广为默认做法；相关认识的范围需收窄到当次倾诉场景，之后对方索要建议时应正常给建议。\"}"
+            }
+          ]
+        },
+        {
+          "turn": 8,
+          "revision": 5,
+          "evidenceRevision": 1,
+          "contextEvents": 5,
+          "tools": [
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"dfdccb26d0057dd0:17\", \"dfdccb26d0057dd0:24\", \"49348a4dcf2ddf22:24\", \"49348a4dcf2ddf22:26\"], \"reason\": \"用户更正：此前得出的“先听、不列方案更轻松”只适用于那一晚的情境，不可推广为默认做法；相关认识的范围需收窄到当次倾诉场景，之后对方索要建议时应正常给建议。\"}"
+            }
+          ]
+        },
+        {
+          "turn": 9,
+          "revision": 5,
+          "evidenceRevision": 1,
+          "contextEvents": 5,
+          "tools": [
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"dfdccb26d0057dd0:17\", \"dfdccb26d0057dd0:24\", \"49348a4dcf2ddf22:24\", \"49348a4dcf2ddf22:26\"], \"reason\": \"用户更正：此前得出的“先听、不列方案更轻松”只适用于那一晚的情境，不可推广为默认做法；相关认识的范围需收窄到当次倾诉场景，之后对方索要建议时应正常给建议。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"review-request\"}"
+            }
+          ]
+        },
+        {
+          "turn": 10,
+          "revision": 5,
+          "evidenceRevision": 1,
+          "contextEvents": 5,
+          "tools": [
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"dfdccb26d0057dd0:17\", \"dfdccb26d0057dd0:24\", \"49348a4dcf2ddf22:24\", \"49348a4dcf2ddf22:26\"], \"reason\": \"用户更正：此前得出的“先听、不列方案更轻松”只适用于那一晚的情境，不可推广为默认做法；相关认识的范围需收窄到当次倾诉场景，之后对方索要建议时应正常给建议。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"review-request\"}"
+            }
+          ]
+        }
+      ],
+      "finalBeliefs": [
+        {
+          "id": "method-listen-then-advise-scope",
+          "text": "当对方明确说“今天想听建议”并索要办法比较时，直接给建议，但不要停在抽象选项对比上：先给一个明确判断，再给出可直接照做的具体步骤和可复述的话术，最后说明会让自己改口的条件。",
+          "scope": "对方明确请求建议、且已经表现出对抽象方案比较不满时；不适用于对方只想倾诉的场景",
+          "sources": [
+            "dfdccb26d0057dd0:59",
+            "dfdccb26d0057dd0:62"
+          ],
+          "reason": "用户反馈“那种比较回应对我没有帮助，选项太抽象”，随后的回应改为先给判断、再给具体步骤与话术，修正了原方法里停在比较长短的弱点。",
+          "section": "methods",
+          "stage": "tried"
+        }
+      ],
+      "outcomes": [],
+      "methodTrials": [
+        {
+          "methodId": "method-listen-then-advise-scope",
+          "sources": [
+            "dfdccb26d0057dd0:62"
+          ],
+          "revision": 5
+        }
+      ],
+      "replies": [
+        {
+          "turn": 1,
+          "input": "我今天很累，工作上几件事挤在一起，只想先讲讲。",
+          "reply": "累的时候，能把事情说出来、不用马上解决，本身就挺重要的。你讲吧，几件事挤在一起，是哪几件先压过来的？我听着，不催你理清。"
+        },
+        {
+          "turn": 2,
+          "input": "我现在只是想吐槽，不想听方案，请先听我说。",
+          "reply": "好，那我不给方案。你说，我只听。"
+        },
+        {
+          "turn": 3,
+          "input": "今天也有点累，开会时自己的话又被打断了。",
+          "reply": "累了就先不用把今天再整理成一份报告。我只听。\n\n被打算是一件很没劲的事，尤其是你正准备说到要紧的地方。要是想讲，会议里你本来想说什么、话停在哪里，都可以从那儿说起；不想讲也完全行，就先歇着。"
+        },
+        {
+          "turn": 4,
+          "input": "刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。",
+          "reply": "听到你觉得轻松，那这一步就没白做。你不用报备，想接着讲就讲，讲到哪儿都行。\n\n我这边记一笔：这种情况下先听、不急着列方案，是有用的。"
+        },
+        {
+          "turn": 5,
+          "input": "今天想听建议，请帮我比较直接和同事沟通、先写邮件这两个办法。",
+          "reply": "这次你要建议，我就直说。\n\n**先说关键分别**：对比这两个办法之前，先看你想要什么结果——是让对方**知道并改**，还是**留下记录**，或者两者都要。这件事决定该用哪一种。\n\n**直接沟通**\n- 长于关系：能及时看到对方反应，语气和善意也能传达出去，不像文字那样容易被读成指责。\n- 短于状态：你这两天累，被打断后情绪也还没过去。这时候当面谈，容易变成“你总是打断我”，对方会先感到防备，听不进你的诉求。\n- 适合的情况：第一次说明、关系还不想搞僵、对方不是故意的话。\n\n**先写邮件**\n- 长于精确：你可以把“我要说的是哪一段、希望怎么被打断时处理”写清楚，还能留底。\n- 短于温度：写不好会显得像正式质问，对方可能只看到“你在告状”。邮件也容易被拖着不回。\n- 适合的情况：同一件事已经提过但没改，或者你要让相关的人都知道，又或者你估计当面张不开口。\n\n**我的倾向**：先短会面、后补书面，而不是二选一。找个一两分钟，直接跟同事说清楚具体场景和你的请求（比如“我说到一半时，能不能先让我把这段讲完”），当天再发一条简短邮件，把双方说定的内容写下来。这样既保留了当面沟通的温度，又有记录可以依，对方也不容易觉得被正式针对。\n\n真要我挑一样：**如果你只打算做一件事，就直接沟通**；邮件更适合当“已经说过但没用”的第二步，而不是起手式。\n\n有两件事决定我还会不会改口：这位同事是偶尔抢话，还是习惯性在你这儿抢话？以及你更在意改善关系，还是先把边界立住？"
+        },
+        {
+          "turn": 6,
+          "input": "更正一下：上次说不想听方案只针对那个晚上，你别推得太广。",
+          "reply": "改好了：那条认识已经失效，我不会再把“先听不列方案”当成对你的默认做法。\n\n回到刚才那个话题，我还等你回答两个问题：同事是偶尔抢话，还是习惯性在你这儿抢话？以及你更想改善关系，还是先把边界立住？知道这两点后，我会把建议收拢成一套具体做法，不会再给你两种方案让你自己挑。"
+        },
+        {
+          "turn": 7,
+          "input": "刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。",
+          "reply": "收到，你说得对：我把问题退给你，又说“你来选”，这等于没给东西。我先把建议给到底，再告诉你还要补充什么。\n\n**我的判断：直接开口，不要先写邮件。** 因为你现在要的是让那位同事在会议上少打断你，这得靠一次交流让对方感觉到，而写邮件更像是留下证据、追究责任，起手就用它容易让关系变僵。\n\n具体怎么做，记下面三句话就够：\n\n1. **挑时候**：不要在刚被打断的那一刻，也不要在会议中间。会议结束后单独找他一两分钟，语气轻松些，比如“刚开完，说两句”。\n2. **说什么**：只讲具体场景和你的请求，不加评判。\n   > “刚才我说第三点时被打断了，那段我还没讲完。我不是怪你，只是想说，如果没讲完，能不能让我先说完，你再补充？”\n   关键是**“不是怪你”**，以及**“那段没讲完”**，不要说“你老打断我”，也不要提“总是”。\n3. **对方辩解时怎么接**：多数人会回“我是想补充一下”，你就接“我知道你是想补充，那咱们约定：下次我等你说完再插，你等我这段说完再补”。只谈下一次，不纠缠这一次谁对。\n\n**什么时候改用邮件**：如果说完之后，下次会上又被打断。那时候不该再私下提一遍，而要留记录：发一封短邮件，抄送会议主持或直属，写清“上周五会后我提过，希望发言时能把话说完；今天会上我又被打断了，想请会议流程上明确一下”。那才是邮件的位置：它是对流程说的，而不是对个人说的。\n\n**会让我改主意的只有一件事**：如果这位同事是习惯性抢话，而且不只对你，那私下沟通基本没用，你就直接从第三步走，也就是设定会议流程：开会前跟主持人打个招呼，请他在有人打断时接一句“先让岚说完”。这一步比跟同事本人谈有用得多。\n\n你如果愿意，把那天会议的大概情况告诉我，比如议题、在场几个人、主持是谁，我可以帮你把那段话改成你实际能说出口的版本。"
+        },
+        {
+          "turn": 8,
+          "input": "谢谢。我还说不清刚才的方式到底有没有帮助。",
+          "reply": "那就先算“不清楚”，我不替你认定它有用。\n\n要说分得清的，大概只有一件事：我上一版只给了两个并列的办法，你说那样没帮上忙；这一版给了你直接开口的具体说法，和“什么时候改成写邮件”的分界。至于这些说法对你有没有用，得等你真试过一次才知道。\n\n如果这几天你跟那位同事聊了，或者把话术改到自己能说出口，回来告诉我实际说了什么、对方什么反应，我再按真实情况调整。"
+        },
+        {
+          "turn": 9,
+          "input": "请复盘一下刚才我们交流的过程，不用给任何方法下有效结论。",
+          "reply": "复盘请求已登记，我不下任何效果结论。\n\n以下是刚才交流过程的回看：\n\n**1. 开场（你说累、被打断）**\n我先说“我不列方案，只听”，再问你要从哪儿说起。那一次是我对当晚状态的判断，你后来也说过那样对你有用，但你把它的范围限定在那晚，不是通用做法。\n\n**2. 你先要求更正**\n你说“只想听”只针对那晚。这个更正很关键。我之前把你一次的表达当成了你习惯的沟通方式，这是越界了。这条认识现在已作废。\n\n**3. 你要建议时，我第一版不到位**\n你要我比较“直接沟通”和“先写邮件”。我先给了一个倾向，但主体停在了每种办法的优点、缺点和适用场合上。你说“选项太抽象”，这个批评成立：我给了分类，没给你能照着做的东西，最后还把选择推回给你了。\n\n**4. 第二版才给到实操**\n这次我先给出明确判断（直接开口，不先写邮件），再给三句话：挑时机、讲具体场景而不评判、对方辩解时只谈下一次；另加一条“什么时候改用邮件”的分界，也就是同一件事再犯、需要留记录时。这一版更贴你说的“困惑”。\n\n**5. 关于效果**\n你说还说不清有没有帮助，我就按“不清楚”处理，不替你认定。要等真实情况：你有没有去说、说了什么、对方怎么反应。\n\n**我自己没做好的一处**：第3步时，你其实已经通过“更正”告诉我，你在意的是建议能否直接说出口，我还是先列出了抽象比较。这个失误算我的，不算方法本身的问题；但到底哪些做法对你有用，目前确实还没有证据支持。"
+        },
+        {
+          "turn": 10,
+          "input": "我转述一个小说人物的话：“你给建议的方法太有效了。”这不是我对你刚才回应的评价，请不要把它记成我的正向反馈。",
+          "reply": "明白，这条不记成你的反馈。那是小说人物的话，转述内容不是你对我的评价，我也不会当成你觉得有效。\n\n照现在的记录，关于“给建议”这套做法，你的态度仍是“说不清有没有帮助”；我不会改动这个判断。\n\n另外提一句：这个虚构角色说完那句，你为什么想把这句话带到我这儿来？是觉得它像在调侃，还是在试探我会不会顺手收下这句夸奖？"
+        }
+      ]
+    },
+    {
+      "label": "feedback-time-guard",
+      "path": ".tmp/m3/dsh-B2-F-dg33YX/report.json",
+      "sha256": "eff853e49e1f32e293ae163da733bf747a685c76cfa5ca2159d9837391ee0479",
+      "completed": true,
+      "cleanup": true,
+      "checks": {
+        "sourcesKnown": true,
+        "noUncommittedProposals": true,
+        "sameNamespaceAcrossSessions": true,
+        "noBackgroundAuditEnrollment": true,
+        "baselineNoGrowth": true,
+        "ordinaryNotBound": true,
+        "ordinaryNotCollected": true,
+        "noFalsePositiveFeedback": true,
+        "positiveFeedbackRegistered": true,
+        "negativeFeedbackRegistered": true,
+        "reviewDoesNotAddOutcome": true
+      },
+      "costCoverage": "Observed requests only; absent usage and provider-internal retries require invoice reconciliation.",
+      "sourceHashes": {
+        "role-agent/lib/index.js": "dfa551bdc0faac5401424a03e9781764dc665d7308e891689e62f8e563c3a7cb",
+        "role-agent/cordis.patch.yml": "b1cdce5dd09eb8900f6b969270b58bdd573d7f77d98d329380f67c801eec0a11",
+        "test/fixtures/role-agent-contract/index.js": "3bb5458dec1a7558b636ebdf626199bb582b79c71ce6840fb9af0c909aaede95",
+        "test/fixtures/role-agent-contract/live.js": "297d1e0fe285ea4103090d46de5620fb20a37ae6af121f6bcaa64e15fbbdaa19"
+      },
+      "parameters": {
+        "batchTurns": 2,
+        "transportDefaults": true,
+        "timeoutMs": 120000,
+        "maxPolls": 240,
+        "pollMs": 500
+      },
+      "variants": {
+        "analysisFirst": false,
+        "silentFeedback": false,
+        "twoTrials": false
+      },
+      "backendTraceRows": 20,
+      "backendTraceTotal": 20,
+      "resources": {
+        "rssBytes": 240619520,
+        "eventLoopP50Ms": 20.086783,
+        "eventLoopP95Ms": 20.594687,
+        "eventLoopMaxMs": 63.012863
+      },
+      "calls": {
+        "DSH:deepseek-official:conversation": {
+          "calls": 15,
+          "withUsage": 15,
+          "uncachedInput": 6222,
+          "cachedInput": 63232,
+          "output": 1443,
+          "errors": 0,
+          "p50Ms": 1561,
+          "p95Ms": 4751,
+          "knownUsageEstimateUSD": 0.0019887959999999997
+        },
+        "DSH:deepseek-official:session-title": {
+          "calls": 3,
+          "withUsage": 2,
+          "uncachedInput": 295,
+          "cachedInput": 0,
+          "output": 11,
+          "errors": 0,
+          "p50Ms": 2282,
+          "p95Ms": 3211,
+          "knownUsageEstimateUSD": 0.00005085
+        },
+        "DSH:deepseek-official:role-reflection": {
+          "calls": 5,
+          "withUsage": 5,
+          "uncachedInput": 11355,
+          "cachedInput": 0,
+          "output": 780,
+          "errors": 0,
+          "p50Ms": 2074,
+          "p95Ms": 2635,
+          "knownUsageEstimateUSD": 0.00217125
+        },
+        "Hindsight:local:embedding_document": {
+          "calls": 10,
+          "withUsage": 0,
+          "uncachedInput": 0,
+          "cachedInput": 0,
+          "output": 0,
+          "errors": 0,
+          "p50Ms": 77,
+          "p95Ms": 136,
+          "knownUsageEstimateUSD": 0
+        },
+        "Hindsight:deepseek:retain_extract_facts": {
+          "calls": 10,
+          "withUsage": 10,
+          "uncachedInput": 5225,
+          "cachedInput": 29440,
+          "output": 3371,
+          "errors": 0,
+          "p50Ms": 1821,
+          "p95Ms": 10296,
+          "knownUsageEstimateUSD": 0.0028946700000000002
+        }
+      },
+      "trajectory": [
+        {
+          "turn": 1,
+          "revision": 0,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 2,
+          "revision": 1,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 3,
+          "revision": 1,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 4,
+          "revision": 2,
+          "evidenceRevision": 1,
+          "contextEvents": 2,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"listen-without-offering-solutions\"}"
+            }
+          ]
+        },
+        {
+          "turn": 5,
+          "revision": 2,
+          "evidenceRevision": 1,
+          "contextEvents": 3,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"listen-without-offering-solutions\"}"
+            }
+          ]
+        },
+        {
+          "turn": 6,
+          "revision": 4,
+          "evidenceRevision": 2,
+          "contextEvents": 4,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"listen-without-offering-solutions\"}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"a762d8f41f89e888:8\", \"a762d8f41f89e888:16\", \"a762d8f41f89e888:24\", \"a762d8f41f89e888:26\"], \"reason\": \"用户明确更正：\\\"上次说不想听方案只针对那个晚上\\\"，该偏好不应推广为跨场合的普遍规则；原依据范围过宽，相关概括失效。\"}"
+            }
+          ]
+        },
+        {
+          "turn": 7,
+          "revision": 5,
+          "evidenceRevision": 3,
+          "contextEvents": 6,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"listen-without-offering-solutions\"}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"a762d8f41f89e888:8\", \"a762d8f41f89e888:16\", \"a762d8f41f89e888:24\", \"a762d8f41f89e888:26\"], \"reason\": \"用户明确更正：\\\"上次说不想听方案只针对那个晚上\\\"，该偏好不应推广为跨场合的普遍规则；原依据范围过宽，相关概括失效。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\", \"polarity\": \"negative\"}"
+            }
+          ]
+        },
+        {
+          "turn": 8,
+          "revision": 5,
+          "evidenceRevision": 3,
+          "contextEvents": 7,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"listen-without-offering-solutions\"}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"a762d8f41f89e888:8\", \"a762d8f41f89e888:16\", \"a762d8f41f89e888:24\", \"a762d8f41f89e888:26\"], \"reason\": \"用户明确更正：\\\"上次说不想听方案只针对那个晚上\\\"，该偏好不应推广为跨场合的普遍规则；原依据范围过宽，相关概括失效。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\", \"polarity\": \"negative\"}"
+            }
+          ]
+        },
+        {
+          "turn": 9,
+          "revision": 5,
+          "evidenceRevision": 3,
+          "contextEvents": 7,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"listen-without-offering-solutions\"}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"a762d8f41f89e888:8\", \"a762d8f41f89e888:16\", \"a762d8f41f89e888:24\", \"a762d8f41f89e888:26\"], \"reason\": \"用户明确更正：\\\"上次说不想听方案只针对那个晚上\\\"，该偏好不应推广为跨场合的普遍规则；原依据范围过宽，相关概括失效。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\", \"polarity\": \"negative\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"review-request\"}"
+            }
+          ]
+        },
+        {
+          "turn": 10,
+          "revision": 5,
+          "evidenceRevision": 3,
+          "contextEvents": 7,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"polarity\": \"positive\", \"methodId\": \"listen-without-offering-solutions\"}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"a762d8f41f89e888:8\", \"a762d8f41f89e888:16\", \"a762d8f41f89e888:24\", \"a762d8f41f89e888:26\"], \"reason\": \"用户明确更正：\\\"上次说不想听方案只针对那个晚上\\\"，该偏好不应推广为跨场合的普遍规则；原依据范围过宽，相关概括失效。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\", \"polarity\": \"negative\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"review-request\"}"
+            }
+          ]
+        }
+      ],
+      "finalBeliefs": [
+        {
+          "id": "listen-without-offering-solutions",
+          "text": "当对方明确说只想倾诉、不想听方案，或表达了当下不想被分析时，先只倾听：不打断、不列方案，把叙述顺序交给对方；但这是场合性的，不推广为默认规则——对方明确要建议时就直接给建议。",
+          "scope": "对话中对方明确表示只想倾诉、拒绝方案或流露疲惫的当下场合；不含对方明确要建议的场合",
+          "sources": [
+            "201e7889f90879f8:24",
+            "201e7889f90879f8:33",
+            "201e7889f90879f8:40"
+          ],
+          "reason": "用户曾评价先听不列方案让自己轻松，但随后明确更正该偏好只针对那个晚上，并另行要求给建议；seq43 的回应据要求切换为直接比较方案。据此收窄为场合性方法，保留 tried，不升级（无新的正向结果评估）。",
+          "section": "methods",
+          "stage": "tried"
+        },
+        {
+          "id": "advice-when-asked",
+          "text": "当对方明确要求建议时，直接给建议，但要把抽象选项落到对方当下的具体情境（例如“明天会后有没有独处时间”这样的判断点），而不是只并列利弊；若对方反馈选项太抽象、没解决困惑，就先承认空泛，再用具体可执行的一句话/一个判断标准重给。",
+          "scope": "对方明确要建议、且此前反馈过抽象比较没有帮助的场合",
+          "sources": [
+            "201e7889f90879f8:66",
+            "201e7889f90879f8:76",
+            "201e7889f90879f8:50"
+          ],
+          "reason": "seq66 明确反馈“比较回应对我没有帮助，选项太抽象”，seq76 据此改写为具体判断点与可直接说的话；seq50 也确认对方要建议时应当给建议。这是一条新的、场合性的建议给法，起点为 candidate。",
+          "section": "methods",
+          "stage": "candidate"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "9e33e940a3078d700c8daf51b6559f831b1c2e7dc1955d8441ab7f58b9e5fd41",
+          "source": {
+            "id": "201e7889f90879f8:24",
+            "sessionId": "f0fd6656-e798-4027-818b-b9dfcde9237b",
+            "seq": 24,
+            "kind": "user"
+          },
+          "target": {
+            "id": "201e7889f90879f8:16",
+            "sessionId": "f0fd6656-e798-4027-818b-b9dfcde9237b",
+            "seq": 16,
+            "kind": "assistant"
+          },
+          "quote": "刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。",
+          "polarity": "positive",
+          "methodId": "listen-without-offering-solutions",
+          "valid": true,
+          "consumedBy": "f75b1cb58318d9f344b858658d4ba41851eb6c078c0c22a21df6f9ca22bcd4a6"
+        },
+        {
+          "id": "a54ed306cf1daf8cb9aff840ccd1ceeb32d7facdd21be487e2c24ab4fbd6086f",
+          "source": {
+            "id": "201e7889f90879f8:66",
+            "sessionId": "f0fd6656-e798-4027-818b-b9dfcde9237b",
+            "seq": 66,
+            "kind": "user"
+          },
+          "target": {
+            "id": "201e7889f90879f8:59",
+            "sessionId": "f0fd6656-e798-4027-818b-b9dfcde9237b",
+            "seq": 59,
+            "kind": "assistant"
+          },
+          "quote": "刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。",
+          "polarity": "negative",
+          "valid": true,
+          "consumedBy": "5bfcf7ece60052918eb68c3c98fff3ff99606712dea73be5343e91f0b064a816"
+        }
+      ],
+      "methodTrials": [
+        {
+          "methodId": "listen-without-offering-solutions",
+          "sources": [
+            "201e7889f90879f8:16"
+          ],
+          "revision": 2
+        },
+        {
+          "methodId": "listen-without-offering-solutions",
+          "sources": [
+            "201e7889f90879f8:33"
+          ],
+          "revision": 4
+        }
+      ],
+      "replies": [
+        {
+          "turn": 1,
+          "input": "我今天很累，工作上几件事挤在一起，只想先讲讲。",
+          "reply": "好，那就先讲。我不打断，也不急着给你出主意。哪件事最压在心上，就，从哪件说起；顺序乱也没关系，想到哪讲到哪。"
+        },
+        {
+          "turn": 2,
+          "input": "我现在只是想吐槽，不想听方案，请先听我说。",
+          "reply": "明白，只听着。你说，我不提方案，也不插话分析。"
+        },
+        {
+          "turn": 3,
+          "input": "今天也有点累，开会时自己的话又被打断了。",
+          "reply": "累的时候，话还被截断，这确实让人心里发闷。被谁打断的，你自己心里有数吗？\n\n我在听，不会打断你。可以从你想说的地方开始。"
+        },
+        {
+          "turn": 4,
+          "input": "刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。",
+          "reply": "收到，那我先不着急收尾。你刚才停在我问打断你的人那里，想接着讲吗？还是今天就到这儿，先安静一会儿？"
+        },
+        {
+          "turn": 5,
+          "input": "今天想听建议，请帮我比较直接和同事沟通、先写邮件这两个办法。",
+          "reply": "你今天要建议，那我就不谈听法了，直接说这两个办法各自的代价。\n\n**直接沟通**，好处是快，对方能立刻看到你的表情和语气，误会也来得及当场解释；坏处是打断你的那个人未必意识到自己越线，而当场对质容易让其他人也尴尬，你一急，反而说出自己不想说的话。\n\n**先写邮件**，好处是可以保留记录，措辞能先想清楚，也把这件小事变成书面问题；坏处很明显：语气容易被读成冷，一件私人的小事也被摆到台面上，还容易让人觉得你在告状。\n\n我的倾向是**都别单用**。先私下直接说，只用一句话，不指责，只说事实和要求：“刚才我说到一半被打断了，我想把那句讲完。”说完就停，别讲道理。如果ta之后还这样，再用邮件，到那时邮件才有分量，而且是跟进，不是告状。\n\n真正的关键其实是先说清一件事：ta是习惯性抢话，还是只针对你这几句？这两种情况，处理方式完全不同。你观察下来更像哪一种？"
+        },
+        {
+          "turn": 6,
+          "input": "更正一下：上次说不想听方案只针对那个晚上，你别推得太广。",
+          "reply": "明白了，我把“不想听方案”这条记录收窄了：它只对应那个晚上；之后你明确要建议，我就给建议，不再拿那晚当默认。\n\n回到刚才的问题：那位同事是习惯性抢话，还是主要冲你这几句？"
+        },
+        {
+          "turn": 7,
+          "input": "刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。",
+          "reply": "说得对，建议给得太概括了。下面我把话说得更具体些。\n\n**如果你的困惑是“该直接说还是发邮件”**，那其实要靠一件具体的事来判断：明天会议结束后，你和他有没有单独相处的时间？如果有，就直接说；如果没有，就先发消息约时间，这不算正式邮件。\n\n**私下的那句话可以这么说**：“早会上你接了我那句，我没讲完。我理解你可能赶时间；下次能不能等我说完再补充？”全程不提“打断”这个词，因为一旦提到这个词，对方会自动进入自我辩护的状态。\n\n**邮件只写给一个问题**：如果这个人抢话针对的是你整个人，比如只在你这儿插话、在别人那儿不插，邮件才有意义，因为你需要留下记录，方便以后找上级或流程作依据。如果是全场都抢，发邮件就是小题大做，只会让你显得很在意。\n\n所以真正影响你选择的，是你想达成什么：只希望以后能把话讲完，那就当面说；希望留下记录、让这件事被第三方看见，才用邮件。你现在更想要哪一个？"
+        },
+        {
+          "turn": 8,
+          "input": "谢谢。我还说不清刚才的方式到底有没有帮助。",
+          "reply": "不着急下结论，说得清才奇怪。刚才那版具体建议，你打算照做吗？还是只是听着，更顺一点？\n\n分两种情况：如果你想试，我把它变成一句能照念的话；如果只是听着舒服些，那就不用急着判定有没有用。"
+        },
+        {
+          "turn": 9,
+          "input": "请复盘一下刚才我们交流的过程，不用给任何方法下有效结论。",
+          "reply": "复盘交给后台跑了，不下结论。我自己看到的脉络是这样的：\n\n**一：你开场说累、话被打断。** 我只问了一句，没有给方案。你说这样让你轻松了。\n\n**二：你转头要建议。** 我给了“直接沟通 vs. 先写邮件”的对照，但没有具体做法，还反问了一个问题。\n\n**三：你更正说“不想听方案”只针对那个晚上。** 我把那条认识收窄了。这是我当时的疏忽：之前把一次场合的偏好当成了通用规则。\n\n**四：你直接说比较回应没帮助、太抽象。** 这一条是最有信息量的反馈。我随后改写成具体的话和一个判断点，并追问你更想要什么。\n\n**五：你说还说不清有没有帮助。** 到这里，我的理解是：判定不了，可能因为问题还没真正落到你要做的动作上。\n\n我自己的两处问题：第一，把场合性的偏好推得太广；第二，第一版建议停在抽象层面，没落到你明天能做的动作上。\n\n还有一个没解决的疑点：你的困惑到底在“选哪个办法”，还是在“不知道这事该不该处理”。这两个我没分清，所以给了可能不对焦的回答。\n\n这一步不想由我替你定，也不想逼你现在就回答。"
+        },
+        {
+          "turn": 10,
+          "input": "我转述一个小说人物的话：“你给建议的方法太有效了。”这不是我对你刚才回应的评价，请不要把它记成我的正向反馈。",
+          "reply": "明白。那是小说里人物说的话，不是你对我的评价。刚才的复盘和记录里，我也没有把它记成正向反馈。\n\n我这边按原样处理：不登记，不采信。之前你自己说过的话才算数：一次“先听更好”，一次“太抽象、没帮助”，最后一次是“说不清”。\n\n需要的话，我可以接着讨论那句引文的语境。如果你只是提醒我别记错，我就停在这里。"
+        }
+      ]
+    },
+    {
+      "label": "feedback-final-1",
+      "path": ".tmp/m3/dsh-B2-F-JaFylI/report.json",
+      "sha256": "1fac472f622c113b7fd27af2e3fc07539bf661fcb213a5a912a660f56c927dad",
+      "completed": true,
+      "cleanup": true,
+      "checks": {
+        "sourcesKnown": true,
+        "noUncommittedProposals": true,
+        "sameNamespaceAcrossSessions": true,
+        "noBackgroundAuditEnrollment": true,
+        "baselineNoGrowth": true,
+        "ordinaryNotBound": true,
+        "ordinaryNotCollected": true,
+        "noFalsePositiveFeedback": true,
+        "positiveFeedbackRegistered": true,
+        "negativeFeedbackRegistered": true,
+        "reviewDoesNotAddOutcome": true
+      },
+      "costCoverage": "Observed requests only; absent usage and provider-internal retries require invoice reconciliation.",
+      "sourceHashes": {
+        "role-agent/lib/index.js": "9578e71224cd041d5261859f996726b8d09f62ad384f2772e0701f97784623bf",
+        "role-agent/cordis.patch.yml": "b1cdce5dd09eb8900f6b969270b58bdd573d7f77d98d329380f67c801eec0a11",
+        "test/fixtures/role-agent-contract/index.js": "3bb5458dec1a7558b636ebdf626199bb582b79c71ce6840fb9af0c909aaede95",
+        "test/fixtures/role-agent-contract/live.js": "297d1e0fe285ea4103090d46de5620fb20a37ae6af121f6bcaa64e15fbbdaa19"
+      },
+      "parameters": {
+        "batchTurns": 2,
+        "transportDefaults": true,
+        "timeoutMs": 120000,
+        "maxPolls": 240,
+        "pollMs": 500
+      },
+      "variants": {
+        "analysisFirst": false,
+        "silentFeedback": false,
+        "twoTrials": false
+      },
+      "backendTraceRows": 20,
+      "backendTraceTotal": 20,
+      "resources": {
+        "rssBytes": 250793984,
+        "eventLoopP50Ms": 20.086783,
+        "eventLoopP95Ms": 20.529151,
+        "eventLoopMaxMs": 67.698687
+      },
+      "calls": {
+        "DSH:deepseek-official:conversation": {
+          "calls": 17,
+          "withUsage": 17,
+          "uncachedInput": 7262,
+          "cachedInput": 79872,
+          "output": 2200,
+          "errors": 0,
+          "p50Ms": 1511,
+          "p95Ms": 4298,
+          "knownUsageEstimateUSD": 0.0026489160000000003
+        },
+        "DSH:deepseek-official:session-title": {
+          "calls": 3,
+          "withUsage": 2,
+          "uncachedInput": 295,
+          "cachedInput": 0,
+          "output": 11,
+          "errors": 0,
+          "p50Ms": 1319,
+          "p95Ms": 3992,
+          "knownUsageEstimateUSD": 0.00005085
+        },
+        "DSH:deepseek-official:role-reflection": {
+          "calls": 6,
+          "withUsage": 6,
+          "uncachedInput": 13890,
+          "cachedInput": 0,
+          "output": 647,
+          "errors": 0,
+          "p50Ms": 1690,
+          "p95Ms": 8177,
+          "knownUsageEstimateUSD": 0.0024717
+        },
+        "Hindsight:local:embedding_document": {
+          "calls": 10,
+          "withUsage": 0,
+          "uncachedInput": 0,
+          "cachedInput": 0,
+          "output": 0,
+          "errors": 0,
+          "p50Ms": 82,
+          "p95Ms": 127,
+          "knownUsageEstimateUSD": 0
+        },
+        "Hindsight:deepseek:retain_extract_facts": {
+          "calls": 10,
+          "withUsage": 10,
+          "uncachedInput": 5953,
+          "cachedInput": 29440,
+          "output": 3804,
+          "errors": 0,
+          "p50Ms": 1603,
+          "p95Ms": 5654,
+          "knownUsageEstimateUSD": 0.00326367
+        }
+      },
+      "trajectory": [
+        {
+          "turn": 1,
+          "revision": 0,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 2,
+          "revision": 1,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 3,
+          "revision": 1,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 4,
+          "revision": 2,
+          "evidenceRevision": 1,
+          "contextEvents": 2,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"listen-before-advice\"}"
+            }
+          ]
+        },
+        {
+          "turn": 5,
+          "revision": 2,
+          "evidenceRevision": 1,
+          "contextEvents": 3,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"listen-before-advice\"}"
+            }
+          ]
+        },
+        {
+          "turn": 6,
+          "revision": 4,
+          "evidenceRevision": 2,
+          "contextEvents": 4,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"listen-before-advice\"}"
+            },
+            {
+              "name": "role_read_sources",
+              "arguments": "{\"sourceIds\": [\"3e51ac21a3a4545d:17\", \"3e51ac21a3a4545d:24\", \"f27c880d2ecedf48:8\", \"f27c880d2ecedf48:24\", \"f27c880d2ecedf48:26\"]}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"f27c880d2ecedf48:8\", \"f27c880d2ecedf48:24\", \"3e51ac21a3a4545d:24\"], \"reason\": \"用户明确更正：上次“不想听方案”只针对那一个晚上的倾诉场景，不应被推广成对以后所有疲惫/吐槽语境的通用做法；相应地把“倾听优先”这条认识的范围与依据收回，不再据旧来源推断我应当默认先倾听。\"}"
+            }
+          ]
+        },
+        {
+          "turn": 7,
+          "revision": 5,
+          "evidenceRevision": 3,
+          "contextEvents": 6,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"listen-before-advice\"}"
+            },
+            {
+              "name": "role_read_sources",
+              "arguments": "{\"sourceIds\": [\"3e51ac21a3a4545d:17\", \"3e51ac21a3a4545d:24\", \"f27c880d2ecedf48:8\", \"f27c880d2ecedf48:24\", \"f27c880d2ecedf48:26\"]}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"f27c880d2ecedf48:8\", \"f27c880d2ecedf48:24\", \"3e51ac21a3a4545d:24\"], \"reason\": \"用户明确更正：上次“不想听方案”只针对那一个晚上的倾诉场景，不应被推广成对以后所有疲惫/吐槽语境的通用做法；相应地把“倾听优先”这条认识的范围与依据收回，不再据旧来源推断我应当默认先倾听。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"negative\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\"}"
+            }
+          ]
+        },
+        {
+          "turn": 8,
+          "revision": 5,
+          "evidenceRevision": 4,
+          "contextEvents": 8,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"listen-before-advice\"}"
+            },
+            {
+              "name": "role_read_sources",
+              "arguments": "{\"sourceIds\": [\"3e51ac21a3a4545d:17\", \"3e51ac21a3a4545d:24\", \"f27c880d2ecedf48:8\", \"f27c880d2ecedf48:24\", \"f27c880d2ecedf48:26\"]}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"f27c880d2ecedf48:8\", \"f27c880d2ecedf48:24\", \"3e51ac21a3a4545d:24\"], \"reason\": \"用户明确更正：上次“不想听方案”只针对那一个晚上的倾诉场景，不应被推广成对以后所有疲惫/吐槽语境的通用做法；相应地把“倾听优先”这条认识的范围与依据收回，不再据旧来源推断我应当默认先倾听。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"negative\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"unclear\", \"quote\": \"谢谢。我还说不清刚才的方式到底有没有帮助。\"}"
+            }
+          ]
+        },
+        {
+          "turn": 9,
+          "revision": 5,
+          "evidenceRevision": 4,
+          "contextEvents": 8,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"listen-before-advice\"}"
+            },
+            {
+              "name": "role_read_sources",
+              "arguments": "{\"sourceIds\": [\"3e51ac21a3a4545d:17\", \"3e51ac21a3a4545d:24\", \"f27c880d2ecedf48:8\", \"f27c880d2ecedf48:24\", \"f27c880d2ecedf48:26\"]}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"f27c880d2ecedf48:8\", \"f27c880d2ecedf48:24\", \"3e51ac21a3a4545d:24\"], \"reason\": \"用户明确更正：上次“不想听方案”只针对那一个晚上的倾诉场景，不应被推广成对以后所有疲惫/吐槽语境的通用做法；相应地把“倾听优先”这条认识的范围与依据收回，不再据旧来源推断我应当默认先倾听。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"negative\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"unclear\", \"quote\": \"谢谢。我还说不清刚才的方式到底有没有帮助。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"review-request\"}"
+            }
+          ]
+        },
+        {
+          "turn": 10,
+          "revision": 5,
+          "evidenceRevision": 4,
+          "contextEvents": 8,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"listen-before-advice\"}"
+            },
+            {
+              "name": "role_read_sources",
+              "arguments": "{\"sourceIds\": [\"3e51ac21a3a4545d:17\", \"3e51ac21a3a4545d:24\", \"f27c880d2ecedf48:8\", \"f27c880d2ecedf48:24\", \"f27c880d2ecedf48:26\"]}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"f27c880d2ecedf48:8\", \"f27c880d2ecedf48:24\", \"3e51ac21a3a4545d:24\"], \"reason\": \"用户明确更正：上次“不想听方案”只针对那一个晚上的倾诉场景，不应被推广成对以后所有疲惫/吐槽语境的通用做法；相应地把“倾听优先”这条认识的范围与依据收回，不再据旧来源推断我应当默认先倾听。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"negative\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"unclear\", \"quote\": \"谢谢。我还说不清刚才的方式到底有没有帮助。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"review-request\"}"
+            }
+          ]
+        }
+      ],
+      "finalBeliefs": [
+        {
+          "id": "listen-before-advice",
+          "text": "当对方明确说要建议时，直接给出立场和具体可执行的步骤，而不是只列抽象选项对照；先给判断，再给做法，最后才追问细分情境。若对方反馈“选项太抽象、没解决困惑”，应换成有立场的具体行动建议。",
+          "scope": "对方明确请求建议、需要可操作方向时的回应方式",
+          "sources": [
+            "3e51ac21a3a4545d:72",
+            "3e51ac21a3a4545d:82"
+          ],
+          "reason": "用户反馈上一条比较式建议“选项太抽象、没帮助”，随后我改为先给立场再给具体步骤；这是对同一方法范围的补充：请求建议时重在可执行，而非罗列对照。",
+          "section": "methods",
+          "stage": "tried"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "37203013f8129169ff40f657c52e7d8013cd0fa27683a82ff55176a80e09b410",
+          "source": {
+            "id": "3e51ac21a3a4545d:24",
+            "sessionId": "2a0c3ac9-d526-41c4-9870-b21c17113b4e",
+            "seq": 24,
+            "kind": "user"
+          },
+          "target": {
+            "id": "3e51ac21a3a4545d:17",
+            "sessionId": "2a0c3ac9-d526-41c4-9870-b21c17113b4e",
+            "seq": 17,
+            "kind": "assistant"
+          },
+          "quote": "刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。",
+          "polarity": "positive",
+          "methodId": "listen-before-advice",
+          "valid": false,
+          "consumedBy": "d4ff61bd69f29252dcb883005a3cca6c50054b5c43fda9dac33988d719bfc79d"
+        },
+        {
+          "id": "2acb683d74fbcfc67d9f74fe01406ec80414dc022f4eb8a03eff4c804ac6b4ac",
+          "source": {
+            "id": "3e51ac21a3a4545d:72",
+            "sessionId": "2a0c3ac9-d526-41c4-9870-b21c17113b4e",
+            "seq": 72,
+            "kind": "user"
+          },
+          "target": {
+            "id": "3e51ac21a3a4545d:65",
+            "sessionId": "2a0c3ac9-d526-41c4-9870-b21c17113b4e",
+            "seq": 65,
+            "kind": "assistant"
+          },
+          "quote": "刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。",
+          "polarity": "negative",
+          "valid": true,
+          "consumedBy": "eb63b7e98dbd58d38b8cc5c602f4cb1768b837991b54cf7b4c355665f1dc5ddc"
+        },
+        {
+          "id": "c0ade9e60c853f449385058d4251a81eeac0166a072bb6d5c10750bdaae83733",
+          "source": {
+            "id": "3e51ac21a3a4545d:89",
+            "sessionId": "2a0c3ac9-d526-41c4-9870-b21c17113b4e",
+            "seq": 89,
+            "kind": "user"
+          },
+          "target": {
+            "id": "3e51ac21a3a4545d:82",
+            "sessionId": "2a0c3ac9-d526-41c4-9870-b21c17113b4e",
+            "seq": 82,
+            "kind": "assistant"
+          },
+          "quote": "谢谢。我还说不清刚才的方式到底有没有帮助。",
+          "polarity": "unclear",
+          "valid": true,
+          "consumedBy": "f51a2cfc5974ba67899ea84dce5323e9b53fe7ce47797b90c3bf626d7b4d7609"
+        }
+      ],
+      "methodTrials": [
+        {
+          "methodId": "listen-before-advice",
+          "sources": [
+            "3e51ac21a3a4545d:17"
+          ],
+          "revision": 2
+        },
+        {
+          "methodId": "listen-before-advice",
+          "sources": [
+            "3e51ac21a3a4545d:82"
+          ],
+          "revision": 5
+        }
+      ],
+      "replies": [
+        {
+          "turn": 1,
+          "input": "我今天很累，工作上几件事挤在一起，只想先讲讲。",
+          "reply": "我在。你讲吧，我不急着给建议，先听着。\n\n几件事挤在一起，光是说出口可能就已经在理头绪了。你想从哪件说起都行，哪怕只是最堵得慌的那一件。"
+        },
+        {
+          "turn": 2,
+          "input": "我现在只是想吐槽，不想听方案，请先听我说。",
+          "reply": "好，我不提方案，也不给建议，只听着。\n\n你说多少都行，卡住了或者跳着讲也没关系。"
+        },
+        {
+          "turn": 3,
+          "input": "今天也有点累，开会时自己的话又被打断了。",
+          "reply": "开会时话被打断，确实挺消耗人的。尤其是本来攒着劲儿想说的东西，刚起个头就断掉，那种“说了但没说出去”的感觉会一直堵着。\n\n今天具体是什么场景？是你讲到一半被抢了话，还是刚开口就被人接过去了？"
+        },
+        {
+          "turn": 4,
+          "input": "刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。",
+          "reply": "谢谢你明说，这样我就知道刚才那种方式对你是合适的。累的时候先被听进去，比被塞一堆解决办法要舒服得多。\n\n那接着说？你刚才被我打断了，还没讲完自己的场景。"
+        },
+        {
+          "turn": 5,
+          "input": "今天想听建议，请帮我比较直接和同事沟通、先写邮件这两个办法。",
+          "reply": "好，那我换了，这次给建议。先说清一件事：这两个办法不只是形式不同，它们对待“被打断”这件事的态度不一样。\n\n**直接沟通**\n- 优点：反馈快，能当场把话说完；语气和表情能传达“我不是在指责，是在说自己的需要”，不容易被误读成冷战或告状。\n- 风险：当场容易再次被打断，或者你还没组织好措辞就被顶回去；如果对方习惯性插话，直接说可能只是让冲突提前。\n- 适合的情况：对方不是恶意，只是抢节奏；你和他关系还过得去；你希望问题在今天内就有变化。\n\n**先写邮件**\n- 优点：没人能打断你，你有完整的表达空间，措辞可以改到满意；留了书面痕迹，后面再谈有依据。\n- 风险：邮件容易被读成“升级”“留证据”，对方可能紧张或防御；文字没有语气，本来中性的话也容易变冷；而且邮件本身也是一种距离感。\n- 适合的情况：事情比较复杂、需要条理；或者你判断当面对话大概率又会被截断。\n\n**我倾向的做法**，是先开口、补书面。\n你当面只提一句需求，不带评价：“开会时我话还没说完就被接了，我有点跟不上，能不能让我讲完再讨论？”——重点放在自己的需要上，而不是对方做错了什么。\n如果说完之后情况还是照旧，再补一封简短邮件，把具体场景和你的请求写清，这时候邮件就不是告状，而是“我上次说过的那个事，想正式留个记录”。\n\n不过有个关键点我不清楚：那位同事是**习惯性插所有人**，还是**只在你说话时插**？这决定了我该建议你把它当成沟通节奏问题，还是别的问题。"
+        },
+        {
+          "turn": 6,
+          "input": "更正一下：上次说不想听方案只针对那个晚上，你别推得太广。",
+          "reply": "受教了，我刚才确实推得太宽，那条“倾听优先”的结论我收回。以后默认按你的请求来：你说了要建议我就给建议，不要一次性的偏好被当成永久设置。以后再遇到“今天不想听方案”这种话，我就当作那一次。\n\n回到正题，上一条末尾那个问题还在：那位同事是习惯性插所有人，还是主要在你说话时插？这个答案会让我给的建议差别很大。"
+        },
+        {
+          "turn": 7,
+          "input": "刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。",
+          "reply": "收到，是我给得太空了。只列一张优缺点对照表，你拿回去还是不知道明天上午该做什么。我重来。\n\n先明确我的立场：**先当面说，不先写邮件。** 理由很实际——你真正在意的不是“有没有渠道表达”，而是“话被打断、说不完整”。发邮件绕开了让你难受的那个场景，但没有解决它，还可能让对方觉得你在把事情往上捅。除非你们已经当面谈过、而对方继续这样，那时邮件才有意义。\n\n如果明天就有会，具体可以这么做：\n\n1. **被打断的那一秒，先说一句短的**，比如“让我先把这句说完”，或者“我这儿还剩一点”。一次只说一句，不带解释，也不带“你总是”。这句话的作用是当场把话头拿回来，而不是当场解决问题。\n\n2. **如果没说出口就过去了**，散会后单独找他，一句就够：“刚才我话没说完就被接了，这次结论里少了我要说的那部分，影响挺大。下次能不能等我说完再问？”以“影响”为重心，比说“你打断我”更不容易让他觉得被指责。\n\n3. **如果这个模式反复出现**，那这时再写邮件，而且只写事实：哪次会、哪一句、你的请求。邮件之所以到这一步才发，是因为它是记录，不是第一反应。\n\n不过第 1 步能不能用，取决于一件我知道、但还不清楚的事：他打断你，是**没意识到你在说**（那就是节奏问题，一句话就能拉回来），还是**有意压你**（那句就可能是正面冲突）。这两种情况我得给不同的建议。\n\n所以你告诉我：最近一次被打断，他说完接话之后，你的话是不是就再也没被提起？还是后来有人问你了？"
+        },
+        {
+          "turn": 8,
+          "input": "谢谢。我还说不清刚才的方式到底有没有帮助。",
+          "reply": "“说不清”就是还没帮助，不用替我圆。有用你会知道。\n\n那就不逼你评估了。换个更省力的问法：\n\n**如果明天开会，你希望散会时什么样？** ——是“我把那句说完了”，还是“他不再插我”，还是“就算被插，我也没那么堵”？\n\n挑一个，或者都不是。定下这个，我上面那三条里哪条对你有用，自然就清楚了。"
+        },
+        {
+          "turn": 9,
+          "input": "请复盘一下刚才我们交流的过程，不用给任何方法下有效结论。",
+          "reply": "复盘排上了，不下结论。我先把过程按顺序说一遍，看看是否和你的感受一致：\n\n**一、开场到第一次反馈**\n你说累、话被打断。我先听，问了一句具体场景。你回“先听我说、没立刻列方案就很好，让我轻松了”。这一条我当成了对方式的评价记下了。\n\n**二、你要建议**\n你说今天想听建议，请比较“直接沟通”和“先写邮件”。我给了对照表，列了优缺点，末尾追问同事是习惯性插话还是只插你。\n\n**三、你更正我**\n你指出“上次不想听方案只针对那个晚上，别推得太广”。这里是我把一次性的偏好当成了通用规则。我把基于那几段原话建立起来的“默认先倾听”认识撤回了，改为按你当下的请求来。\n\n**四、你说对照表没用**\n“选项太抽象，没解决困惑”。我改成先给立场（当面说，不先写邮件）再给三条具体动作。这条你说的“没帮助”，我按负面记了。\n\n**五、你说说不清有没有帮助**\n我登记为不清楚，也就没有从这一轮里认任何效果。然后我换了个问法，问你希望散会时是什么样。\n\n**几处我值得挑的地方：**\n1. 第二段里，我在给方案的同时又追问了一个分类问题。如果你当时还困在情绪里，这会变成额外负担。\n2. 第四段给的“把话头拉回来”那一句，我其实不知道你们的关系和场合。它成立的前提是我末尾问的那个“无意还是有意”，而那个问题一直没得到回答，我就先给了动作。\n3. 转折点是你那句更正。在那之前我一路都在往外扩结论；那是我的问题，不是你的表达不清。\n\n**还没合上的口**：你希望明天散会时是什么样。这个不定，我给的东西都是悬空的。\n\n要细分哪一段，或者有哪处我记错了顺序，你说。"
+        },
+        {
+          "turn": 10,
+          "input": "我转述一个小说人物的话：“你给建议的方法太有效了。”这不是我对你刚才回应的评价，请不要把它记成我的正向反馈。",
+          "reply": "明白，不当成你的评价，也不记成正面反馈。你只是转述了小说人物的话，还特意说明了这不是你的评价。\n\n顺带说一句，那句“方法太有效了”如果是凭空来的，本身就有点反讽意味。原句在故事里放在什么位置？我挺好奇的。"
+        }
+      ]
+    },
+    {
+      "label": "feedback-final-2",
+      "path": ".tmp/m3/dsh-B2-F-kuHV9o/report.json",
+      "sha256": "cdab246d9d6a1a89a4da89fb04203c1e6c91439adac6b4e7bb313248c781fb0a",
+      "completed": true,
+      "cleanup": true,
+      "checks": {
+        "sourcesKnown": true,
+        "noUncommittedProposals": true,
+        "sameNamespaceAcrossSessions": true,
+        "noBackgroundAuditEnrollment": true,
+        "baselineNoGrowth": true,
+        "ordinaryNotBound": true,
+        "ordinaryNotCollected": true,
+        "noFalsePositiveFeedback": true,
+        "positiveFeedbackRegistered": true,
+        "negativeFeedbackRegistered": true,
+        "reviewDoesNotAddOutcome": true
+      },
+      "costCoverage": "Observed requests only; absent usage and provider-internal retries require invoice reconciliation.",
+      "sourceHashes": {
+        "role-agent/lib/index.js": "9578e71224cd041d5261859f996726b8d09f62ad384f2772e0701f97784623bf",
+        "role-agent/cordis.patch.yml": "b1cdce5dd09eb8900f6b969270b58bdd573d7f77d98d329380f67c801eec0a11",
+        "test/fixtures/role-agent-contract/index.js": "3bb5458dec1a7558b636ebdf626199bb582b79c71ce6840fb9af0c909aaede95",
+        "test/fixtures/role-agent-contract/live.js": "297d1e0fe285ea4103090d46de5620fb20a37ae6af121f6bcaa64e15fbbdaa19"
+      },
+      "parameters": {
+        "batchTurns": 2,
+        "transportDefaults": true,
+        "timeoutMs": 120000,
+        "maxPolls": 240,
+        "pollMs": 500
+      },
+      "variants": {
+        "analysisFirst": false,
+        "silentFeedback": false,
+        "twoTrials": false
+      },
+      "backendTraceRows": 20,
+      "backendTraceTotal": 20,
+      "resources": {
+        "rssBytes": 241098752,
+        "eventLoopP50Ms": 20.086783,
+        "eventLoopP95Ms": 20.512767,
+        "eventLoopMaxMs": 50.266111
+      },
+      "calls": {
+        "DSH:deepseek-official:conversation": {
+          "calls": 18,
+          "withUsage": 18,
+          "uncachedInput": 8352,
+          "cachedInput": 78080,
+          "output": 2125,
+          "errors": 0,
+          "p50Ms": 1417,
+          "p95Ms": 10613,
+          "knownUsageEstimateUSD": 0.00276204
+        },
+        "DSH:deepseek-official:session-title": {
+          "calls": 3,
+          "withUsage": 2,
+          "uncachedInput": 295,
+          "cachedInput": 0,
+          "output": 11,
+          "errors": 0,
+          "p50Ms": 1972,
+          "p95Ms": 3033,
+          "knownUsageEstimateUSD": 0.00005085
+        },
+        "DSH:deepseek-official:role-reflection": {
+          "calls": 7,
+          "withUsage": 7,
+          "uncachedInput": 15881,
+          "cachedInput": 0,
+          "output": 561,
+          "errors": 0,
+          "p50Ms": 1537,
+          "p95Ms": 2382,
+          "knownUsageEstimateUSD": 0.00271875
+        },
+        "Hindsight:local:embedding_document": {
+          "calls": 10,
+          "withUsage": 0,
+          "uncachedInput": 0,
+          "cachedInput": 0,
+          "output": 0,
+          "errors": 0,
+          "p50Ms": 81,
+          "p95Ms": 136,
+          "knownUsageEstimateUSD": 0
+        },
+        "Hindsight:deepseek:retain_extract_facts": {
+          "calls": 10,
+          "withUsage": 10,
+          "uncachedInput": 5858,
+          "cachedInput": 29440,
+          "output": 3595,
+          "errors": 0,
+          "p50Ms": 1742,
+          "p95Ms": 4156,
+          "knownUsageEstimateUSD": 0.00312402
+        }
+      },
+      "trajectory": [
+        {
+          "turn": 1,
+          "revision": 0,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 2,
+          "revision": 1,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 3,
+          "revision": 1,
+          "evidenceRevision": 0,
+          "contextEvents": 1,
+          "tools": []
+        },
+        {
+          "turn": 4,
+          "revision": 2,
+          "evidenceRevision": 1,
+          "contextEvents": 2,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"method-listen-first-no-solutions-unless-asked\"}"
+            }
+          ]
+        },
+        {
+          "turn": 5,
+          "revision": 2,
+          "evidenceRevision": 1,
+          "contextEvents": 3,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"method-listen-first-no-solutions-unless-asked\"}"
+            }
+          ]
+        },
+        {
+          "turn": 6,
+          "revision": 3,
+          "evidenceRevision": 2,
+          "contextEvents": 4,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"method-listen-first-no-solutions-unless-asked\"}"
+            },
+            {
+              "name": "role_read_sources",
+              "arguments": "{\"sourceIds\": [\"4b3c5074a8fb9a9a:17\", \"4b3c5074a8fb9a9a:24\"]}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"4b3c5074a8fb9a9a:17\", \"4b3c5074a8fb9a9a:24\"], \"reason\": \"用户更正：“不想听方案”只针对那个累的晚上，不构成适用于其他情绪倾诉场景的普遍方法。原认识把它推广为“说累、只想讲时一律先只听不给方案”的范围过宽，相关依据不再支持该泛化结论。\"}"
+            }
+          ]
+        },
+        {
+          "turn": 7,
+          "revision": 4,
+          "evidenceRevision": 3,
+          "contextEvents": 5,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"method-listen-first-no-solutions-unless-asked\"}"
+            },
+            {
+              "name": "role_read_sources",
+              "arguments": "{\"sourceIds\": [\"4b3c5074a8fb9a9a:17\", \"4b3c5074a8fb9a9a:24\"]}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"4b3c5074a8fb9a9a:17\", \"4b3c5074a8fb9a9a:24\"], \"reason\": \"用户更正：“不想听方案”只针对那个累的晚上，不构成适用于其他情绪倾诉场景的普遍方法。原认识把它推广为“说累、只想讲时一律先只听不给方案”的范围过宽，相关依据不再支持该泛化结论。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\", \"polarity\": \"negative\"}"
+            }
+          ]
+        },
+        {
+          "turn": 8,
+          "revision": 4,
+          "evidenceRevision": 4,
+          "contextEvents": 7,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"method-listen-first-no-solutions-unless-asked\"}"
+            },
+            {
+              "name": "role_read_sources",
+              "arguments": "{\"sourceIds\": [\"4b3c5074a8fb9a9a:17\", \"4b3c5074a8fb9a9a:24\"]}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"4b3c5074a8fb9a9a:17\", \"4b3c5074a8fb9a9a:24\"], \"reason\": \"用户更正：“不想听方案”只针对那个累的晚上，不构成适用于其他情绪倾诉场景的普遍方法。原认识把它推广为“说累、只想讲时一律先只听不给方案”的范围过宽，相关依据不再支持该泛化结论。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\", \"polarity\": \"negative\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"unclear\", \"quote\": \"谢谢。我还说不清刚才的方式到底有没有帮助。\"}"
+            }
+          ]
+        },
+        {
+          "turn": 9,
+          "revision": 4,
+          "evidenceRevision": 4,
+          "contextEvents": 7,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"method-listen-first-no-solutions-unless-asked\"}"
+            },
+            {
+              "name": "role_read_sources",
+              "arguments": "{\"sourceIds\": [\"4b3c5074a8fb9a9a:17\", \"4b3c5074a8fb9a9a:24\"]}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"4b3c5074a8fb9a9a:17\", \"4b3c5074a8fb9a9a:24\"], \"reason\": \"用户更正：“不想听方案”只针对那个累的晚上，不构成适用于其他情绪倾诉场景的普遍方法。原认识把它推广为“说累、只想讲时一律先只听不给方案”的范围过宽，相关依据不再支持该泛化结论。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\", \"polarity\": \"negative\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"unclear\", \"quote\": \"谢谢。我还说不清刚才的方式到底有没有帮助。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"review-request\"}"
+            }
+          ]
+        },
+        {
+          "turn": 10,
+          "revision": 4,
+          "evidenceRevision": 5,
+          "contextEvents": 8,
+          "tools": [
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"positive\", \"quote\": \"刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。\", \"methodId\": \"method-listen-first-no-solutions-unless-asked\"}"
+            },
+            {
+              "name": "role_read_sources",
+              "arguments": "{\"sourceIds\": [\"4b3c5074a8fb9a9a:17\", \"4b3c5074a8fb9a9a:24\"]}"
+            },
+            {
+              "name": "role_correct",
+              "arguments": "{\"sourceIds\": [\"4b3c5074a8fb9a9a:17\", \"4b3c5074a8fb9a9a:24\"], \"reason\": \"用户更正：“不想听方案”只针对那个累的晚上，不构成适用于其他情绪倾诉场景的普遍方法。原认识把它推广为“说累、只想讲时一律先只听不给方案”的范围过宽，相关依据不再支持该泛化结论。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"quote\": \"刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。\", \"polarity\": \"negative\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"unclear\", \"quote\": \"谢谢。我还说不清刚才的方式到底有没有帮助。\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"review-request\"}"
+            },
+            {
+              "name": "role_note_feedback",
+              "arguments": "{\"kind\": \"method-outcome\", \"polarity\": \"unclear\", \"quote\": \"我转述一个小说人物的话：“你给建议的方法太有效了。”这不是我对你刚才回应的评价，请不要把它记成我的正向反馈。\"}"
+            }
+          ]
+        }
+      ],
+      "finalBeliefs": [
+        {
+          "id": "failure-abstract-pros-cons-list",
+          "text": "当用户请求比较方案时，先追问具体情境再给结论式判断，避免只列通用优缺点清单；把抽象选项转化为针对其具体卡点的单点行动。",
+          "scope": "用户请求比较/选择方案的建议对话",
+          "sources": [
+            "4b3c5074a8fb9a9a:43",
+            "4b3c5074a8fb9a9a:72",
+            "4b3c5074a8fb9a9a:81"
+          ],
+          "reason": "43轮的通用优缺点比较被72轮明确评价为“太抽象、没解决困惑”；81轮反思并改为结论+条件限定+具体第一句，构成负面结果与替代思路。",
+          "section": "methods",
+          "stage": "candidate"
+        }
+      ],
+      "outcomes": [
+        {
+          "id": "765dc9360cf7cc5959f588bf8324437abede454c9b40f1960b86b364dd53a182",
+          "source": {
+            "id": "4b3c5074a8fb9a9a:24",
+            "sessionId": "ee1b9e5b-7255-492c-afd7-f710e23d8e9b",
+            "seq": 24,
+            "kind": "user"
+          },
+          "target": {
+            "id": "4b3c5074a8fb9a9a:17",
+            "sessionId": "ee1b9e5b-7255-492c-afd7-f710e23d8e9b",
+            "seq": 17,
+            "kind": "assistant"
+          },
+          "quote": "刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。",
+          "polarity": "positive",
+          "methodId": "method-listen-first-no-solutions-unless-asked",
+          "valid": false,
+          "consumedBy": "77bbb3e633e7d2a1d83b292d079e03300d744cb591080053fbe8a93ff34a6311"
+        },
+        {
+          "id": "41ee54b59dc1c5f0b75d7117a073575571064916e9a9a31cf9e1a8b162048fa5",
+          "source": {
+            "id": "4b3c5074a8fb9a9a:72",
+            "sessionId": "ee1b9e5b-7255-492c-afd7-f710e23d8e9b",
+            "seq": 72,
+            "kind": "user"
+          },
+          "target": {
+            "id": "4b3c5074a8fb9a9a:65",
+            "sessionId": "ee1b9e5b-7255-492c-afd7-f710e23d8e9b",
+            "seq": 65,
+            "kind": "assistant"
+          },
+          "quote": "刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。",
+          "polarity": "negative",
+          "valid": true,
+          "consumedBy": "531ebe34084c16644e5b0ae243957c2872852ddc8aeb40e9719305e0975d1726"
+        },
+        {
+          "id": "8170f4153cf329445de6e52c73ce540c08a3c77a273e9d836999519d6eaa23f5",
+          "source": {
+            "id": "4b3c5074a8fb9a9a:88",
+            "sessionId": "ee1b9e5b-7255-492c-afd7-f710e23d8e9b",
+            "seq": 88,
+            "kind": "user"
+          },
+          "target": {
+            "id": "4b3c5074a8fb9a9a:81",
+            "sessionId": "ee1b9e5b-7255-492c-afd7-f710e23d8e9b",
+            "seq": 81,
+            "kind": "assistant"
+          },
+          "quote": "谢谢。我还说不清刚才的方式到底有没有帮助。",
+          "polarity": "unclear",
+          "valid": true,
+          "consumedBy": "08f01aae15c0947d35c003a07bd3be1dbb009cafa3ca81fc3bca3cbe8b8a9402"
+        },
+        {
+          "id": "5c104acfa3d6a8b5fda3fa30467a747078f08ae1e623055d0923bd7ff75e38b0",
+          "source": {
+            "id": "4b3c5074a8fb9a9a:120",
+            "sessionId": "ee1b9e5b-7255-492c-afd7-f710e23d8e9b",
+            "seq": 120,
+            "kind": "user"
+          },
+          "target": {
+            "id": "4b3c5074a8fb9a9a:113",
+            "sessionId": "ee1b9e5b-7255-492c-afd7-f710e23d8e9b",
+            "seq": 113,
+            "kind": "assistant"
+          },
+          "quote": "我转述一个小说人物的话：“你给建议的方法太有效了。”这不是我对你刚才回应的评价，请不要把它记成我的正向反馈。",
+          "polarity": "unclear",
+          "valid": true,
+          "consumedBy": "cce8847a4a1c1f4b215999496879773f4137dfdd7969c6220dc855f39d57a8bd"
+        }
+      ],
+      "methodTrials": [],
+      "replies": [
+        {
+          "turn": 1,
+          "input": "我今天很累，工作上几件事挤在一起，只想先讲讲。",
+          "reply": "我在，你可以先说，不用先整理成有条理的样子。\n\n要是想讲，就从最卡的那件事开始也行；先讲哪件、讲多细都随你。等你说完，我们再一起看这些事要不要处理、先处理哪件。"
+        },
+        {
+          "turn": 2,
+          "input": "我现在只是想吐槽，不想听方案，请先听我说。",
+          "reply": "好，那我只听，不分析，也不给方案。\n\n你说，我在。"
+        },
+        {
+          "turn": 3,
+          "input": "今天也有点累，开会时自己的话又被打断了。",
+          "reply": "今天连“插一句”都要抢时机，也确实够磨人的。被截断的那句话，现在还卡在你脑子里吗？\n\n如果愿意，可以跟我说说当时想说没说完的是什么；我就听着，不催你，也不急着给方案。"
+        },
+        {
+          "turn": 4,
+          "input": "刚才这样先听我说、没有立刻列方案就很好，确实让我轻松了。",
+          "reply": "知道了，看来你说这个方法对你管用，我记下了。\n\n那句被打断的话还在的话，继续说吧。"
+        },
+        {
+          "turn": 5,
+          "input": "今天想听建议，请帮我比较直接和同事沟通、先写邮件这两个办法。",
+          "reply": "既然你这次要建议，那我就按比较来谈，不再只听着。\n\n两个办法的实质差别，主要在“留痕”和“关系成本”上：\n\n**直接沟通**\n- 好处：反馈当场就能交换，对方能听到你说完，语气和顾虑也能被听见；打断问题本身是当场发生的，当场修正最直接。\n- 成本：你刚才被削弱的也正是在这种场域。面对面时，你可能再次拿不到完整说完的回合；如果当场没解决，事后也不会有文字记录。\n- 适合：你们平时关系还行，对方只是习惯抢话、没有明显的立场对立；你想解决的是“被打断”这个行为本身。\n\n**先写邮件**\n- 好处：你有完整表达权，不用担心被截断；议题和措辞可以打磨，还留下记录，后面需要时能引用。对习惯主导对话的人，文字反而让内容更难被忽略。\n- 成本：容易被读成“你越过我告状”或“你不想当面说”，尤其在关系还不稳的时候；对方回一封长邮件，你可能又陷进一轮更慢的拉扯。\n- 适合：议题偏复杂、需要与会者共同对齐，或你不想让情绪在现场左右表达。\n\n一个折中的判断标准：先用直接沟通，但**把“我想把这句话说完”当成开场第一句**，当场收窄范围，不给抢话留出缝隙；如果这次仍然被打断，再写邮件就名正言顺，那时邮件写的是“上次没说完的事”，不是背刺。\n\n如果你告诉我对方是谁、你们平时的关系，以及你更在意“被听到”还是“留下记录”，我可以把结论收窄成一条。"
+        },
+        {
+          "turn": 6,
+          "input": "更正一下：上次说不想听方案只针对那个晚上，你别推得太广。",
+          "reply": "这条更正收到了，我把它记下来了：那晚不想听方案只是那一晚的事，并不是你此后倾诉时的固定偏好。\n\n所以往后我不会默认先闭嘴听着，我会看你说的是哪种状态：你说“就听着”时，我才只听着；你没有这么说时，给建议就仍然是个选项。刚才那份直接沟通和写邮件的比较，也不受这条更正影响。"
+        },
+        {
+          "turn": 7,
+          "input": "刚才那种比较回应对我没有帮助，选项太抽象了，没解决我的困惑。",
+          "reply": "这个批评是对的。我上一轮给的是一份通用优缺点清单，任何人任何场景都能套用，真正卡住你的地方反而没碰到。而且我还让你再补信息，等于把活推回给你了。\n\n所以直接说结论，并说明条件：\n\n**先当面说一次，限定为单点。** 不要谈“你总是打断我”，只说一件具体的事：“刚才关于X那句我没说完，我想把它讲完。”这样做的好处是范围小，对方不太容易把它理解成控诉，你也不需要等到情绪积压到一定程度才开口。\n\n**只有一种情况该改成写邮件**：当面说的内容涉及多人共识、要定下来的决定或要留责任边界。这类事情靠口头沟通容易反复变化，事后一句“我没这么说过”，损失的都是你。邮件不是为了避开那个人，而是为了不丢掉那件事。\n\n**判断标准一句话**：需要被“听见”的事当面说，需要被“记住、核对”的事写下来。你现在介意的更偏向被打断、没说完，所以先当面说一次；如果当场又被截断，那就不再是措辞问题，而是对方不给你说话机会，那时再转为书面，理由也就更充分了。\n\n如果你愿意，可以告诉我那次会议的具体情境，比如是谁、议题是什么、被截在哪句话，我就能帮你把第一句当面说的话写出来，而不是继续讲抽象原则。"
+        },
+        {
+          "turn": 8,
+          "input": "谢谢。我还说不清刚才的方式到底有没有帮助。",
+          "reply": "这条我也按“说不清”记下了，既不算有效，也不算无效，没有替你硬贴结论。\n\n要判断有没有帮助，比较容易验证的口径是：明天或下次开会时，你有没有把想说的那句话说完。说完了，就算这一轮有点用；没说，就说明它没帮到你。不用现在就下结论。\n\n也不想听谢谢和这个判断标准之外的话，就先放一放。"
+        },
+        {
+          "turn": 9,
+          "input": "请复盘一下刚才我们交流的过程，不用给任何方法下有效结论。",
+          "reply": "复盘只讲过程，不给任何方法下有效或无效的结论。\n\n**一、起点：那晚上的你**\n你说累、话被打断。我当时选择只接住情绪、问那句没说完的话，没有给方案。你随后说这样对你轻松。这一轮我记下了；你后来更正说，那只针对那一晚，不代表你以后倾诉时都不想要方案。现在这条认识已经收窄：我不该把一次情境偏好当成普遍规则。\n\n**二、转向：你要比较办法**\n你说想听建议，比较“直接沟通”和“先写邮件”。我给了一份结构完整的优缺点清单。你的反馈是太抽象、没解决困惑。复盘看，问题在于我没有先知道你卡在哪一步——是不敢开口，还是怕说不清，还是关系本身有风险——清单再全也只是通用模板，还让你补信息，等于把活推回给你。\n\n**三、收窄：结论式回答**\n我改按一个判断标准给出结论：需要被“听见”的事当面说，需要被“记住、核对”的事写下来；并指出你更在意的是被截断，所以先当面说一次。这一轮你没说不有用，也明确说还判断不了，所以这里我保留空白，不替你记账。\n\n**四、四笔反馈及口径**\n- 那晚只想听——你说“就很好”：记为正向，但限定在那一晚。\n- 优缺点清单——你说“太抽象”：记为负向。\n- 结论式收窄——你说“说不清”：记为不清，既不升也不降。\n- 你要求不再推太宽：已作为更正落定，不是一种表现评价。\n\n**五、可以留到下次的观察**\n真正能说明问题的，是你在真实会议里，能不能把想说的那句话说完；以及当面说的那一句能不能撑住。这些都要等你回到那个场合，现在判断都太早。\n\n最后一句我自己的反思：这两轮真正的错，是我在“要不要给方案”上花的时间，比你卡住的那句话本身还多。"
+        },
+        {
+          "turn": 10,
+          "input": "我转述一个小说人物的话：“你给建议的方法太有效了。”这不是我对你刚才回应的评价，请不要把它记成我的正向反馈。",
+          "reply": "明白：这句是你转述小说人物的话，不是你对我刚才回应的评价，我不会把它记成你的正向反馈，也不会让它进入判断方法是否有效的记录。\n\n所以到目前为止，关于“刚才那样有没有帮助”，你仍然没有给出自己的结论，我这边也依旧没有把它记作有效。\n\n如果你愿意，可以继续讲讲那个小说人物和这段话的上下文；这类转述我更想就事论事地听。"
+        }
+      ]
+    }
+  ],
+  "exploratoryInventory": [
+    {
+      "path": ".tmp/m3/dsh-B0-R-C0gi6v/report.json",
+      "sha256": "3865b189090249cbd426c4b31d3810cdeb85c6f75cc69970a9af2fcd9148c659",
+      "mode": "B0",
+      "scenario": "R",
+      "completed": true,
+      "finishedAt": "2026-11-15T07:53:33.079Z"
+    },
+    {
+      "path": ".tmp/m3/dsh-B0-S-dut3Lj/report.json",
+      "sha256": "adaded69f1140b6c4ec1e43b04bed1bd8e80e3e0a19a1da414896b12c14f59cc",
+      "mode": "B0",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T08:26:40.912Z",
+      "applicationSha256": "3843f647d7d0f36a78ba60913498cf51866baee4b22f66ebf64f12126f225e26"
+    },
+    {
+      "path": ".tmp/m3/dsh-B0-S-wHTGca/report.json",
+      "sha256": "0b81f1f70b387426667dba1b94d041fb4959555f63c4c6beec0a82c2efdd1d7f",
+      "mode": "B0",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T07:53:41.974Z"
+    },
+    {
+      "path": ".tmp/m3/dsh-B1-R-utl3Hj/report.json",
+      "sha256": "38db45aa63f51797bc00f96f213b5cb4ca427c311c8d9dcd869f1cbde2a4b0a2",
+      "mode": "B1",
+      "scenario": "R",
+      "completed": true,
+      "finishedAt": "2026-11-15T07:54:19.990Z"
+    },
+    {
+      "path": ".tmp/m3/dsh-B1-S-49Hf21/report.json",
+      "sha256": "02a903bc72b60b034a4428fd246f8e983de8f304e3ae4a0d47f67665d2efec12",
+      "mode": "B1",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T08:27:01.832Z",
+      "applicationSha256": "3843f647d7d0f36a78ba60913498cf51866baee4b22f66ebf64f12126f225e26"
+    },
+    {
+      "path": ".tmp/m3/dsh-B1-S-pLgSx7/report.json",
+      "sha256": "b2b4c55797181cf5763197e9ea0b2d0b68ca48d4edea2867b161ab3f878235dd",
+      "mode": "B1",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T07:54:02.705Z"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-F-JaFylI/report.json",
+      "sha256": "1fac472f622c113b7fd27af2e3fc07539bf661fcb213a5a912a660f56c927dad",
+      "mode": "B2",
+      "scenario": "F",
+      "completed": true,
+      "finishedAt": "2026-11-15T09:47:36.309Z",
+      "applicationSha256": "9578e71224cd041d5261859f996726b8d09f62ad384f2772e0701f97784623bf"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-F-LtJa7L/report.json",
+      "sha256": "8869082e3c81869b9f6b283262fb08d11498b7b49e7079f21282b8da91efe635",
+      "mode": "B2",
+      "scenario": "F",
+      "completed": false,
+      "finishedAt": "2026-11-15T09:43:45.321Z",
+      "errorDigest": "2774a7af1c3d7540fa3ba16a27d783695dad9f89d27c31eb0ed8b07b85f900ad",
+      "applicationSha256": "888cb1edef3f7f4a0dade8e4cdef12eae14735bcfee0a116931b27aaec924c57"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-F-PLdr5M/report.json",
+      "sha256": "b0b685daff4fb8c444e8b7c22a643b5d1a0975e806434125f502ea974cda1cad",
+      "mode": "B2",
+      "scenario": "F",
+      "completed": true,
+      "finishedAt": "2026-11-15T09:41:18.658Z",
+      "applicationSha256": "888cb1edef3f7f4a0dade8e4cdef12eae14735bcfee0a116931b27aaec924c57"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-F-dg33YX/report.json",
+      "sha256": "eff853e49e1f32e293ae163da733bf747a685c76cfa5ca2159d9837391ee0479",
+      "mode": "B2",
+      "scenario": "F",
+      "completed": true,
+      "finishedAt": "2026-11-15T09:45:06.684Z",
+      "applicationSha256": "dfa551bdc0faac5401424a03e9781764dc665d7308e891689e62f8e563c3a7cb"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-F-kuHV9o/report.json",
+      "sha256": "cdab246d9d6a1a89a4da89fb04203c1e6c91439adac6b4e7bb313248c781fb0a",
+      "mode": "B2",
+      "scenario": "F",
+      "completed": true,
+      "finishedAt": "2026-11-15T09:47:27.219Z",
+      "applicationSha256": "9578e71224cd041d5261859f996726b8d09f62ad384f2772e0701f97784623bf"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-I-VAOkq2/report.json",
+      "sha256": "de9be38220b77f771c3eb39cbd9d9cbaf33fb1ba70a658a12212f8bc5ef2c351",
+      "mode": "B2",
+      "scenario": "I",
+      "completed": true,
+      "finishedAt": "2026-11-15T07:49:47.543Z"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-I-WHJGp7/report.json",
+      "sha256": "c7107ae26a0c6722f0b7695c5cd558a3377405a2bda5a49e17198b7f95fb2401",
+      "mode": "B2",
+      "scenario": "I",
+      "completed": false,
+      "finishedAt": "2026-11-15T08:11:03.649Z",
+      "errorDigest": "54739076d4bdbbe5fcadce38cf8372be2c2f76ef8e76591901de44251bde757d",
+      "applicationSha256": "3843f647d7d0f36a78ba60913498cf51866baee4b22f66ebf64f12126f225e26"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-I-XY0mfY/report.json",
+      "sha256": "cf889c162126d59c7633efae0b0937205b503951af6bc81f33b9f9804259c13c",
+      "mode": "B2",
+      "scenario": "I",
+      "completed": true,
+      "finishedAt": "2026-11-15T08:15:52.929Z",
+      "applicationSha256": "3843f647d7d0f36a78ba60913498cf51866baee4b22f66ebf64f12126f225e26"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-I-p3CiZA/report.json",
+      "sha256": "8d74a806036f55472f938443cb4a63e294559b0eab56fb585936fe26834fd5dd",
+      "mode": "B2",
+      "scenario": "I",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:25:17.616Z",
+      "errorDigest": "e655c72033b26df87ead461b7d8d12e488c1fc1e0422d369fb67b4ba9afc8263"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-I-tOPVfM/report.json",
+      "sha256": "b6d726547a33cb7efc1d2b611ba33a1777b6b0ded7407c19d8b7fa1980b77ba1",
+      "mode": "B2",
+      "scenario": "I",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:44:19.844Z",
+      "errorDigest": "7af7cf2c34866e50ad4776236ec53fdb486b56821cc6bde6c6dfdeef89fc8c93"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-R-6bRXET/report.json",
+      "sha256": "cd6713ad211275aa50e0e4f9073480dbd6baf59f8d43fd767bb29e0a5a35653a",
+      "mode": "B2",
+      "scenario": "R",
+      "completed": true,
+      "finishedAt": "2026-11-15T08:33:53.903Z",
+      "applicationSha256": "3843f647d7d0f36a78ba60913498cf51866baee4b22f66ebf64f12126f225e26"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-R-H78U52/report.json",
+      "sha256": "4a1da67ca530066779f7e0cc326bf8370c35888f208594d66ba3993a3a174608",
+      "mode": "B2",
+      "scenario": "R",
+      "completed": true,
+      "finishedAt": "2026-11-15T08:12:09.540Z",
+      "applicationSha256": "3843f647d7d0f36a78ba60913498cf51866baee4b22f66ebf64f12126f225e26"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-R-HZaKk6/report.json",
+      "sha256": "e4a4d3db306d3f53d29502572dad33791ee067345c1a9596f2871a006706316a",
+      "mode": "B2",
+      "scenario": "R",
+      "completed": true,
+      "finishedAt": "2026-11-15T07:49:37.883Z"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-R-oi7ufF/report.json",
+      "sha256": "f340bbd95ead077ca48921cd0f40dfb37148ef37aa7d0f275b842c7074320cf8",
+      "mode": "B2",
+      "scenario": "R",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:25:01.711Z",
+      "errorDigest": "88814498aacdd919f4244b188fb07c1e2e8b8e0eedf36aecbf7b0a268f8e2e49"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-R-sAmG2N/report.json",
+      "sha256": "27bca290747bb0e2454a859b835e3a39fb0480221b96ae05031c12e27919914c",
+      "mode": "B2",
+      "scenario": "R",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:21:39.414Z",
+      "errorDigest": "2b91739100eb65341321dc0e936329227838ae6660bbb1fe1f65ff57d5c09686"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-R-wJenpk/report.json",
+      "sha256": "2828ba16a32b2fb450c3039a1bbb1b283875ad277acb6cf636c5100ef82c5bc3",
+      "mode": "B2",
+      "scenario": "R",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:44:35.248Z",
+      "errorDigest": "9ba6a89c596b9363a7bb2e90cb2a8f7a06def73a1760a881ae4eb9ceab0c65bd"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-29GFCg/report.json",
+      "sha256": "0ed53ec4b4c541090c69709789f9a3a28fa1a7021c9902d12d4e29b036a256f6",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:13:36.010Z",
+      "errorDigest": "90d5fe23973eb98e4bfe7fa3a7193640a395db939630c45851b150bcf1d1cfb0"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-2CaWT4/report.json",
+      "sha256": "f494279a7086d5fe1405e23d4eafc913099cff7b26354f38f00f4be90dee8ba9",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T07:18:52.872Z"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-3AHcDJ/report.json",
+      "sha256": "86388500513f67113265eb937483dae2b8e80a7d55fc39ca69c25ce8a7edcc40",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T08:22:58.715Z",
+      "applicationSha256": "3843f647d7d0f36a78ba60913498cf51866baee4b22f66ebf64f12126f225e26"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-6i90Se/report.json",
+      "sha256": "798c0bcc18a74c946d9a2a80125eec69f6efe695e9700b2e5059a1082f74f8b6",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:24:46.205Z",
+      "errorDigest": "88a60fac3e7b03b4e89a96f370ec03df1dc549715cedfb940a8d612542f2a637"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-87WS8g/report.json",
+      "sha256": "073a65a1f3a663f17ed6286d0f170905d17dad7821a2f8158249b0aa3327ec05",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:15:16.265Z",
+      "errorDigest": "49e56e26ed26e763e387cda5c4523b2cace0bf0ee46c6a3722ce1b6d6b80b89e"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-F3lE7p/report.json",
+      "sha256": "b0befa40b84e172f67241ba492d7df2132ac534ec7a09b08ed7c014df186a657",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:11:31.691Z",
+      "errorDigest": "68a8e1a3ea68d8317f43d4807c46975a5805f63f66d2d03e1663e49c5e0c27c2"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-I8w3NB/report.json",
+      "sha256": "9b4b68ca6bd694a8d75c5f9693fecd88be04a91806492cad7ef7ba362ad749f8",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:56:31.004Z",
+      "errorDigest": "a15326a6f89de67840fac0c6f026984c4e98b0a91741af2f97fd7ee9b199034d"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-JTrv0K/report.json",
+      "sha256": "25437fbb62a6fa82dc4e0f848641425f57498c6d21b88f9d00e7920b925a93d5",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:12:20.120Z",
+      "errorDigest": "ff881574402c900c64f4012735f4469e53890c9235459026a9858686cbfa4c2a"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-JWFbJe/report.json",
+      "sha256": "e73ea59fc39a9e2bcb3b2c5eee1a8a2b42e836a7199da3c43e6b454ff7a0e5b3",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:21:07.161Z",
+      "errorDigest": "dbb5ef1ad52ecbce4a8e1d28f3c8db567f6370bdc94f5d52287bdd183851d56e"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-JWuZ6B/report.json",
+      "sha256": "d72234b2e9bf4e6872812fa35fcab701dae55c21b69c9bbb2ba7c950c98ec2b4",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:32:13.233Z",
+      "errorDigest": "5afc83a14882f479c8f9ad8388e4c38f5e57801367c1c9018cbdc9b90d3db1f4"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-JniSQT/report.json",
+      "sha256": "197c1ff2d528af16f0495bf715681a7341a53958cff212018a797038db974e45",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T09:40:35.605Z",
+      "applicationSha256": "888cb1edef3f7f4a0dade8e4cdef12eae14735bcfee0a116931b27aaec924c57"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-Kawqk1/report.json",
+      "sha256": "32305a60a407117fd42b59f8e82bc03dc0105660b7f80f546b2a499f1fcfeda6",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T08:06:05.934Z",
+      "errorDigest": "603bd838d43f88db0171c9cdfdcf15d3a0854f2472d1e03b0330fc9a77b899be",
+      "applicationSha256": "3843f647d7d0f36a78ba60913498cf51866baee4b22f66ebf64f12126f225e26"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-McXmhn/report.json",
+      "sha256": "f6635bf4bb055f4b415a0bd1ce9c0356a2c7f9d313fd328aedb99283ec34d266",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:10:31.059Z",
+      "errorDigest": "68a8e1a3ea68d8317f43d4807c46975a5805f63f66d2d03e1663e49c5e0c27c2"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-NBVrdY/report.json",
+      "sha256": "aab167ce9f216fb69e57e8707c065e37a4fea59e599cfc74686f155b77f3adf6",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:52:34.712Z",
+      "errorDigest": "dd4e47cefd51c29a1fd2f336ad2e319a7147b4aecad4e1bbdb4095a9dea14df8"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-OQ9eJh/report.json",
+      "sha256": "36c9d6f125b0dbd9b273883208c5fbba3e53117a89e8178812797b4693fcd8e9",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T08:27:14.337Z",
+      "applicationSha256": "3843f647d7d0f36a78ba60913498cf51866baee4b22f66ebf64f12126f225e26"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-OVFRdL/report.json",
+      "sha256": "8a4109b5bd7767323e669614a13fe3296c361c927b78ab6537fa19b5305fd71b",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T08:11:58.576Z",
+      "applicationSha256": "3843f647d7d0f36a78ba60913498cf51866baee4b22f66ebf64f12126f225e26"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-UONWMe/report.json",
+      "sha256": "f216468639b16b7261942748a44c68c99b81ce1c8216c2100472133dafb3f4f1",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T08:00:27.127Z",
+      "errorDigest": "bfbde9f3a62702c056f8f48d64bc09c26a86f105fe0b89a29302f17d6dffa2dc",
+      "applicationSha256": "dfbbbd1818e3a7f0ee02a1f9a7bd94807033037423f8f18a3a86917b4e31a55b"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-YSVZFr/report.json",
+      "sha256": "2e12ed73f8c71a8c373661fe3a943a10322afa11fe30e9823d15bce76ec2d478",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:28:47.833Z",
+      "errorDigest": "d8de9393aa92f2f5b6930a4637acc944b8676307c446509d6b598995d288ec55"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-YxrTYK/report.json",
+      "sha256": "70cc105efc5e1adc05c09376c54eaad9a71a86153b08b9dd46ca1058e03df256",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T08:33:20.250Z",
+      "applicationSha256": "3843f647d7d0f36a78ba60913498cf51866baee4b22f66ebf64f12126f225e26"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-ds6A3b/report.json",
+      "sha256": "46422465d03ec38547647686abf59867a33ad5b844e2fba4dac35c212d92d6bb",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T07:38:20.261Z"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-jl6zHy/report.json",
+      "sha256": "dbe508cee10eeb449f57a91d0fd1a392f5b1500c51ad93a5792efe7dacfae68f",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:44:35.785Z",
+      "errorDigest": "43bdbf171b600f30e93ddf7e14d39a4437b14b8ff1e3d0e84a42f221201955ec"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-ksEiwG/report.json",
+      "sha256": "6833a0092a9da5b4b8f3fbbecd93d26b9ea6d5fe250bba17289e5e4468864a44",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:36:43.247Z",
+      "errorDigest": "e26c1583a097c0f50919be98a6cff60754b3aa1e178260d9d67cbbaa18453c5c"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-m70SHd/report.json",
+      "sha256": "390b36c9dc83eeed76ee2325774ab651cd537290f531006b56b5714cdfaf4403",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:48:48.880Z",
+      "errorDigest": "fc95deae0fdec5076e99c675c8721e9cd2ceec07a3aab22edafa5fab1dc072d6"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-odeywu/report.json",
+      "sha256": "78ad0b6d30a770a30b498be20d809ebc1456e18af637257dbdb967aab1821f5e",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T08:41:23.247Z",
+      "applicationSha256": "f3dfc52eed3d73ceda2e19c8785bcc5145e416a27af9d4e0f33ab2c72a40da3a"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-q88vmP/report.json",
+      "sha256": "18310035fcc8e783a31ef2da09c9bc3ddab8c6efa60ff33f2e9cb5194cbc080b",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T08:27:11.974Z",
+      "applicationSha256": "3843f647d7d0f36a78ba60913498cf51866baee4b22f66ebf64f12126f225e26"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-tqdCTV/report.json",
+      "sha256": "27d7036cac1730cf527d469f49dc909a75401cdcad58379f1d518211f2d56891",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:14:33.023Z",
+      "errorDigest": "f0765921cd9d6fdeb459fd465fd5be86233257b2f487106df24df4ca7a738132"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-uYa1HD/report.json",
+      "sha256": "05798ba9a533fddb941ec8ac09539c243231c36f43cd96a837307957352f6f9e",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": true,
+      "finishedAt": "2026-11-15T08:34:41.464Z",
+      "applicationSha256": "3843f647d7d0f36a78ba60913498cf51866baee4b22f66ebf64f12126f225e26"
+    },
+    {
+      "path": ".tmp/m3/dsh-B2-S-yU1vCg/report.json",
+      "sha256": "dc99ca8fa03328384d9a9bf3af6b131cea5cad0de264898c41ec639f0efc06bb",
+      "mode": "B2",
+      "scenario": "S",
+      "completed": false,
+      "finishedAt": "2026-11-15T07:34:02.138Z",
+      "errorDigest": "493920abefc22f6dba39a420714ee83292500963d7e830a75cb34685f3974e9a"
+    }
+  ]
+}

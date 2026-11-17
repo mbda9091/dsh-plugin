@@ -1,0 +1,33 @@
+{
+  "bank": "role-deployment-smoke-70067ca8fff3413cba10bf688f1d530c",
+  "model": "deepseek-flash",
+  "checks": {
+    "ready": true,
+    "auth": true,
+    "deepseek_retain": true,
+    "chinese_semantic_smoke": true,
+    "synthetic_bank_removed": true
+  },
+  "complete": true,
+  "recall_document_ids": [
+    "synthetic-food",
+    "synthetic-trip"
+  ],
+  "verified_at": "2026-11-15T01:31:14.158512+00:00",
+  "scope": "Linux/WSL host-network deployment and synthetic memory smoke; not full semantic or role behavior acceptance",
+  "compose_files": [
+    "compose.yaml",
+    "compose.host-network.yaml"
+  ],
+  "hindsight_image": "ghcr.io/vectorize-io/hindsight:1.2.1@sha256:d2bc230a714e933affd63753e181a0579328fdcbbc021800a76e0bc7b6e76b31",
+  "database_image": "pgvector/pgvector:pg18@sha256:38681dc6eaf55308e2a4c6de392d131652dcfac70e1263e35cd9b5ea3fe39782",
+  "management_http_status": 200,
+  "not_verified": [
+    "Chinese semantic 40-query suite",
+    "role-agent real DSH integration",
+    "restart recovery of in-flight operations",
+    "backup restore",
+    "role growth behavior",
+    "exact billed cost"
+  ]
+}

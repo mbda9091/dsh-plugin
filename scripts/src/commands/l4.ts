@@ -13,6 +13,7 @@ import type { TestReport } from '../core/test-run.js'
 import type { ArtifactSet } from '../core/artifacts.js'
 import { artifactPrerequisites, installArtifacts, checkArtifactInstallations, webArtifacts } from '../core/artifact-harness.js'
 import { checkHostCapabilities } from '../core/host-capability.js'
+import { checkRoleAgentCapability } from '../core/role-agent-capability.js'
 import type { HostCapabilityCheck } from '../core/host-capability.js'
 import { discoverPlugins } from '../core/plugins.js'
 import type { Plugin } from '../core/plugins.js'
@@ -54,7 +55,8 @@ const WEB_PROFILE = 'web'
 /** Smoke-test candidates, filtered by their manifests rather than a second target matrix. */
 export function selectL4Plugins(root: string = repoRoot, target: Target = resolveTarget({ surface: 'web' })): { links: Plugin[]; tarball: Plugin } {
   const plugins = discoverPlugins(root)
-  const links = ['notify-web'].flatMap(id => {
+  const ids = ['notify-web', ...(plugins.some(p => p.dirName === 'role-agent') ? ['role-agent'] : [])]
+  const links = ids.flatMap(id => {
     const plugin = plugins.find(plugin => plugin.dirName === id)
     if (!plugin) throw new Error(`L4 smoke plugin manifest is missing: ${id}`)
     return isTargetCompatible(plugin, target) ? [plugin] : []
@@ -96,6 +98,7 @@ export async function runL4(input: L4Options, settings: CommandContext = loadCom
     await step('prerequisites', () => checkPrerequisites(context))
     await step('profile-init', () => initProfile(context, 'profile-init', context.home))
     await step('install-link', () => installLinks(context))
+    if (selectL4Plugins().links.some(p => p.dirName === 'role-agent')) await step('role-agent-capability', async () => JSON.stringify(await checkRoleAgentCapability(context)))
     await step('web-link', () =>
       serveAndCheck(context, 'link', async (url, stderr) => {
         const page = await fetchAuthorizedPage(url)

@@ -424,7 +424,7 @@ window.__ModuleLoader__.load({
 7. 视觉验证受限时（没有浏览器控制），只报告"已注册、未做视觉验证"，不要声称"看起来正常"。
 8. 场景过滤：开发上下文固定 Web，`dev-install --dry-run` 应跳过仅桌面插件；`node scripts/install.mjs status --profile <名称>` 显示 `skip`。开发 Web 使用 workspace 普通 Node DSH（需 M2/M3 准备），不匹配的 guard 应让该行 `failed` 而不是静默无操作。surface 判定读 `profileContext.startedBundles`，不要用 `webServer`（`apply` 时未就绪）；详见 [docs/plugin-targets.md](docs/plugin-targets.md) §5。
 9. 测试：`node scripts/dev.mjs test`（L1–L3，先构建再 `tsc -p test/tsconfig.json` + `node --test`）通过；改动安装/加载/Web 服务时再跑 `node scripts/dev.mjs l4`（一次性 profile + 真实 `dsh web`，默认清理临时目录，`--keep` 保留日志）。
-10. 固定 tarball 验收对 Host-only 包必须执行已登记的能力契约；缺适配器、空实现或缺能力证据不能标 passed。当前没有 Web Host-only 插件及对应适配器，未知 Host-only 包仍拒绝验收；桌面仍待验。Web/Client 改动再跑 `node scripts/dev.mjs l5`：自动构建并启动一次性 Web profile，用 Playwright 验证独立基线、实际 slot/交互、主题/locale、真实 SSE 通知。默认使用系统 Chrome；CI 用 `DSH_E2E_BROWSER=chromium`。报告、截图和 trace 保存在 `.tmp/l5/`，不自动上传；L4 的 `--home` 仅接受 `.tmp` 内新目录。详情见 `docs/testing-plan.md` §19。
+10. 固定 tarball 验收对 Host-only 包必须执行已登记的能力契约；缺适配器、空实现或缺能力证据不能标 passed。Web Host-only 的 role-agent 已登记 role-agent-v1 作用域／工具执行契约，合成协议证据不等于真实语义／成长效果通过；未知 Host-only 包仍拒绝验收，桌面仍待验。Web/Client 改动再跑 `node scripts/dev.mjs l5`：自动构建并启动一次性 Web profile，用 Playwright 验证独立基线、实际 slot/交互、主题/locale、真实 SSE 通知。默认使用系统 Chrome；CI 用 `DSH_E2E_BROWSER=chromium`。报告、截图和 trace 保存在 `.tmp/l5/`，不自动上传；L4 的 `--home` 仅接受 `.tmp` 内新目录。详情见 `docs/testing-plan.md` §19。
 
 **排障顺序**：先看 `build`（类型 / 编译错误），再看 `pack`（`pnpm pack --dry-run` 对比 `exports` 与包内容），最后看 `install` 之后 profile 里的加载结果。三段互相隔离，定位到哪段就修哪段，不要靠提交构建产物来保留上一次能跑的状态。
 
