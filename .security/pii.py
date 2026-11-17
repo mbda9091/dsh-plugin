@@ -60,6 +60,23 @@ def make_recognizers(policy):
         CreditCardRecognizer(),
         ChineseIdentityRecognizer(),
         PatternRecognizer(
+            supported_entity="LOCAL_USER_PATH",
+            patterns=[
+                Pattern(
+                    "POSIX user home",
+                    r"(?<![\w./\\])(?:file://)?/(?:Users|home)/"
+                    r"[\w.@-]+(?=$|[/\\\s'\"`),;:\]}])",
+                    0.9,
+                ),
+                Pattern(
+                    "Windows user home (including escaped source strings)",
+                    r"(?i)(?<![\w./\\])[a-z]:[/\\]+Users[/\\]+"
+                    r"[\w.@-]+(?=$|[/\\\s'\"`),;:\]}])",
+                    0.9,
+                ),
+            ],
+        ),
+        PatternRecognizer(
             supported_entity="CN_MOBILE_PHONE",
             patterns=[Pattern("CN mobile", r"(?<![0-9A-Za-z])(?:\+?86[ -]?)?1[3-9][0-9](?:[ -]?[0-9]{4}){2}(?![0-9A-Za-z])", 0.8)],
         ),

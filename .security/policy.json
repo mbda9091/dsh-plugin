@@ -5,6 +5,24 @@
     {
       "entity": "EMAIL_ADDRESS",
       "regex": "(?i)[^@]+@(?:[a-z0-9-]+\\.)*(?:example\\.(?:com|org|net)|example|invalid|test)"
+    },
+    {
+      "entity": "LOCAL_USER_PATH",
+      "regex": "/Users/(?:me)",
+      "paths": [
+        "docs/archive/external-directory-authorization-plan.md",
+        "docs/external-directory-authorization-plan.md",
+        "approval-allowlist/README.md"
+      ],
+      "reason": "Reviewed current and historical documentation examples use the generic username me; allow only this exact prefix in these files."
+    },
+    {
+      "entity": "LOCAL_USER_PATH",
+      "regex": "/Users/(?:REPLACE_ME)",
+      "paths": [
+        "approval-allowlist/examples/grants.example.json"
+      ],
+      "reason": "Reviewed historical example grants use REPLACE_ME as an explicit username placeholder; allow only this exact prefix in this example file."
     }
   ],
   "custom_patterns": []
