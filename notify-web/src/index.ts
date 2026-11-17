@@ -4,7 +4,7 @@
  * The Host owns the shared notification source and exposes its serializable
  * updates through an authenticated Server-Sent Events route on the DSH
  * Connection `/api` bridge. The browser Client is the only consumer; the
- * operating system notification and tab focus remain the page's job.
+ * page delegates persistent notifications and clicks to a narrow worker.
  *
  * @module @mbda9091/notify-web
  */
@@ -12,11 +12,15 @@ import { randomUUID } from 'node:crypto'
 import type { Context } from '@deepseek-ai/cordis'
 import {
   createNotificationSource,
-  type ApprovalShowUpdate,
-  type NotificationUpdate,
   type TriggerOptions,
 } from '@mbda9091/notify-host'
+import { createQuestionSource } from './questions.js'
+import { PROTOCOL_VERSION } from './protocol.js'
+import type { PendingUpdate, WebNotificationUpdate as NotificationUpdate } from './protocol.js'
 import { assertTarget } from './targets.js'
+import { notificationWorker } from './worker.js'
+
+export { createQuestionSource, questionProjection } from './questions.js'
 
 // Re-exported so the unit tests can exercise target detection.
 export { detectEnvironment, evaluateTarget } from './targets.js'
@@ -25,10 +29,12 @@ export { detectEnvironment, evaluateTarget } from './targets.js'
 export const name = 'notify-web'
 
 /** The Host source needs the Agent registry; the SSE route needs Connection. */
-export const inject = ['agents', 'connection']
+export const inject = ['agents', 'connection', 'sessionProjections']
 
 /** Web notification trigger and SSE channel configuration. */
 export interface Config {
+  /** Notify when a root-session question needs a reply. @default true */
+  notifyOnQuestion?: boolean
   /** Notify when a root-session tool asks for approval. @default true */
   notifyOnApproval?: boolean
   /** Delay before an approval notification; a decision inside it cancels. @default 300 */
@@ -52,6 +58,7 @@ export type Options = Required<Config>
 
 /** Defaults, merged under the row's `config`. */
 export const DEFAULTS: Options = {
+  notifyOnQuestion: true,
   notifyOnApproval: true,
   approvalDelayMs: 300,
   notifyOnTurnEnd: true,
@@ -89,11 +96,11 @@ interface Cursor {
 
 /** The wire payload sent as the `sync` SSE event. */
 interface SyncPayload {
-  readonly version: 1
+  readonly version: typeof PROTOCOL_VERSION
   readonly epoch: string
   readonly seq: number
   readonly reset: boolean
-  readonly pending: ApprovalShowUpdate[]
+  readonly pending: PendingUpdate[]
   readonly replay: NotificationUpdate[]
 }
 
@@ -144,7 +151,7 @@ function parseCursor(url: URL): Cursor | undefined | null {
  * @param ctx - Host context with `agents` and `connection`.
  * @param config - row config merged over {@link DEFAULTS}.
  */
-export function apply(ctx: Context, config: Config = {}): void {
+export async function apply(ctx: Context, config: Config = {}): Promise<void> {
   assertTarget(ctx, name)
 
   const options: Options = { ...DEFAULTS, ...config }
@@ -157,6 +164,8 @@ export function apply(ctx: Context, config: Config = {}): void {
   const connection = ctx.get('connection') as ConnectionService | undefined
   if (connection === undefined) throw new Error('[notify-web] connection service is unavailable')
 
+  const questions = options.notifyOnQuestion ? await createQuestionSource(ctx) : undefined
+  if (questions !== undefined) ctx.effect(() => () => questions.dispose())
   const source = createNotificationSource(ctx, triggers)
   const epoch = randomUUID()
   const heartbeatMs = Number.isFinite(options.heartbeatMs)
@@ -193,17 +202,17 @@ export function apply(ctx: Context, config: Config = {}): void {
     const at = Date.now()
     cache.set(seq, { seq, at, update })
     pruneCache()
-    const text = frame('update', { type: 'update', seq, update })
+    const text = frame('update', { version: PROTOCOL_VERSION, type: 'update', seq, update })
     for (const client of [...clients]) client.send(text)
   }
 
   /**
-   * Build the replay payload for one resume cursor. Approval shows that are no
+   * Build the replay payload for one resume cursor. Pending shows that are no
    * longer pending are dropped even when their `withdraw` has already fallen out
-   * of the cache, so a reconnect does not briefly resurrect a resolved approval.
+   * of the cache, so a reconnect does not briefly resurrect a resolved approval or question.
    *
    * @param cursor - validated cursor.
-   * @param pendingIds - approvals still present in the current snapshot.
+   * @param pendingIds - approvals and questions still present in the current snapshot.
    * @returns replay updates and whether the client must reset.
    */
   const replayFor = (
@@ -224,7 +233,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     const replay = cached
       .map((entry) => entry.update)
       .filter((update) => {
-        if (update.type === 'show' && update.kind === 'approval') {
+        if (update.type === 'show' && update.kind !== 'turn-end') {
           return pendingIds.has(update.id) && !withdrawn.has(update.id)
         }
         return true
@@ -239,15 +248,21 @@ export function apply(ctx: Context, config: Config = {}): void {
    * @returns the streaming response.
    */
   const openStream = (request: Request): Response => {
-    const cursor = parseCursor(new URL(request.url))
+    const url = new URL(request.url)
+    // A pre-question client ignores unknown kinds while retaining the shared
+    // leader lock. Do not deliver newer events to that incompatible consumer.
+    if (url.searchParams.get('protocol') !== String(PROTOCOL_VERSION)) {
+      return new Response('notification client update required; refresh this page', { status: 426 })
+    }
+    const cursor = parseCursor(url)
     if (cursor === null) return new Response('invalid cursor', { status: 400 })
     // Expiry must also run during idle periods, when no broadcast prunes it.
     pruneCache()
-    const pending = source.snapshotPendingApprovals()
+    const pending: PendingUpdate[] = [...source.snapshotPendingApprovals(), ...(questions?.snapshot() ?? [])]
     const pendingIds = new Set(pending.map((update) => update.id))
     const { reset, replay } = replayFor(cursor, pendingIds)
     const sync: SyncPayload = {
-      version: 1,
+      version: PROTOCOL_VERSION,
       epoch,
       seq: deliverySeq,
       reset,
@@ -322,7 +337,19 @@ export function apply(ctx: Context, config: Config = {}): void {
   }
 
   ctx.effect(() => {
+    const disposeWorker = connection.fetch.register({
+      path: '/api/notify-web/worker.js', methods: ['GET'], requestBody: 'buffered',
+      fetch: async () => new Response(notificationWorker, { headers: {
+        'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache',
+      } }),
+    })
+    const disposeOptions = connection.fetch.register({
+      path: '/api/notify-web/options', methods: ['GET'], requestBody: 'buffered',
+      fetch: async () => Response.json({ version: PROTOCOL_VERSION, notifyOnQuestion: options.notifyOnQuestion },
+        { headers: { 'cache-control': 'no-store' } }),
+    })
     const unsubscribe = source.subscribe(broadcast)
+    const unsubscribeQuestions = questions?.subscribe(broadcast)
     const disposeRoute = connection.fetch.register({
       path: '/api/notify-web/events',
       methods: ['GET'],
@@ -331,9 +358,12 @@ export function apply(ctx: Context, config: Config = {}): void {
     })
     return () => {
       unsubscribe()
+      unsubscribeQuestions?.()
       source.dispose()
       for (const client of [...clients]) client.close()
       void disposeRoute()
+      void disposeOptions()
+      void disposeWorker()
     }
   }, 'notify-web: notification source and SSE route')
 }

@@ -1,6 +1,6 @@
 # @mbda9091/notify-web
 
-在 **Web 界面（`dsh web`）** 中，当根会话的工具申请权限或一轮对话结束时，通过浏览器调用操作系统的系统通知；点击通知会聚焦 DSH 标签页并切换到对应会话。
+在 **Web 界面（`dsh web`）** 中，当根会话需要回答问题、工具申请权限或一轮对话结束时，通过浏览器调用操作系统的系统通知；点击通知会关闭该通知，聚焦或打开 DSH 标签页并切换到对应会话。
 
 ## 适用场景
 
@@ -15,34 +15,45 @@ Host 全局监听已提交的 `session/event`，按真实 Agent registry 只处�
 
 | 触发时机 | 通知 |
 |---|---|
+| 浏览器收到根会话的 `user-questions/request` | 「需要你的回复」+ 首个问题摘要 |
 | 根会话工具申请权限 | 「需要确认权限」+ 工具名/理由 |
 | 根会话 `turn/end` 为 `completed` / `max-tokens` | 「对话已完成」 |
 | 根会话 `turn/end` 为 `error` | 「对话出错」+ 错误信息 |
 | `aborted`、`blocked`、`interrupted`、`forked` 及其他结束原因 | 不通知 |
 | subagent 的审批或回合结束 | 不通知 |
 
+- 每批提问一条通知。带 callId 的请求收到后才放行对应 SSE 候选；限时等待结束后仍可回答时保留，实际回答提交后撤回。旧式无 callId 的阻塞请求由接收页面提醒，回答、取消或请求结束时关闭。
+- `tool/call`、`tool/ptc-dispatch-start` 只建立候选，不直接弹提醒。Client 在第一启动阶段订阅 Remote 提问入口，先调用 next() 放行真实卡片处理器，再处理通知；不加固定延迟，也不承诺卡片已经完成绘制。普通聊天问句不识别，approval intent 卡片沿用审批通知。
 - 审批通知先等待 `approvalDelayMs`；延迟内收到 `approval/decided` 会取消。
 - 已经显示的审批在决定或 Agent 释放后会收到 `withdraw`，浏览器关闭对应通知。
 - 在 A 会话启动任务后切到 B，A 的完成/错误仍会通知；返回 A 不依赖历史事件补弹。
-- 点击通知：`window.focus()` 聚焦标签页，并通过 `ctx.uiWorkspace.openSession(sessionId)` 切到对应会话。
-- 通知只在页面打开期间存在；没有 Service Worker，关闭标签页后不会再通知。
+- 点击持久通知：Worker 先关闭通知，再聚焦已有 DSH 页面或打开新页面，由 Client 尝试切到对应会话；跳转失败不阻止后续通知。
+- 关闭页面保留已弹出的持久通知；接收新通知仍需至少一个 DSH 页面打开。不支持 Service Worker 时回退为页面级通知，详见下方限制。
 
 ## 多标签页
 
-支持 Notification 且权限已授予的页面通过 **Web Locks** 竞争一个按应用 base 路径命名的锁；只有持锁页建立 SSE 并显示通知，其他页在持锁页离开后接管。
+支持 Service Worker 的浏览器使用持久通知：关闭 DSH 页面保留已弹出的通知；点击时 Worker 先关闭通知，再聚焦已有 DSH 页面，或打开新页面并切换到对应会话。新页面不会因首次同步立即重弹刚点击的同一条通知。问题已回答、审批已决定时，仍由在线页面根据 Host 状态撤回通知。
+
+Worker 使用独立的 `api/notify-web/` scope，不接管应用页面或拦截请求，不缓存会话内容，也不在后台连接 SSE。所有页面关闭后不会收到新的通知；已弹通知仍可点击。通知自身携带目标会话 ID 和通知 ID，用于点击跳转。安装新版本后需要重启宿主并刷新页面；旧版页面级通知无法迁移到 Worker，需手动关闭。
+
+2.3.1 将通知链接的会话跳转移到通知初始化完成之后，并隔离跳转异常；冷启动时目标会话暂时不能打开，也不阻止后续通知。`window.__NOTIFY_WEB__.navigationError` 单独表示跳转失败，不包含会话内容，不与通知连接错误混用。
+
+支持 Notification 且权限已授予的页面通过 **Web Locks** 竞争一个按通知协议版本与应用 base 路径命名的锁；持锁页负责 SSE 通知，其他页在持锁页离开后接管。带 callId 的提问收讫标记通过 localStorage/BroadcastChannel 传给持锁页；标记只保存 ID，不保存问题正文。无 callId 的阻塞请求由 Host waterfall 交给一个 Client 回答器，该页面独立管理其通知，不猜测它属于哪条工具调用。
 
 - 游标和带过期时间的已处理通知 id 集合存放在同源 `localStorage`，不保存通知正文。
 - 没有 Web Locks 或存储不可用时，每个标签页独立消费，靠稳定 tag 和页内去重降低重复，不保证跨标签页只提示一次。
 - 浏览器冻结持锁页时仍可能延迟通知；本插件不增加后台抢锁协议。
+- 首次升级或清空浏览器存储后，没有“已收到请求”记录的旧提问不会仅凭工具日志补弹；需宿主重新发送请求或发起新提问。已记录收讫的带 callId 请求仍可在重连/接管时恢复。
 
 ## 配置
 
-安装器默认只展示 4 个常用通知选项，内部通信参数保留可配置能力，但不写入生成文件。在 `<home>/profiles/<profile>/mbda9091/cordis.patch.yml` 中为新插件生成以下配置：
+安装器默认只展示 5 个常用通知选项，内部通信参数保留可配置能力，但不写入生成文件。在 `<home>/profiles/<profile>/mbda9091/cordis.patch.yml` 中为新插件生成以下配置：
 
 ```yaml
 - id: notify-web
   name: '@mbda9091/notify-web'
   config:
+    notifyOnQuestion: true
     notifyOnApproval: true
     approvalDelayMs: 300
     notifyOnTurnEnd: true
@@ -55,6 +66,7 @@ Host 全局监听已提交的 `session/event`，按真实 Agent registry 只处�
 
 | 字段 | 默认 | 作用 |
 |---|---:|---|
+| `notifyOnQuestion` | `true` | 标准用户提问需要回复时通知；旧配置省略时默认开启 |
 | `notifyOnApproval` | `true` | 根会话需要工具权限审批时通知；不会替你批准权限 |
 | `approvalDelayMs` | `300` 毫秒 | 等待后再弹审批通知；期间审批已决定则取消，避免短暂请求造成打扰 |
 | `notifyOnTurnEnd` | `true` | 根会话一轮正常完成或达到输出上限时通知 |
@@ -71,7 +83,7 @@ Host 全局监听已提交的 `session/event`，按真实 Agent registry 只处�
 | `maxReplayEntries` | `256` 条 | 补发缓存最多保留的事件数，与时间窗口共同限制缓存大小 |
 | `maxQueuedUpdates` | `256` 条 | 每个连接的待发送队列上限；浏览器消费过慢导致积压超限时关闭连接，避免无限占用内存 |
 
-补发不是无限历史恢复：超出缓存范围的事件不保证补发；已决定的审批不会作为待审批通知重新弹出。关闭页面后也不会后台推送通知。
+补发不是无限历史恢复：超出缓存范围的事件不保证补发；已决定的审批、已回答的问题不会作为待处理通知重新弹出。关闭页面后也不会后台推送通知。
 
 ### 修改并加载配置
 
@@ -106,8 +118,10 @@ dsh --profile macos-web --patch "$HOME/.dsh/profiles/macos-web/mbda9091/cordis.p
 
 ## 实现
 
+- `src/questions.ts`：Web 专用提问源和 Host-only 会话投影，从已提交事件恢复提问状态，不接管提问回答流程。
 - `src/index.ts`：Web Host。建立共享通知源，并通过 DSH Connection 的认证 Fetch 路由 `GET /api/notify-web/events` 提供 SSE。
-- `src/client/index.ts`：浏览器入口。消费 SSE、按当前 locale 格式化、请求权限、显示/撤回通知、处理点击和多标签页。
+- `src/client/question-requests.ts`：第一启动阶段观察 Remote 提问请求，原样传递回答与错误。
+- `src/client/index.ts`：浏览器入口。按请求收讫放行提问通知，消费 SSE、按当前 locale 格式化、请求权限、显示/撤回通知、处理点击和多标签页。
 - `@mbda9091/notify-host`：与 `desktop-notify` 共用的触发逻辑（根会话过滤、审批延迟、`turn/end`、`agent/disposed` 清理）。
 - `@mbda9091/notify-core`：共用的文案与 locale。
 - 两个 `@mbda9091/*` 共享库都由 esbuild 在构建期内联，profile 不需要安装。
@@ -132,12 +146,23 @@ Web GUI 左侧 **Plugins（插件）** 页 → 安装 → 填本目录的绝对�
 
 安装后刷新页面，插件会立即尝试申请通知权限；允许浏览器通知即可。若未显示授权提示，可点击页面触发一次补充请求。
 
-日常 Web 由用户自行启动，仓库已移除 `web` / `daily-launcher`；安装与显式加载命名空间配置见[安装指南](../docs/profile-install.md)。开发调试使用 `dev-install` 与 `dev-web`，数据在 `.local/dsh-dev/home`，参数放在 `.local/dsh-dev/cordis.patch.yml`；不复制日常凭据或会话。Host 配置修改后需重启对应环境，再刷新浏览器。详见 [Web 配置与启动说明](../profiles/web/README.md)。
+日常 Web 由用户自行启动，仓库已移除 `web` / `daily-launcher`；安装与显式加载命名空间配置见[安装指南](../docs/profile-install.md)。开发调试使用 `dev-install` 与 `dev-web`，数据在 `.local/dsh-dev/home`，参数放在 `.local/dsh-dev/cordis.patch.yml`；不复制日常凭据或会话。升级到 2.2.0 后需重启对应宿主并刷新所有 DSH 标签页（或关闭后重开）。旧页面可能接管提问却没有收讫观察器，不能只刷新通知持锁页。新版 Client 显式协商 v3 通知协议，通知锁、游标及收讫记录按协议隔离；Host 对未协商或不支持的客户端返回 426，旧页面需刷新后才能继续通知。新版 Client 遇到未知协议或 426 会停止消费并在诊断中提示刷新。Host 配置修改后同样需重启对应环境，再刷新浏览器。详见 [Web 配置与启动说明](../profiles/web/README.md)。
 
 ## 限制
 
-- 标签页必须保持打开；页面级 `Notification` 无法在标签页关闭后继续工作。
+### 已知问题（暂不修复）
+
+2026-11-16 CR，核对基线为 `34bea9eb476694cfdbfd4b68ff4660e32c5ce25c`（插件 2.3.1）。以下三项均为 P2，已用隔离夹具复现；不代表真实系统通知中心的逐项复测，也未读取日常会话数据。用户明确决定先记录、暂不修复；本次仅更新文档，不修改实现，不将问题标为已解决。
+
+1. **投递尚未成功就记录“已通知”，关页可能漏提醒。** [Client 投递逻辑](src/client/index.ts) 在异步 `persistent.show()` 完成前写入 `seen`。如果 Worker 注册或投递仍在等待时关闭页面，新页面会根据该记录跳过同一条待处理通知。隔离复现中，`seen` 已存在，但实际展示次数为 0。后续修复需区分待投递与已投递，协调成功确认、去重记录和游标推进。
+2. **其他标签页的同步可能误关仍待回答的无 callId 提问通知。** [持久通知清理](src/client/persistent-notifications.ts) 遍历共享 Worker 注册下的通知，但 Client 传入的 `legacyQuestions` 仅属于当前页面。A 页接收的无 callId 请求不在 B 页的本地集合及 Host pending 中，B 页同步时会将它误判为失效并关闭。隔离复现中，提问尚未回答，通知已关闭。后续修复需区分 Host 管理与接收页面独立管理的通知，避免用局部状态清理其他页面的有效请求。
+3. **会话跳转失败仍回报成功，且没有恢复入口。** [Client 点击处理](src/client/index.ts) 捕获 `openSession()` 异常后仍回复 `opened`，[Worker](src/worker.ts) 因而不执行备用导航；冷启动路径还会在跳转前删除 URL 参数，失败后没有重试入口。隔离复现中，未打开会话却收到 `opened` 确认。后续修复需返回真实跳转结果，并保留失败后的恢复机制，同时继续隔离导航与通知初始化。
+
+### 环境与能力边界
+
+- 接收新通知需要至少一个 DSH 标签页保持打开；已发出的持久通知不随页面关闭而清理。
+- 不支持 Service Worker 的环境回退为页面级通知，不能保证关页后点击；Worker 注册/投递失败会记录诊断错误，不静默回退到会遗留通知的路径。
 - 浏览器权限被拒绝、页面被冻结或 Web Locks/存储不可用时，投递能力和跨标签页去重会退化。
-- SSE 恢复窗口默认只有 2 分钟；超出窗口按重置处理，只同步当前待审批，不补齐丢失的完成/错误。
+- SSE 恢复窗口默认只有 2 分钟；超出窗口按重置处理，只同步当前待审批和待回答问题，不补齐丢失的完成/错误。
 - `notify-web` 与 `desktop-notify` 是独立插件，需要分别安装到对应 profile。
 - 真实操作系统提示与点击聚焦仍需在浏览器里人工验收；模拟 `Notification` 不能代替。

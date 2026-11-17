@@ -355,6 +355,7 @@ async function fetchAuthorizedPage(url: string): Promise<{ html: string; pageUrl
  */
 async function checkSse(pageUrl: string, cookie: string): Promise<string> {
   const endpoint = new URL('api/notify-web/events', pageUrl)
+  endpoint.searchParams.set('protocol', '3')
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 5000)
   try {

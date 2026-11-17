@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { approvalContent, clip, fallbackTranslate, turnEndContent } from '@mbda9091/notify-core'
+import { approvalContent, clip, fallbackTranslate, questionContent, turnEndContent } from '@mbda9091/notify-core'
 
 const zh = fallbackTranslate('zh')
 const en = fallbackTranslate('en')
 
 describe('L1 notify-core: content', () => {
+  it('renders bounded questions and localized empty summaries', () => {
+    assert.deepEqual(questionContent('  Which\n option? ', zh), { title: '需要你的回复', body: 'Which option?' })
+    assert.deepEqual(questionContent('', en), { title: 'Reply needed', body: 'A question needs your answer; return to the conversation.' })
+    assert.equal(questionContent('q'.repeat(300), en).body.length, 180)
+  })
   it('renders the approval title/body in both locales', () => {
     assert.deepEqual(approvalContent({ toolName: 'pwsh', reason: '  need\n access  ' }, zh), {
       title: '需要确认权限',

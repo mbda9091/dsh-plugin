@@ -4,3 +4,12 @@ title = "Project secret scanning"
 useDefault = true
 
 # Add project-specific rules below. Keep the built-in rules enabled.
+
+# Public DSH projection namespace, not an API credential. File and line must both match.
+[[allowlists]]
+description = "Reviewed notify-web question projection identifier"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = ['''^notify-web/src/questions[.]ts$''']
+regexTarget = "line"
+regexes = ['''^\s*key:\s*'mbda9091[.]notifyWebQuestions',\s*$''']

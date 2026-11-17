@@ -24,7 +24,7 @@ Development/testing only; no local.json or external installation target.
 Commands: build [--check], test, ci, l4, l5, test-env, dev-web,
           dev-install, pack, verify-artifacts, check-targets, catalog.
 Tools: pnpm is discovered automatically (npm/Corepack); --pnpm-script or DSH_PNPM optionally overrides it.
-Tests: --test-browser chrome|chromium, --test-browser-path PATH, --timeout MS.
+Tests: --test-browser chrome|chromium|firefox, --test-browser-path PATH, --timeout MS.
 External installation: node scripts/install.mjs install --profile NAME.`
 
 export async function main(argv: string[]): Promise<number> {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { chromium } from 'playwright-core'
+import { chromium, firefox } from 'playwright-core'
 import type { Browser, BrowserContext, Page } from 'playwright-core'
 
 declare global {
@@ -14,7 +14,7 @@ declare global {
     __L5_NOTIFICATIONS__: {
       requests: number
       interactionsAtRequest: number[]
-      calls: Array<{ title: string; body: string; tag: string; closed: boolean }>
+      calls: Array<{ title: string; body: string; tag: string; closed: boolean; data?: { id: string; sessionId: string } }>
     }
   }
 }
@@ -26,7 +26,8 @@ const workspaceRoot = process.env['DSH_E2E_WORKSPACE']
 assert.ok(url && artifacts && workspaceRoot && (mode === 'baseline' || mode === 'fixture'), 'run through node scripts/bootstrap.mjs l5')
 mkdirSync(artifacts, { recursive: true })
 const explicit = process.env['CHROME_PATH']
-const downloaded = process.env['DSH_E2E_BROWSER'] === 'chromium'
+const useFirefox = process.env['DSH_E2E_BROWSER'] === 'firefox'
+const downloaded = useFirefox || process.env['DSH_E2E_BROWSER'] === 'chromium'
 const executablePath = downloaded ? undefined : explicit
 const suiteTimeout = Number(process.env['DSH_E2E_TIMEOUT_MS'] ?? 120_000)
 assert.ok(Number.isSafeInteger(suiteTimeout) && suiteTimeout > 0 && suiteTimeout <= 2_147_483_647, 'invalid browser suite timeout')
@@ -35,9 +36,10 @@ let browser: Browser | undefined
 let deadline: NodeJS.Timeout | undefined
 let currentCheck = 'browser-start'
 
-/** Replace only the OS notification API; the real client plugin still runs. */
-async function stubNotifications(context: BrowserContext, denied = false): Promise<void> {
-  await context.addInitScript(({ denied }) => {
+/** Existing SSE/UI checks use the page fallback; worker registration is checked separately. */
+async function stubNotifications(context: BrowserContext, denied = false, persistent = false): Promise<void> {
+  await context.addInitScript(({ denied, persistent }) => {
+    if (!persistent) Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: undefined })
     const state: Window['__L5_NOTIFICATIONS__'] = { requests: 0, interactionsAtRequest: [], calls: [] }
     window.__L5_NOTIFICATIONS__ = state
     let interactions = 0
@@ -54,17 +56,27 @@ async function stubNotifications(context: BrowserContext, denied = false): Promi
       }
       readonly record: Window['__L5_NOTIFICATIONS__']['calls'][number]
       constructor(title: string, options: NotificationOptions = {}) {
-        this.record = { title, body: options.body ?? '', tag: options.tag ?? '', closed: false }
+        this.record = { title, body: options.body ?? '', tag: options.tag ?? '', closed: false, data: options.data }
         state.calls.push(this.record)
       }
       close() { this.record.closed = true }
     }
     Object.defineProperty(window, 'Notification', { configurable: true, value: StubNotification })
-  }, { denied })
+    // Init scripts also run on Chromium's initial about:blank, where the
+    // secure-context-only worker API is absent. The DSH page must expose it.
+    if (persistent && typeof ServiceWorkerRegistration !== 'undefined') {
+      ServiceWorkerRegistration.prototype.showNotification = async function(title, options) { new StubNotification(title, options) }
+      ServiceWorkerRegistration.prototype.getNotifications = async function(options) {
+        return state.calls.filter(item => !item.closed && (!options?.tag || item.tag === options.tag)).map(item => ({
+          data: item.data, close() { item.closed = true },
+        })) as Notification[]
+      }
+    }
+  }, { denied, persistent })
 }
 
 /** Fresh browser contexts, strict error gate, and diagnostics even when an assertion fails. */
-async function check(name: string, body: (page: Page, context: BrowserContext, directory: string) => Promise<void>, denied = false): Promise<void> {
+async function check(name: string, body: (page: Page, context: BrowserContext, directory: string) => Promise<void>, denied = false, persistent = false): Promise<void> {
   currentCheck = name
   assert.ok(browser)
   const directory = join(artifacts!, name)
@@ -73,12 +85,13 @@ async function check(name: string, body: (page: Page, context: BrowserContext, d
   const errors: string[] = []
   const knownHostErrors: string[] = []
   await context.tracing.start({ screenshots: true, snapshots: true, sources: true })
-  await stubNotifications(context, denied)
+  await stubNotifications(context, denied, persistent)
   const page = await context.newPage()
   page.setDefaultTimeout(15_000)
   page.setDefaultNavigationTimeout(30_000)
-  page.on('pageerror', error => errors.push(`pageerror: ${error.message}`))
-  page.on('console', message => {
+  const monitor = (page: Page): void => {
+    page.on('pageerror', error => errors.push(`pageerror: ${error.message}`))
+    page.on('console', message => {
     if (message.type() !== 'error') return
     const location = message.location().url
     // DSH 0.2.1-rc.2 falls back to a generic glyph when native icon extraction
@@ -91,7 +104,10 @@ async function check(name: string, body: (page: Page, context: BrowserContext, d
       && message.text() === 'Failed to load resource: the server responded with a status of 404 (Not Found)') {
       knownHostErrors.push(`${location}: ${message.text()}`)
     } else errors.push(`console: ${message.text()} (${location})`)
-  })
+    })
+  }
+  monitor(page)
+  context.on('page', monitor)
   try {
     await body(page, context, directory)
   } catch (error) {
@@ -99,9 +115,10 @@ async function check(name: string, body: (page: Page, context: BrowserContext, d
     throw error
   } finally {
     // Diagnose the original failure even if the page itself has crashed.
-    writeFileSync(join(directory, 'aria.txt'), await page.locator('body').ariaSnapshot().catch(() => 'page unavailable'))
-    writeFileSync(join(directory, 'fixture.json'), JSON.stringify(await page.evaluate(() => window.__DSH_WEB_HELLO__ ?? null).catch(() => null), null, 2))
-    await page.screenshot({ path: join(directory, 'page.png') }).catch(() => {})
+    const evidencePage = page.isClosed() ? context.pages().at(-1) ?? page : page
+    writeFileSync(join(directory, 'aria.txt'), await evidencePage.locator('body').ariaSnapshot().catch(() => 'page unavailable'))
+    writeFileSync(join(directory, 'fixture.json'), JSON.stringify(await evidencePage.evaluate(() => window.__DSH_WEB_HELLO__ ?? null).catch(() => null), null, 2))
+    await evidencePage.screenshot({ path: join(directory, 'page.png') }).catch(() => {})
     await context.tracing.stop({ path: join(directory, 'trace.zip') }).catch(() => {})
     await context.close()
     writeFileSync(join(directory, 'errors.json'), JSON.stringify(errors, null, 2))
@@ -157,8 +174,8 @@ async function switchLocale(page: Page, language: 'en' | 'zh'): Promise<void> {
   await send.waitFor({ state: 'visible' })
 }
 
-async function prepareFixture(page: Page, name: string): Promise<void> {
-  await open(page, false)
+async function prepareFixture(page: Page, name: string, alreadyOpen = false): Promise<void> {
+  if (!alreadyOpen) await open(page, false)
   const workspace = join(workspaceRoot!, name)
   mkdirSync(workspace, { recursive: true })
   // A restored session can already render the slot. Wait for THIS setup to
@@ -175,21 +192,26 @@ async function prepareFixture(page: Page, name: string): Promise<void> {
   assert.equal(state.slot, 'conversation.composer.dock')
 }
 
-async function notify(page: Page, action: 'approval' | 'complete' | 'withdraw'): Promise<void> {
+async function notify(page: Page, action: 'approval' | 'complete' | 'withdraw' | 'question' | 'question-ptc' | 'question-timed' | 'question-release' | 'answer'): Promise<void> {
   const status = await page.evaluate(async action => {
     const response = await fetch(new URL('api/web-hello/notify', document.baseURI), {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ action, sessionId: window.__DSH_WEB_HELLO__!.sessionId }),
     })
-    await response.text()
-    return response.status
+    return { status: response.status, body: await response.text() }
   }, action)
-  assert.equal(status, 200, `Host fixture ${action} failed`)
+  assert.equal(status.status, 200, `Host fixture ${action} failed: ${status.body}`)
+}
+
+async function answerQuestion(page: Page): Promise<void> {
+  await page.getByRole('radio', { name: 'A', exact: true }).click()
+  await page.getByRole('button', { name: /^(Submit|提交)$/ }).click()
+  await notify(page, 'answer')
 }
 
 try {
   assert.ok(downloaded || (executablePath && existsSync(executablePath)), 'set CHROME_PATH, or install Chromium and set DSH_E2E_BROWSER=chromium')
-  browser = await chromium.launch({ headless: true, executablePath, timeout: 30_000 })
+  browser = await (useFirefox ? firefox : chromium).launch({ headless: true, executablePath, timeout: 30_000 })
   deadline = setTimeout(() => {
     results.push({ name: 'suite-deadline', ok: false, error: `browser suite exceeded ${suiteTimeout}ms` })
     process.exitCode = 1
@@ -204,10 +226,50 @@ try {
       await page.getByRole('tree', { name: 'Sessions', exact: true }).waitFor({ state: 'visible' })
     })
   } else {
+    await check('notification-reopen-continues', async (page, context) => {
+      await prepareFixture(page, 'persistent-before-close')
+      assert.equal(await page.evaluate(() => typeof ServiceWorkerRegistration), 'function', 'persistent notification check requires the real worker API on the DSH page')
+      await notify(page, 'complete')
+      await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.length === 1)
+      const data = await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls[0]!.data!)
+      await page.close()
+      const reopened = await context.newPage()
+      const target = new URL(url!)
+      target.searchParams.set('notify-web-session', data.sessionId)
+      target.searchParams.set('notify-web-id', data.id)
+      await reopened.goto(target.href)
+      await reopened.waitForFunction(() => (window as unknown as { __NOTIFY_WEB__?: { connected: boolean } }).__NOTIFY_WEB__?.connected === true)
+      await prepareFixture(reopened, 'persistent-after-close', true)
+      await notify(reopened, 'complete')
+      await reopened.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.length === 1)
+      await notify(reopened, 'question')
+      await notify(reopened, 'question-release')
+      await reopened.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.length === 2)
+      await answerQuestion(reopened)
+    }, false, true)
     await check('slot-interaction-theme-locale-reload', async (page, _context, directory) => {
       await prepareFixture(page, 'matrix')
+      // Exercise the real authenticated worker route and browser activation;
+      // OS click delivery remains a manual check, not simulated by this assertion.
+      assert.equal(await page.evaluate(async () => {
+        const container = Reflect.get(Object.getPrototypeOf(navigator), 'serviceWorker', navigator) as ServiceWorkerContainer
+        const registration = await container.register(new URL('api/notify-web/worker.js', document.baseURI), { updateViaCache: 'none' })
+        if (!registration.active) {
+          const worker = registration.installing ?? registration.waiting
+          if (!worker) throw new Error('worker not installed')
+          await new Promise<void>((resolve, reject) => {
+            const changed = () => {
+              if (worker.state === 'activated') resolve()
+              if (worker.state === 'redundant') reject(new Error('worker redundant'))
+            }
+            worker.addEventListener('statechange', changed)
+            changed()
+          })
+        }
+        return registration.scope === new URL('api/notify-web/', document.baseURI).href
+      }), true)
       // Real authenticated SSE must connect and persist its initial cursor.
-      await page.waitForFunction(() => localStorage.getItem('notify-web:cursor:/') !== null)
+      await page.waitForFunction(() => localStorage.getItem('notify-web:v3:cursor:/') !== null)
       assert.deepEqual(await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls), [])
       let count = 0
       const colors: string[] = []
@@ -240,6 +302,76 @@ try {
       await page.getByTestId('web-hello-result').getByText(`after-reload #${++count}`, { exact: true }).waitFor({ state: 'visible' })
     })
 
+    await check('question-real-tool-sse', async (page, context) => {
+      // Keep an old page's pre-question Web Lock held throughout this check.
+      // A current client must still receive the real tool's notification.
+      const legacy = await context.newPage()
+      const legacyUrl = new URL('/l5-legacy-notification-client', url).href
+      await legacy.route(legacyUrl, route => route.fulfill({ contentType: 'text/html', body: '<title>Legacy lock fixture</title>' }))
+      await legacy.goto(legacyUrl)
+      await legacy.evaluate(() => new Promise<void>(resolve => {
+        void navigator.locks.request('notify-web:/', async () => {
+          resolve()
+          await new Promise(() => {})
+        })
+      }))
+      await prepareFixture(page, 'question-real-tool')
+      await page.waitForFunction(() => localStorage.getItem('notify-web:v3:cursor:/') !== null)
+      await page.evaluate(() => { window.__L5_NOTIFICATIONS__.calls = [] })
+      await notify(page, 'question')
+      assert.equal(await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls.length), 0, 'tool call before Remote delivery must not notify')
+      await notify(page, 'question-release')
+      await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.some(call => call.title === 'Reply needed'))
+      const questions = await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls.filter(call => call.title === 'Reply needed'))
+      assert.equal(questions.length, 1)
+      assert.equal(questions[0]?.body, 'Which option should we use?')
+      await answerQuestion(page)
+      await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.filter(call => call.title === 'Reply needed').every(call => call.closed))
+      await legacy.close()
+    })
+
+    await check('question-ptc-received-sse', async page => {
+      await prepareFixture(page, 'question-ptc-start')
+      await page.waitForFunction(() => localStorage.getItem('notify-web:v3:cursor:/') !== null)
+      await page.evaluate(() => { window.__L5_NOTIFICATIONS__.calls = [] })
+      await notify(page, 'question-ptc')
+      assert.equal(await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls.length), 0, 'PTC start before Remote delivery must not notify')
+      await notify(page, 'question-release')
+      // The child is blocked awaiting its answer, so no dispatch result exists yet.
+      await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.some(call => call.title === 'Reply needed'))
+      const calls = await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls.filter(call => call.title === 'Reply needed'))
+      assert.equal(calls.length, 1)
+      assert.match(calls[0]!.tag, /:question:request-/)
+      await answerQuestion(page)
+      await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.filter(call => call.title === 'Reply needed').every(call => call.closed))
+    })
+
+    await check('question-leader-handover', async (page, context) => {
+      await prepareFixture(page, 'question-handover')
+      await page.waitForFunction(() => localStorage.getItem('notify-web:v3:cursor:/') !== null)
+      const sessionId = await page.evaluate(() => window.__DSH_WEB_HELLO__!.sessionId)
+      assert.ok(sessionId)
+      const follower = await context.newPage()
+      await follower.goto(page.url(), { waitUntil: 'domcontentloaded' })
+      await follower.waitForFunction(() => window.__L5_NOTIFICATIONS__.requests === 1)
+      // The original page still receives the Remote request, but the second
+      // page owns notifications. Receipt must cross that tab boundary.
+      await page.evaluate(() => window.dispatchEvent(new Event('pagehide')))
+      await follower.waitForFunction(() => (window as unknown as { __NOTIFY_WEB__?: { leader: boolean; connected: boolean } }).__NOTIFY_WEB__?.connected === true)
+      await notify(page, 'question-timed')
+      assert.equal(await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls.length), 0)
+      await notify(page, 'question-release')
+      await follower.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.some(call => call.title === 'Reply needed'))
+      assert.equal(await follower.evaluate(() => window.__L5_NOTIFICATIONS__.calls.filter(call => call.title === 'Reply needed').length), 1)
+      assert.equal(await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls.length), 0, 'receipt observer must not duplicate the other tab leader')
+      await follower.evaluate(() => window.dispatchEvent(new Event('pagehide')))
+      await page.evaluate(() => window.dispatchEvent(new Event('pageshow')))
+      await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.some(call => call.title === 'Reply needed'))
+      await answerQuestion(page)
+      await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.filter(call => call.title === 'Reply needed').every(call => call.closed))
+      await follower.close()
+    })
+
     for (const language of ['en', 'zh', 'denied'] as const) {
       await check(`notification-${language}`, async page => {
         let streams = 0
@@ -254,7 +386,7 @@ try {
           await switchLocale(page, language === 'zh' ? 'zh' : 'en')
           await fixture.getByRole('button', { name: language === 'zh' ? '发送到主机' : 'Send to Host', exact: true }).waitFor({ state: 'visible' })
           if (language !== 'denied') {
-            await page.waitForFunction(() => localStorage.getItem('notify-web:cursor:/') !== null)
+            await page.waitForFunction(() => localStorage.getItem('notify-web:v3:cursor:/') !== null)
           }
           await page.evaluate(() => { window.__L5_NOTIFICATIONS__.calls = [] })
           await notify(page, 'approval')

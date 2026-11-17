@@ -39,6 +39,8 @@ node scripts/dev.mjs l5 --test-browser chromium
 
 无需新增 JSON；也可设置 `DSH_E2E_BROWSER=chromium` 供后续测试使用。若 pnpm 无法自动发现，在命令中补 `--pnpm-script <pnpm包>/bin/pnpm.cjs`，或设置 `DSH_PNPM`。浏览器下载到 Playwright 的本机缓存；升级 Playwright 后按需重新执行安装命令。
 
+Firefox 隔离回归使用 Playwright 专用构建，不复用日常 Firefox profile：先运行 `node node_modules/playwright-core/cli.js install firefox`，再运行 `node scripts/dev.mjs l5 --test-browser firefox`。和 Chromium 模式一样，由 Playwright 选择匹配的浏览器，忽略 Chrome 路径；通知测试替换 OS Notification API，因此通过不代表已验证系统弹窗。
+
 完整 CI 执行环境 fast/real → 类型检查 → L1–L3 → L4 → L5，核对报告，失败即停止。真实环境套件需要网络和本地端口。L4 默认包括 tarball 安装验证，verify-artifacts 可验收固定清单；不使用用户日常 profile。
 
 包管理沿用系统 registry、代理、证书、缓存和 store；隔离的是 DSH 数据与插件依赖关系，不清理共享缓存。
