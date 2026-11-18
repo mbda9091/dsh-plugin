@@ -338,6 +338,19 @@ bundle 层 → profile 层 → home 层 → --patch
 
 `$DSH_HOME/cordis.patch.yml` 天然在 profile 之后应用，能覆盖 profile 里的任何行，不需要改动 profile。代价是作用于所有 profile，且文件在仓库外（本机无符号链接权限，只能同步或手工维护）。
 
+### 4.6 Web 设置页与配置文件同步：统一走 profile 根 patch
+
+**结论：Web 页面内的设置选项（Settings / Models 等）要与配置文件保持一致，就必须统一走 profile 的根 patch `cordis.patch.yml`。仅把配置写进 profile 根 patch 还不够，必须保证它是该行的最后一层——home 或 `--patch` 不能再定义同一个 id，否则页面写入仍会被覆盖。**
+
+- Web 设置页只读写 profile 的根 patch `cordis.patch.yml`（不是根配置 `cordis.yml`）；它不写 home 层，也不写 `--patch`。
+- 保存前 Web 设置页会把「profile 补丁 + home + `--patch`」重新组合；如果目标行的最终值不等于它要写的值，就拒绝并报 `Configuration for "<id>" is overridden by a home patch or command-line overlay`。
+- 同一行的 `config` 是**整体替换**，所以不能把同一行的字段拆到两层：谁最后定义，谁就是唯一来源。
+- bundle 层比 profile 早，不阻碍页面设置（页面写 profile 就会覆盖它）；只有 **home 层和 `--patch`** 在 profile 之后，会挡住页面设置。
+- 如果某行已经在 home 或 `--patch` 里：把整段搬到 profile 的 `cordis.patch.yml`，并删除或置空 home / `--patch` 中的同 id 行；否则搬到 profile 也会被再次覆盖。
+- 本机实例：`llm-pi-ai` 已在 profile；旧 `--patch` 文件 `mbda9091/model-providers.cordis.patch.yml` 已置为 `[]`。
+
+> 一句话：**Web 设置页写 profile 根 patch，所以 profile 根 patch 必须是这一行的最后一层。**
+
 ---
 
 ## 5. 本仓库的约定（今日变更）
@@ -361,6 +374,7 @@ bundle 层 → profile 层 → home 层 → --patch
 | 修好代码仍然加载失败 | Node 缓存了模块加载失败 | 重启 dsh |
 | 安装成功但插件没生效 | 包没声明 `dsh.bundle`，只当了普通依赖 | 检查包装时的警告 |
 | desktop 用不了 `--patch` | Electron 启动参数写死 | 用 bundle / profile / home 层 |
+| Web 设置页保存报 `overridden by a home patch or command-line overlay` | 该行最后定义在 home / `--patch`，晚于 profile，页面写入被覆盖 | 把整段搬进 profile 根 patch `cordis.patch.yml`，删除或置空 home / `--patch` 里的同 id 行（§4.6） |
 
 ---
 
