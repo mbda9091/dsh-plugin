@@ -42,3 +42,4 @@ Desktop.ini
 /.security/bin/
 /.security/__pycache__/
 /.security/install-manifest.json
+/.security/hooks/migrated-project-checks

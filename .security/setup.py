@@ -7,7 +7,10 @@ import subprocess
 import sys
 import tarfile
 
-from manage import RepoSecurityError, standalone_main
+# Direct Python invocation must remain read-only until Git's version gate passes.
+sys.dont_write_bytecode = True
+
+from manage import RepoSecurityError, hook_config, standalone_main
 
 
 def main():
@@ -16,6 +19,7 @@ def main():
     args = parser.parse_args()
     standalone_main(Path(__file__).resolve().parent, install_hooks=args.install_hooks)
     print("Tools verified." + (" Repository-local hooks enabled." if args.install_hooks else " Hooks unchanged."))
+    print("Pre-commit order: " + hook_config.hook_order(Path(__file__).resolve().parent.parent))
 
 
 if __name__ == "__main__":

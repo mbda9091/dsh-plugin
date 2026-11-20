@@ -14,8 +14,20 @@ import tempfile
 SECURITY = Path(__file__).resolve().parent
 
 
+def git_environment():
+    env = dict(os.environ)
+    # Git exports GIT_DIR for linked-worktree hooks. With -C .security it can
+    # make Git treat that directory as the worktree root. Target this checkout
+    # explicitly while retaining the commit-specific GIT_INDEX_FILE.
+    for name in ("GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR"):
+        env.pop(name, None)
+    return env
+
+
 def git(root, *args):
-    result = subprocess.run(["git", "-C", str(root), *args], capture_output=True)
+    result = subprocess.run(
+        ["git", "-C", str(root), *args], capture_output=True, env=git_environment()
+    )
     if result.returncode:
         raise RuntimeError("Git command failed: " + args[0])
     return result.stdout
@@ -190,7 +202,7 @@ def push_commits(root, stream):
         tip = git(root, "rev-parse", "--verify", local + "^{commit}").decode().strip()
         args = ["rev-list", tip]
         if set(remote) != {"0"}:
-            exists = subprocess.run(["git", "-C", str(root), "cat-file", "-e", remote + "^{commit}"], capture_output=True)
+            exists = subprocess.run(["git", "-C", str(root), "cat-file", "-e", remote + "^{commit}"], capture_output=True, env=git_environment())
             if exists.returncode == 0:
                 args += ["--not", remote]
         commits.update(git(root, *args).decode().splitlines())
