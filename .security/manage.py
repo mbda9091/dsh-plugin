@@ -53,7 +53,6 @@ LEGACY_DISPATCHERS = {
     "c5cc92e515c9de67bc5dc93d9db3faa3213ddc4e3dc7ea1e147fa9f2f142da6b",
     "192f87feb69f2ffdf8194830284b46ceb8d9dd1692e32742fe03745c93d5cb59",
 }
-LEGACY_PUSH_DIGESTS = {"794c853e72ee45d2961c90e175db1c9d69b06b84cd07744a05ba296d9aa3c6bc"}
 IGNORE_ENTRIES = (
     "/.security/.venv/",
     "/.security/bin/",
@@ -140,6 +139,11 @@ class InstallPlan:
         )
 
     def describe(self) -> tuple[str, ...]:
+        legacy_path = (
+            "/dev/null (keep hidden checks inactive)"
+            if self.native.preserve_hidden_hooks
+            else "unset"
+        )
         return (
             f"Repository: {self.root}",
             *(f"ADD {name}" for name in self.create),
@@ -153,6 +157,11 @@ class InstallPlan:
             "Current pre-commit order: " + hook_config.hook_order(self.root),
             *(f"REGISTER {hook.name}: {hook.event}" for hook in self.native.registrations),
             *(f"MIGRATE {item.relative}" for item in self.native.removals),
+            *(
+                (f"REPLACE legacy hooksPath in {self.native.legacy_config}: {legacy_path}",)
+                if self.native.clear_legacy_path
+                else ()
+            ),
             f"Hooks source: {self.hooks.origin or '(unset)'}",
             "Install/verify: Python 3.13, locked Semgrep/Presidio, SHA-256 checked Gitleaks.",
             "May download into .security and uv's Python/package caches; no business history scan.",
@@ -480,7 +489,7 @@ def make_plan(  # noqa: C901, PLR0912, PLR0915 -- aggregate all conflicts before
             if not path_problem(root, LEGACY_PUSH) and legacy_push.is_file()
             else None
         )
-        if info and digest == info["installed_sha256"] and digest in LEGACY_PUSH_DIGESTS:
+        if hook_config.owned_legacy_push(digest, info):
             remove.append(LEGACY_PUSH)
     if (platform.system(), platform.machine()) not in CHECKSUMS:
         conflicts.append("Unsupported platform; use Linux/macOS x64/arm64 or WSL")
@@ -647,8 +656,21 @@ def backup_migration(plan: InstallPlan) -> str:
     parent.mkdir(mode=0o700, exist_ok=True)
     backup = Path(tempfile.mkdtemp(prefix="upgrade-", dir=parent))
     files: dict[str, dict[str, str | int]] = {}
+    configs = ()
+    if plan.native.clear_legacy_path:
+        configs = (
+            (".git/config", ".git/config.worktree")
+            if plan.hooks.layout.scope == "worktree"
+            else (".git/config",)
+        )
     for relative in dict.fromkeys(
-        (MANIFEST, *plan.update, *plan.remove, *(item.relative for item in plan.native.removals))
+        (
+            MANIFEST,
+            *plan.update,
+            *plan.remove,
+            *(item.relative for item in plan.native.removals),
+            *configs,
+        )
     ):
         source = metadata_path(plan.root, relative)
         if not source.exists() and not source.is_symlink():

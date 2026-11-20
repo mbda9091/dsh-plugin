@@ -9,12 +9,13 @@ import shlex
 import stat
 import subprocess
 import tempfile
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Generator, Mapping
 
 MINIMUM_GIT = (2, 54, 0)
 SCHEMA_VERSION = 2
@@ -25,6 +26,7 @@ DISPATCHER_DIGESTS = {
     "c5cc92e515c9de67bc5dc93d9db3faa3213ddc4e3dc7ea1e147fa9f2f142da6b",
     "192f87feb69f2ffdf8194830284b46ceb8d9dd1692e32742fe03745c93d5cb59",
 }
+LEGACY_PUSH_DIGESTS = {"794c853e72ee45d2961c90e175db1c9d69b06b84cd07744a05ba296d9aa3c6bc"}
 
 
 class RepoSecurityError(Exception):
@@ -188,27 +190,31 @@ class HooksState:
     origin: str | None
     layout: GitLayout
     config_before: bytes | None
+    shared_config_before: bytes | None
     entries: tuple[tuple[str, str], ...]
 
 
 def hooks_state(root: Path) -> HooksState:
     layout = git_layout(root)
-    if layout.config.is_symlink() or (layout.config.exists() and not layout.config.is_file()):
-        msg = "Git configuration must be a regular file, not a symlink"
-        raise RepoSecurityError(msg)
-    effective = git(root, "config", "--show-origin", "--get", "core.hooksPath")
+    shared = layout.common_dir / "config"
+    for config in (layout.config, shared):
+        if config.is_symlink() or (config.exists() and not config.is_file()):
+            msg = "Git configuration must be a regular file, not a symlink"
+            raise RepoSecurityError(msg)
+    effective = git(root, "config", "--show-origin", "-z", "--get", "core.hooksPath")
     if effective.returncode not in (0, 1):
         msg = "Cannot inspect Git hooks configuration"
         raise RepoSecurityError(msg)
     origin, value = (None, None)
     if effective.returncode == 0:
-        origin, value = effective.stdout.rstrip("\n").split("\t", 1)
+        origin, value, _ = effective.stdout.split("\0", 2)
     return HooksState(
         _values(config_values(root, scope="local"), "core.hookspath"),
         value,
         origin,
         layout,
         layout.config.read_bytes() if layout.config.exists() else None,
+        shared.read_bytes() if shared.exists() else None,
         config_values(root),
     )
 
@@ -266,12 +272,61 @@ class HookPlan:
     registrations: tuple[NativeHook, ...]
     removals: tuple[OwnedRemoval, ...]
     members: tuple[str, ...]
-    clear_legacy_path: bool
+    legacy_config: Path | None
+    preserve_hidden_hooks: bool
     conflicts: tuple[str, ...]
+
+    @property
+    def clear_legacy_path(self) -> bool:
+        return self.legacy_config is not None
 
     @property
     def name(self) -> str:
         return self.registrations[-1].name
+
+
+def _legacy_config(
+    root: Path, state: HooksState, previous: Mapping[str, Any] | None
+) -> Path | None:
+    migrating = previous and (
+        previous.get("schema_version") == 1
+        or (previous.get("status") == "incomplete" and "migration_backup" in previous)
+    )
+    if not migrating or state.effective != ".security/hooks" or not state.origin:
+        return None
+    if not state.origin.startswith("file:"):
+        return None
+    source = (root / state.origin.removeprefix("file:")).resolve()
+    if ".security/hooks" in _values(state.entries, "core.hookspath")[:-1]:
+        return None  # Multiple possible ownership scopes require explicit review.
+    if source in (state.layout.config, state.layout.common_dir / "config"):
+        scope = "local" if source == state.layout.common_dir / "config" else "worktree"
+        if _values(config_values(root, scope=scope), "core.hookspath") == (".security/hooks",):
+            return source
+    return None
+
+
+def owned_legacy_push(digest: str | None, info: Mapping[str, Any] | None) -> bool:
+    return bool(info and digest == info["installed_sha256"] and digest in LEGACY_PUSH_DIGESTS)
+
+
+def _hidden_traditional_hooks(root: Path, state: HooksState) -> bool:
+    # Explicit inherited hook managers must regain control; only the implicit
+    # default directory's dormant scripts need to stay hidden.
+    if len(_values(state.entries, "core.hookspath")) > 1:
+        return False
+    directory = state.layout.common_dir / "hooks"
+    for path in directory.iterdir() if directory.exists() else ():
+        if not path.is_file() or not os.access(path, os.X_OK) or not native_event(root, path.name):
+            continue
+        if (
+            path.name == "pre-commit"
+            and not path.is_symlink()
+            and hashlib.sha256(path.read_bytes()).hexdigest() in DISPATCHER_DIGESTS
+        ):
+            continue  # This owned entry is removed during the same migration.
+        return True
+    return False
 
 
 def _legacy_removals(  # noqa: C901, PLR0912 -- check ownership and active legacy checks
@@ -321,9 +376,10 @@ def _legacy_removals(  # noqa: C901, PLR0912 -- check ownership and active legac
     elif member_path.exists():
         msg = "Legacy security member was modified; preserving it"
         raise RepoSecurityError(msg)
-    if state.effective is not None and (root / state.effective).resolve() != entry.parent.resolve():
-        # The default dispatcher is inactive under another hooksPath; keep its
-        # project members inactive instead of accidentally enabling them.
+    if not os.access(entry, os.X_OK) or (
+        state.effective is not None and (root / state.effective).resolve() != entry.parent.resolve()
+    ):
+        # A disabled or masked dispatcher must not activate its project members.
         return removals, ()
     directory = entry.parent / "pre-commit.d"
     if directory.is_symlink():
@@ -371,13 +427,9 @@ def plan_hooks(  # noqa: C901, PLR0912, PLR0915 -- aggregate native and migratio
             )
         name = existing[0] if existing else _available_name(entries, "repo-security")
         registrations.append(NativeHook(name, "pre-commit", SECURITY_COMMAND))
-    migrating = previous and (
-        previous.get("schema_version") == 1
-        or (previous.get("status") == "incomplete" and "migration_backup" in previous)
-    )
-    clear_path = bool(
-        migrating and state.local == (".security/hooks",) and state.effective == ".security/hooks"
-    )
+    legacy_config = _legacy_config(root, state, previous)
+    clear_path = legacy_config is not None
+    preserve_hidden = clear_path and _hidden_traditional_hooks(root, state)
     if state.effective == ".security/hooks" and not clear_path:
         conflicts.append(
             "hooksPath selects the security runtime; "
@@ -401,11 +453,8 @@ def plan_hooks(  # noqa: C901, PLR0912, PLR0915 -- aggregate native and migratio
                 )
                 if (
                     path.name == "pre-push"
-                    and info
                     and path.is_file()
-                    and hashlib.sha256(path.read_bytes()).hexdigest() == info["installed_sha256"]
-                    and info["installed_sha256"]
-                    == "794c853e72ee45d2961c90e175db1c9d69b06b84cd07744a05ba296d9aa3c6bc"
+                    and owned_legacy_push(hashlib.sha256(path.read_bytes()).hexdigest(), info)
                 ):
                     continue
                 if path.is_file() and os.access(path, os.X_OK):
@@ -445,7 +494,13 @@ def plan_hooks(  # noqa: C901, PLR0912, PLR0915 -- aggregate native and migratio
     if len(owned_names) != len(registrations):
         conflicts.append("Managed hook names are not unique")
     return HookPlan(
-        state, tuple(registrations), tuple(removals), members, clear_path, tuple(conflicts)
+        state,
+        tuple(registrations),
+        tuple(removals),
+        members,
+        legacy_config,
+        preserve_hidden,
+        tuple(conflicts),
     )
 
 
@@ -467,17 +522,18 @@ def hooks_enabled(root: Path, plan: HookPlan) -> bool:
 
 
 def _config_content(  # noqa: C901 -- repair project fields in place, then append only security
-    root: Path, plan: HookPlan
+    root: Path, plan: HookPlan, config: Path
 ) -> bytes:
-    config = plan.state.layout.config
+    native = config == plan.state.layout.config
+    before = plan.state.config_before if native else plan.state.shared_config_before
     descriptor, name = tempfile.mkstemp(prefix=".repo-security-config-", dir=config.parent)
     temporary = Path(name)
     try:
         with os.fdopen(descriptor, "wb") as stream:
-            stream.write(plan.state.config_before or b"")
+            stream.write(before or b"")
         scoped = config_values(root, scope=plan.state.layout.scope)
         # Keep migrated project checks in place; only the security event moves.
-        for hook in plan.registrations[:-1]:
+        for hook in plan.registrations[:-1] if native else ():
             for field, value in (("command", hook.command), ("event", hook.event)):
                 key = f"hook.{hook.name}.{field}"
                 if _values(scoped, key) == (value,):
@@ -486,7 +542,7 @@ def _config_content(  # noqa: C901 -- repair project fields in place, then appen
                 if result.returncode:
                     msg = "Cannot prepare migrated project hook configuration"
                     raise RepoSecurityError(msg)
-        for hook in plan.registrations[-1:]:
+        for hook in plan.registrations[-1:] if native else ():
             for field in ("command", "event"):
                 result = git(
                     root,
@@ -499,12 +555,19 @@ def _config_content(  # noqa: C901 -- repair project fields in place, then appen
                 if result.returncode not in (0, 5):
                     msg = "Cannot prepare native hook configuration"
                     raise RepoSecurityError(msg)
-        if plan.clear_legacy_path:
-            result = git(root, "config", "--file", str(temporary), "--unset-all", "core.hooksPath")
+        if plan.legacy_config == config:
+            operation = (
+                ("--replace-all", "core.hooksPath", os.devnull)
+                if plan.preserve_hidden_hooks
+                else ("--unset-all", "core.hooksPath")
+            )
+            result = git(root, "config", "--file", str(temporary), *operation)
             if result.returncode not in (0, 5):
                 msg = "Cannot migrate legacy hooksPath"
                 raise RepoSecurityError(msg)
         # Append actual registrations, not a sorted list: Git follows config parse order.
+        if not native:
+            return temporary.read_bytes()
         with temporary.open("ab") as stream:
             stream.write(b"\n")
             for hook in plan.registrations[-1:]:
@@ -543,35 +606,54 @@ def hook_order(root: Path) -> str:
     )
 
 
-def activate_hooks(  # noqa: C901, PLR0912 -- locked publication and ownership checks stay ordered
-    root: Path, plan: HookPlan
-) -> None:
+@contextmanager
+def _config_lock(config: Path) -> Generator[Path, None, None]:
+    lock = config.with_name(config.name + ".lock")
+    try:
+        descriptor = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError as error:
+        msg = "Git configuration is locked by another writer"
+        raise RepoSecurityError(msg) from error
+    identity = os.fstat(descriptor)
+    os.close(descriptor)
+    try:
+        yield lock
+    finally:
+        current = lock.lstat() if lock.exists() or lock.is_symlink() else None
+        if current and (current.st_dev, current.st_ino) == (identity.st_dev, identity.st_ino):
+            lock.unlink()
+
+
+def _publish_configs(root: Path, plan: HookPlan) -> None:
+    primary = plan.state.layout.config
+    configs = [primary]
+    if plan.legacy_config is not None and plan.legacy_config != primary:
+        configs.append(plan.legacy_config)
+    contents = {config: _config_content(root, plan, config) for config in configs}
+    with ExitStack() as stack:
+        locks = {
+            config: stack.enter_context(_config_lock(config)) for config in sorted(configs)
+        }
+        if hooks_state(root) != plan.state:
+            msg = "Hooks configuration changed during setup; preserving external edits"
+            raise RepoSecurityError(msg)
+        for config in configs:
+            locks[config].write_bytes(contents[config])
+            if config.exists():
+                locks[config].chmod(stat.S_IMODE(config.stat().st_mode))
+        # Publish the fail-closed native entry before removing its legacy path.
+        for config in configs:
+            locks[config].replace(config)
+
+
+def activate_hooks(root: Path, plan: HookPlan) -> None:
     if hooks_state(root) != plan.state:
         msg = "Hooks configuration changed during setup; preserving external edits"
         raise RepoSecurityError(msg)
     if plan.conflicts:
         raise RepoSecurityError("\n".join(plan.conflicts))
     if not registration_at_end(root, plan) or plan.clear_legacy_path:
-        content = _config_content(root, plan)
-        config = plan.state.layout.config
-        lock = config.with_name(config.name + ".lock")
-        try:
-            descriptor = os.open(lock, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        except FileExistsError as error:
-            msg = "Git configuration is locked by another writer"
-            raise RepoSecurityError(msg) from error
-        try:
-            with os.fdopen(descriptor, "wb") as stream:
-                stream.write(content)
-            current = hooks_state(root)
-            if current != plan.state:
-                msg = "Hooks configuration changed during setup; preserving external edits"
-                raise RepoSecurityError(msg)
-            if config.exists():
-                lock.chmod(stat.S_IMODE(config.stat().st_mode))
-            lock.replace(config)
-        finally:
-            lock.unlink(missing_ok=True)
+        _publish_configs(root, plan)
     if not hooks_enabled(root, plan):
         msg = "Native hooks configuration did not take effect"
         raise RepoSecurityError(msg)
