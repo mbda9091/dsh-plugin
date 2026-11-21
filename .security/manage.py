@@ -18,7 +18,7 @@ import urllib.request
 from dataclasses import dataclass, replace
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any, NotRequired, TypedDict, cast
+from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Sequence
@@ -43,22 +43,11 @@ CHECKSUMS = {
 }
 MANIFEST = ".security/install-manifest.json"
 WORKFLOW = ".github/workflows/repo-security.yml"
-HOOKS_PATH = ".security/hooks"
-HOOK_ENTRY = ".git/hooks/pre-commit"
-HOOK_LINK = ".git/hooks/pre-commit.d/10-security"
-HOOK_TARGET = "../../../.security/hooks/pre-commit"
-BACKUPS = ".git/repo-security-backups"
-LEGACY_PUSH = ".security/hooks/pre-push"
-LEGACY_DISPATCHERS = {
-    "c5cc92e515c9de67bc5dc93d9db3faa3213ddc4e3dc7ea1e147fa9f2f142da6b",
-    "192f87feb69f2ffdf8194830284b46ceb8d9dd1692e32742fe03745c93d5cb59",
-}
 IGNORE_ENTRIES = (
     "/.security/.venv/",
     "/.security/bin/",
     "/.security/__pycache__/",
     "/.security/install-manifest.json",
-    "/.security/hooks/migrated-project-checks",
 )
 RUNTIME_NAMES = (
     "setup.sh",
@@ -91,12 +80,9 @@ class InstallRecord(TypedDict):
     status: str
     phase: str
     files: dict[str, FileRecord]
-    original_local_hooks: list[str]
     gitleaks: dict[str, str]
-    migration_backup: NotRequired[str]
-    native_hooks: NotRequired[list[dict[str, str]]]
-    hook_scope: NotRequired[str]
-    migration_members: NotRequired[list[str]]
+    native_hooks: list[dict[str, str]]
+    hook_scope: str
 
 
 @dataclass(frozen=True)
@@ -124,44 +110,30 @@ class InstallPlan:
     ignore_before: bytes | None
     ignore_after: bytes
     update: tuple[str, ...]
-    remove: tuple[str, ...]
     checkout: bool
     native: hook_config.HookPlan
 
     @property
     def upgrade_required(self) -> bool:
         return self.previous is not None and (
-            bool(self.update or self.remove)
+            bool(self.update)
             or set(self.previous["files"]) != {x.destination for x in self.resources}
             or self.previous["schema_version"] != hook_config.SCHEMA_VERSION
             or self.previous["template_version"] != TEMPLATE_VERSION
-            or bool(self.native.removals or self.native.clear_legacy_path)
         )
 
     def describe(self) -> tuple[str, ...]:
-        legacy_path = (
-            "/dev/null (keep hidden checks inactive)"
-            if self.native.preserve_hidden_hooks
-            else "unset"
-        )
         return (
             f"Repository: {self.root}",
             *(f"ADD {name}" for name in self.create),
             *(f"KEEP {name}" for name in self.keep),
             *(f"CHMOD {name}" for name in self.repair),
             *(f"UPDATE {name}" for name in self.update),
-            *(f"REMOVE {name}" for name in self.remove),
             *(f"CONFLICT {reason}" for reason in self.conflicts),
             f"Native security hook: {self.native.name} (Git >= 2.54.0)",
             f"Configuration scope: {self.hooks.layout.scope}; default append at end",
             "Current pre-commit order: " + hook_config.hook_order(self.root),
             *(f"REGISTER {hook.name}: {hook.event}" for hook in self.native.registrations),
-            *(f"MIGRATE {item.relative}" for item in self.native.removals),
-            *(
-                (f"REPLACE legacy hooksPath in {self.native.legacy_config}: {legacy_path}",)
-                if self.native.clear_legacy_path
-                else ()
-            ),
             f"Hooks source: {self.hooks.origin or '(unset)'}",
             "Install/verify: Python 3.13, locked Semgrep/Presidio, SHA-256 checked Gitleaks.",
             "May download into .security and uv's Python/package caches; no business history scan.",
@@ -206,22 +178,11 @@ def path_problem(root: Path, relative: str, *, directory: bool = False) -> str |
     return None
 
 
-def validate_file_records(entries: dict[str, Any], *, legacy: bool = False) -> None:
-    allowed = {".security/" + name for name in RUNTIME_NAMES} | {
-        WORKFLOW,
-        hook_config.MIGRATED_CHECKS,
-        LEGACY_PUSH,
-    }
+def validate_file_records(entries: dict[str, Any]) -> None:
     required = {".security/" + name for name in RUNTIME_NAMES}
-    if legacy:
-        allowed.add(LEGACY_PUSH)
-        required.discard(".security/setup.sh")
-        required.discard(".security/hook_config.py")
-    if not required.issubset(entries):
+    if not required.issubset(entries) or not set(entries).issubset(required | {WORKFLOW}):
         raise ValueError
-    for name, entry in entries.items():
-        if name not in allowed:
-            raise ValueError
+    for entry in entries.values():
         for key in ("template_sha256", "installed_sha256"):
             value = entry[key]
             if not isinstance(value, str) or len(value) != hashlib.sha256().digest_size * 2:
@@ -231,68 +192,36 @@ def validate_file_records(entries: dict[str, Any], *, legacy: bool = False) -> N
             raise TypeError
 
 
-def validate_record(  # noqa: C901, PLR0912 -- validate both supported record schemas
-    data: dict[str, Any], *, legacy: bool = False
-) -> InstallRecord:
+def validate_record(data: dict[str, Any]) -> InstallRecord:
     schema = data["schema_version"]
-    if type(schema) is not int or schema not in (1, hook_config.SCHEMA_VERSION):
-        raise ValueError
-    if (schema == 1 and (not legacy or data["template_version"] != "0.2.0")) or (
-        schema == hook_config.SCHEMA_VERSION and data["template_version"] != TEMPLATE_VERSION
+    if (
+        type(schema) is not int
+        or schema != hook_config.SCHEMA_VERSION
+        or data["template_version"] != TEMPLATE_VERSION
     ):
         raise ValueError
-    if schema == hook_config.SCHEMA_VERSION:
-        hooks = data["native_hooks"]
-        if (
-            not isinstance(hooks, list)
-            or not hooks
-            or data["hook_scope"] not in ("local", "worktree")
-        ):
-            raise ValueError
-        for item in cast("list[dict[str, Any]]", hooks):
-            if set(item) != {"name", "event", "command"} or not all(
-                isinstance(value, str) for value in item.values()
-            ):
-                raise ValueError
-            if not re.fullmatch(r"repo-security(?:-[A-Za-z0-9-]+)?", item["name"]):
-                raise ValueError
-            if not re.fullmatch(r"[a-z][a-z0-9-]*", item["event"]):
-                raise ValueError
-            if not item["command"].startswith("./.security/hooks/") or any(
-                value in item["command"] for value in ("\n", "\r", "\0")
-            ):
-                raise ValueError
-        if (
-            hooks[-1]["event"] != "pre-commit"
-            or hooks[-1]["command"] != hook_config.SECURITY_COMMAND
-        ):
-            raise ValueError
-        members = data["migration_members"]
-        if not isinstance(members, list) or any(
-            not isinstance(name, str)
-            or Path(name).name != name
-            or name in (".", "..", "10-security")
-            for name in cast("list[object]", members)
-        ):
-            raise ValueError
+    raw_hooks = data["native_hooks"]
+    if not isinstance(raw_hooks, list):
+        raise TypeError
+    hooks = cast("list[object]", raw_hooks)
+    if len(hooks) != 1 or data["hook_scope"] not in ("local", "worktree"):
+        raise ValueError
+    if not isinstance(hooks[0], dict):
+        raise TypeError
+    hook = cast("dict[str, Any]", hooks[0])
+    if (
+        set(hook) != {"name", "event", "command"}
+        or not isinstance(hook["name"], str)
+        or not re.fullmatch(r"repo-security(?:-[A-Za-z0-9-]+)?", hook["name"])
+        or hook["event"] != "pre-commit"
+        or hook["command"] != hook_config.SECURITY_COMMAND
+    ):
+        raise ValueError
     if data["status"] not in ("incomplete", "ready") or not isinstance(data["phase"], str):
         raise ValueError
     if not isinstance(data["files"], dict) or not isinstance(data["gitleaks"], dict):
         raise TypeError
-    original = data["original_local_hooks"]
-    if not isinstance(original, list) or not all(
-        isinstance(x, str) for x in cast("list[object]", original)
-    ):
-        raise ValueError
-    validate_file_records(cast("dict[str, Any]", data["files"]), legacy=legacy and schema == 1)
-    if "migration_backup" in data:
-        backup = data["migration_backup"]
-        if (
-            not isinstance(backup, str)
-            or not backup.startswith(BACKUPS + "/")
-            or ".." in PurePosixPath(backup).parts
-        ):
-            raise ValueError
+    validate_file_records(cast("dict[str, Any]", data["files"]))
     if not all(
         isinstance(k, str) and isinstance(v, str)
         for k, v in cast("dict[object, object]", data["gitleaks"]).items()
@@ -301,7 +230,7 @@ def validate_record(  # noqa: C901, PLR0912 -- validate both supported record sc
     return cast("InstallRecord", data)
 
 
-def read_record(root: Path, *, legacy: bool = False) -> InstallRecord | None:
+def read_record(root: Path) -> InstallRecord | None:
     problem = path_problem(root, MANIFEST)
     if problem:
         raise RepoSecurityError(problem)
@@ -309,14 +238,18 @@ def read_record(root: Path, *, legacy: bool = False) -> InstallRecord | None:
     if not path.exists():
         return None
     try:
-        return validate_record(json.loads(path.read_bytes()), legacy=legacy)
+        return validate_record(json.loads(path.read_bytes()))
     except (ValueError, TypeError, KeyError, AttributeError) as error:
-        msg = "Invalid or different-version install manifest; rerun setup for supported migrations"
+        msg = (
+            "Invalid or different-version install manifest; "
+            "automatic cleanup or migration is not supported. "
+            "Review the existing installation before setup"
+        )
         raise RepoSecurityError(msg) from error
 
 
 def hooks_enabled(root: Path, hooks: HooksState) -> bool:
-    record = read_record(root, legacy=True)
+    record = read_record(root)
     if not record or record["schema_version"] != hook_config.SCHEMA_VERSION:
         return False
     native = hook_config.plan_hooks(root, record)
@@ -383,7 +316,6 @@ def approved_registration(
     pending = (
         previous["status"] == "incomplete"
         and previous["phase"] == "deploying"
-        and "migration_backup" in previous
         and previous["files"][resource.destination]["template_sha256"] == resource.digest
     )
     return not checkout or pending or tracked_update(root, resource.destination)
@@ -418,7 +350,6 @@ def plan_resource(  # noqa: PLR0913 -- one shared file decision updates the plan
         and previous
         and previous["status"] == "incomplete"
         and previous["phase"] == "deploying"
-        and "migration_backup" in previous
         and relative not in CUSTOMIZABLE
         and info["template_sha256"] != resource.digest
         and not tracked_update(root, relative)
@@ -445,7 +376,7 @@ def plan_resource(  # noqa: PLR0913 -- one shared file decision updates the plan
         repair.append(relative)
 
 
-def make_plan(  # noqa: C901, PLR0912, PLR0915 -- aggregate all conflicts before any writes
+def make_plan(  # noqa: C901, PLR0912 -- aggregate all conflicts before any writes
     root: Path,
     resources: tuple[TemplateFile, ...],
     *,
@@ -457,7 +388,7 @@ def make_plan(  # noqa: C901, PLR0912, PLR0915 -- aggregate all conflicts before
     conflicts: list[str] = []
     previous = None
     try:
-        previous = read_record(root, legacy=True)
+        previous = read_record(root)
     except RepoSecurityError as error:
         conflicts.append(str(error))
     selected = tuple(
@@ -468,29 +399,10 @@ def make_plan(  # noqa: C901, PLR0912, PLR0915 -- aggregate all conflicts before
         or (previous is not None and WORKFLOW in previous["files"])
     )
     native = hook_config.plan_hooks(root, previous)
-    if native.members:
-        selected += (
-            TemplateFile(
-                hook_config.MIGRATED_CHECKS,
-                hook_config.migration_script(native.members),
-                executable=True,
-            ),
-        )
     selected = preserve_rules(root, selected, previous, checkout=checkout)
     hooks = native.state
     conflicts.extend(native.conflicts)
     update: list[str] = []
-    remove: list[str] = []
-    legacy_push = root / LEGACY_PUSH
-    if legacy_push.exists() or legacy_push.is_symlink():
-        info = previous["files"].get(LEGACY_PUSH) if previous else None
-        digest = (
-            hashlib.sha256(legacy_push.read_bytes()).hexdigest()
-            if not path_problem(root, LEGACY_PUSH) and legacy_push.is_file()
-            else None
-        )
-        if hook_config.owned_legacy_push(digest, info):
-            remove.append(LEGACY_PUSH)
     if (platform.system(), platform.machine()) not in CHECKSUMS:
         conflicts.append("Unsupported platform; use Linux/macOS x64/arm64 or WSL")
     if shutil.which("uv") is None:
@@ -520,8 +432,6 @@ def make_plan(  # noqa: C901, PLR0912, PLR0915 -- aggregate all conflicts before
             update=update,
             conflicts=conflicts,
         )
-    if previous and (problem := path_problem(root, BACKUPS, directory=True)):
-        conflicts.append(problem)
     for relative in (".security/.venv", ".security/bin"):
         problem = path_problem(root, relative, directory=True)
         if problem:
@@ -553,7 +463,6 @@ def make_plan(  # noqa: C901, PLR0912, PLR0915 -- aggregate all conflicts before
         ignore_before,
         ignore_after,
         tuple(update),
-        tuple(remove),
         checkout,
         native,
     )
@@ -627,73 +536,11 @@ def record_for(plan: InstallPlan) -> InstallRecord:
             }
             for x in plan.resources
         },
-        "original_local_hooks": (
-            plan.previous["original_local_hooks"] if plan.previous else list(plan.hooks.local)
-        ),
         "gitleaks": plan.previous["gitleaks"] if plan.previous else {},
         "native_hooks": [hook.record() for hook in plan.native.registrations],
         "hook_scope": plan.hooks.layout.scope,
-        "migration_members": list(plan.native.members),
     }
-    if plan.previous and "migration_backup" in plan.previous:
-        record["migration_backup"] = plan.previous["migration_backup"]
     return record
-
-
-def backup_migration(plan: InstallPlan) -> str:
-    previous = plan.previous
-    if previous and previous["status"] == "incomplete" and "migration_backup" in previous:
-        relative = previous["migration_backup"]
-        if (
-            path_problem(plan.root, relative, directory=True)
-            or path_problem(plan.root, relative + "/backup.json")
-            or not (metadata_path(plan.root, relative) / "backup.json").is_file()
-        ):
-            msg = "Migration backup is missing or linked; restore it before retrying setup"
-            raise RepoSecurityError(msg)
-        return relative
-    parent = metadata_path(plan.root, BACKUPS)
-    parent.mkdir(mode=0o700, exist_ok=True)
-    backup = Path(tempfile.mkdtemp(prefix="upgrade-", dir=parent))
-    files: dict[str, dict[str, str | int]] = {}
-    configs = ()
-    if plan.native.clear_legacy_path:
-        configs = (
-            (".git/config", ".git/config.worktree")
-            if plan.hooks.layout.scope == "worktree"
-            else (".git/config",)
-        )
-    for relative in dict.fromkeys(
-        (
-            MANIFEST,
-            *plan.update,
-            *plan.remove,
-            *(item.relative for item in plan.native.removals),
-            *configs,
-        )
-    ):
-        source = metadata_path(plan.root, relative)
-        if not source.exists() and not source.is_symlink():
-            continue
-        problem = path_problem(plan.root, relative)
-        if problem and not any(
-            item.relative == relative and isinstance(item.content, str)
-            for item in plan.native.removals
-        ):
-            raise RepoSecurityError(problem)
-        content = str(source.readlink()).encode() if source.is_symlink() else source.read_bytes()
-        destination = backup / "files" / relative
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        atomic_write(destination, content)
-        files[relative] = {
-            "sha256": hashlib.sha256(content).hexdigest(),
-            "mode": stat.S_IMODE(source.stat().st_mode),
-        }
-    atomic_write(
-        backup / "backup.json",
-        json.dumps({"files": files, "local_hooks": plan.hooks.local}, indent=2).encode() + b"\n",
-    )
-    return BACKUPS + "/" + backup.name
 
 
 def verify_owned_file(root: Path, relative: str, previous: InstallRecord | None) -> None:
@@ -705,7 +552,7 @@ def verify_owned_file(root: Path, relative: str, previous: InstallRecord | None)
         or not path.is_file()
         or hashlib.sha256(path.read_bytes()).hexdigest() != info["installed_sha256"]
     ):
-        raise RepoSecurityError("Managed file changed during migration: " + relative)
+        raise RepoSecurityError("Managed file changed during setup: " + relative)
 
 
 def deploy_resource(plan: InstallPlan, resource: TemplateFile) -> None:
@@ -729,9 +576,6 @@ def deploy_resource(plan: InstallPlan, resource: TemplateFile) -> None:
 def deploy(plan: InstallPlan) -> None:
     for resource in plan.resources:
         deploy_resource(plan, resource)
-    for relative in plan.remove:
-        verify_owned_file(plan.root, relative, plan.previous)
-        (plan.root / relative).unlink()
     problem = path_problem(plan.root, ".gitignore")
     if problem:
         raise RepoSecurityError(problem)
@@ -915,16 +759,11 @@ def activate_hooks(plan: InstallPlan) -> None:
     hook_config.activate_hooks(plan.root, plan.native)
 
 
-def migration_record(plan: InstallPlan) -> InstallRecord:
+def pending_record(plan: InstallPlan) -> InstallRecord:
     record = record_for(plan)
-    if plan.upgrade_required:
-        record["migration_backup"] = backup_migration(plan)
-        if plan.previous:
-            for name, old in plan.previous["files"].items():
-                if name in record["files"]:
-                    record["files"][name]["installed_sha256"] = old["installed_sha256"]
-                else:
-                    record["files"][name] = old.copy()
+    if plan.previous:
+        for name, old in plan.previous["files"].items():
+            record["files"][name]["installed_sha256"] = old["installed_sha256"]
     return record
 
 
@@ -957,7 +796,7 @@ def execute_setup(  # noqa: C901, PLR0912 -- phase checkpoints and hook activati
             or (install_hooks and not hook_config.registration_at_end(root, plan.native))
         )
         (root / ".security").mkdir(exist_ok=True)
-        record = migration_record(plan)
+        record = pending_record(plan)
         try:
             if updating:
                 save_record(root, record)
@@ -987,7 +826,6 @@ def execute_setup(  # noqa: C901, PLR0912 -- phase checkpoints and hook activati
                 or final.create
                 or final.repair
                 or final.update
-                or final.remove
                 or hook_config.hook_signature(hooks_state(root)) != activated_hooks
             ):
                 msg = "Installation changed during verification; rerun setup after review"
@@ -1139,10 +977,6 @@ def require_commit_ready(root: Path) -> None:
     hooks = hooks_state(root)
     if not hooks_enabled(root, hooks):
         msg = "Security hooks are not enabled; run .security/setup.sh"
-        raise RepoSecurityError(msg)
-    legacy_push = root / HOOKS_PATH / "pre-push"
-    if LEGACY_PUSH in record["files"] and (legacy_push.exists() or legacy_push.is_symlink()):
-        msg = "Legacy pre-push hook remains; review and remove it for commit-only setup"
         raise RepoSecurityError(msg)
     _require_registered_files(root, record)
     _require_commit_tools(root, record)
