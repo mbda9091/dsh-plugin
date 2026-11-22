@@ -33,7 +33,24 @@ def git(root, *args):
     return result.stdout
 
 
-def entries(root, revision=None):
+def staged_paths(root, tree):
+    head = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "--verify", "--quiet", "HEAD^{tree}"],
+        capture_output=True, env=git_environment(),
+    )
+    if head.returncode == 1:
+        return None  # The first commit introduces every file in the index.
+    if head.returncode:
+        raise RuntimeError("Git command failed: resolve HEAD tree")
+    changed = git(
+        root, "diff-tree", "--no-commit-id", "--name-only", "-r", "-z",
+        "--no-renames", "--diff-filter=ACMT", "--ignore-submodules=none",
+        "--no-ext-diff", "--no-textconv", head.stdout.decode().strip(), tree,
+    )
+    return {path.decode("utf-8") for path in changed.split(b"\0") if path}
+
+
+def entries(root, revision=None, paths=None):
     if revision is None:
         records = git(root, "ls-files", "--stage", "-z")
     else:
@@ -50,6 +67,8 @@ def entries(root, revision=None):
         else:
             oid = last
         path = path_bytes.decode("utf-8")
+        if paths is not None and path not in paths:
+            continue
         relative = PurePosixPath(path)
         if relative.is_absolute() or ".." in relative.parts or ".git" in relative.parts:
             raise RuntimeError("Unsafe Git path")
@@ -111,7 +130,7 @@ def tool_findings(command, report, name, root, env):
     return len(findings)
 
 
-def scan_snapshot(root, revision, policy, recognizers):
+def scan_snapshot(root, revision, policy, recognizers, paths=None):
     from pii import detect
 
     gitleaks = SECURITY / "bin/gitleaks"
@@ -125,7 +144,7 @@ def scan_snapshot(root, revision, policy, recognizers):
         scratch = Path(temp)
         snapshot = scratch / "source"
         snapshot.mkdir()
-        for path, oid in entries(root, revision):
+        for path, oid in entries(root, revision, paths):
             if policy_excludes(path, policy):
                 continue
             size = int(git(root, "cat-file", "-s", oid))
@@ -144,6 +163,9 @@ def scan_snapshot(root, revision, policy, recognizers):
             for line, entity in detect(text, recognizers, policy, path=path):
                 print(f"  Presidio: {path}:{line} [{entity}]", flush=True)
                 findings += 1
+        if not count:
+            print("  Scanned 0 files; no added or modified files to scan.", flush=True)
+            return 0
         env = dict(os.environ)
         env.update(SEMGREP_SEND_METRICS="off", SEMGREP_ENABLE_VERSION_CHECK="0")
         env["SEMGREP_SETTINGS_FILE"] = str(scratch / "settings.yaml")
@@ -213,7 +235,10 @@ def push_commits(root, stream):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=["staged", "head", "history", "pre-push"])
+    parser.add_argument(
+        "mode", choices=["staged", "head", "history", "pre-push"],
+        help="staged scans changed files; head/history/pre-push scan full snapshots.",
+    )
     parser.add_argument("--require-ready", action="store_true", help="Reject unready commit hooks.")
     args = parser.parse_args()
     root = Path(git(SECURITY, "rev-parse", "--show-toplevel").decode().strip())
@@ -244,8 +269,9 @@ def main():
         if tree in trees:
             continue
         trees.add(tree)
-        print("Checking " + (revision[:12] if revision else "staged snapshot"), flush=True)
-        total += scan_snapshot(root, revision, policy, recognizers)
+        paths = staged_paths(root, tree) if revision is None else None
+        print("Checking " + (revision[:12] if revision else "staged snapshot (changed files)"), flush=True)
+        total += scan_snapshot(root, tree, policy, recognizers, paths)
     print(f"{'BLOCKED' if total else 'PASS'}: {len(trees)} unique snapshots, {total} findings.", flush=True)
     return 1 if total else 0
 

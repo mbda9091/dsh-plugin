@@ -21,7 +21,7 @@
 
 - DeepSeek Harness：当前开发与类型依赖版本为 **`0.2.2-rc.1`**，开发宿主由 workspace 冻结安装，无需全局 DSH；正式桌面应用单独管理。
 - Node.js **24**、pnpm **11.28.5**；下面的依赖安装命令要求 pnpm 在 PATH 中可用。
-- 安全扫描使用 my-py-utils 的 `repo-security`，要求 **Git 2.54.0 及以上**，运行 `.security/setup.sh` 安装，由 Git `pre-commit` 自动执行；见[安全扫描说明](docs/repo-security.md)。
+- 安全扫描使用 my-py-utils 的 `repo-security`，要求 **Git 2.54.0 及以上**，运行 `repo-security setup .` 安装工具和 Git 原生 `pre-commit` hook；见[安全扫描说明](docs/repo-security.md)。
 
 2026-11-06 查询 npm `latest` 得到 `0.2.2-rc.1`，仓库使用该精确版本及锁文件保证可复现安装。宿主、插件类型包和真实环境测试版本同步；未来升级仍先解析 `latest` 再更新精确版本。`pnpm-workspace.yaml` 允许新增 WebSocket 原生依赖构建；可选 Kerberos 模块默认不构建，因为其 node-gyp 在带空格的用户目录下编译失败。普通 Web 与代理功能不依赖它；需要 Negotiate/SPNEGO 代理认证时，须在支持的本机环境单独启用并验证 Kerberos 构建。
 
@@ -30,7 +30,7 @@
 ```sh
 git clone https://github.com/mbda9091/dsh-plugin.git
 cd dsh-plugin
-.security/setup.sh
+repo-security setup .
 pnpm install --frozen-lockfile
 node scripts/dev.mjs build
 ```

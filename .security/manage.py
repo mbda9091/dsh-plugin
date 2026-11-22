@@ -409,6 +409,10 @@ def make_plan(  # noqa: C901, PLR0912 -- aggregate all conflicts before any writ
         conflicts.append("Install uv before setup")
     if not os.access(root, os.W_OK) or not os.access(hooks.layout.git_dir, os.W_OK):
         conflicts.append("Repository and Git directory must be writable")
+    if not os.access(hooks.layout.config.parent, os.W_OK):
+        conflicts.append(
+            f"Shared Git configuration directory must be writable: {hooks.layout.config.parent}"
+        )
     if not locked and (
         metadata_path(root, ".git/repo-security-setup.lock").exists()
         or metadata_path(root, ".git/repo-security-setup.lock").is_symlink()

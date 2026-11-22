@@ -110,15 +110,7 @@ def git_layout(root: Path) -> GitLayout:
 
     directory = location("--absolute-git-dir")
     common = location("--git-common-dir")
-    extension = git(root, "config", "--bool", "--get", "extensions.worktreeConfig")
-    enabled = extension.returncode == 0 and extension.stdout.strip() == "true"
-    if directory != common and not enabled:
-        msg = "Linked worktree requires extensions.worktreeConfig; enable isolation before setup"
-        raise RepoSecurityError(msg)
-    scope = "worktree" if enabled else "local"
-    return GitLayout(
-        directory, common, scope, directory / "config.worktree" if enabled else common / "config"
-    )
+    return GitLayout(directory, common, "local", common / "config")
 
 
 def metadata_path(root: Path, relative: str) -> Path:
@@ -128,8 +120,6 @@ def metadata_path(root: Path, relative: str) -> Path:
 
 
 def config_values(root: Path, *, scope: str | None = None) -> tuple[tuple[str, str], ...]:
-    if scope == "worktree" and not git_layout(root).config.exists():
-        return ()
     command = ["config", "-z"]
     if scope:
         command.append("--" + scope)
