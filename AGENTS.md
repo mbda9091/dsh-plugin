@@ -479,7 +479,7 @@ node scripts/install.mjs status --profile my-web
 
 ## 9. Git 约定
 
-- 安全扫描使用 my-py-utils 的 `repo-security`，要求 **Git 2.54.0 及以上**：运行 `repo-security setup .` 安装或重装，通过 Git 原生 `hook.repo-security` 注册 `pre-commit` 安全检查；见[安全扫描说明](docs/repo-security.md)。
+- 安全扫描使用 my-py-utils 提供并入库的脚本，要求 **Git 2.54.0 及以上**和 **uv**：根 `postinstall` 自动执行 `.security/setup.sh`，安装工具并通过 Git 原生 `hook.repo-security` 注册 `pre-commit`，无需全局 `repo-security`。配置失败使依赖安装返回失败；手动修复用 `.security/setup.sh`，更新标准脚本可选用 `repo-security setup .`。使用 `--ignore-scripts` 会跳过自动配置；见[安全扫描说明](docs/repo-security.md)。
 
 - 当前输入规则见 [环境输入](docs/configuration-v2.md)。开发与安装分别读取必要参数，不读取旧 JSON/迁移状态，不自动写配置。只有安装读取 DSH_HOME 并要求 --profile；内部始终使用受管数据目录。pnpm/测试浏览器允许明确列出的环境覆盖。旧配置和备份不删除，不提交机器路径或凭据。Node 由调用方选择，DSH_NODE 不参与启动。
 

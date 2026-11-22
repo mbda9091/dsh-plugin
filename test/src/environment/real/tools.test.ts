@@ -38,6 +38,14 @@ it('TOOL-04 clean frozen install, public CLI, internal pnpm and real tarball (TO
   }
   assert.equal(existsSync(join(clean, 'node_modules')), false)
   assert.equal(existsSync(join(clean, 'scripts/config/local.json')), false)
+  // This exported source fixture has no Git metadata. Keep dependency build
+  // scripts active, but omit repository hook setup: it belongs to a real clone
+  // and must never discover and configure the enclosing developer checkout.
+  const manifestPath = join(clean, 'package.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  assert.equal(manifest.scripts.postinstall, '.security/setup.sh')
+  delete manifest.scripts.postinstall
+  writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
   const env = { ...process.env }
   for (const key of Object.keys(env)) if (/^(DSH_|NPM_|PNPM_|NODE_OPTIONS$|NODE_PATH$|ELECTRON_|COREPACK_|HOME$|USERPROFILE$|PATH$)/i.test(key)) delete env[key]
   const user = join(f.root, 'user'); mkdirSync(user)
