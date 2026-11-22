@@ -4,6 +4,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node
 import { dirname, join, relative } from 'node:path'
 import { runToFiles } from '../../../scripts/.build/core/exec.js'
 import { assertBrowserResults } from '../../../scripts/.build/core/browser-results.js'
+import { assertTestReport } from '../../../scripts/.build/core/test-run.js'
 import { makeTempDir, removeDir, repoRoot } from '../harness/tmp.js'
 
 /** Exercise the real orchestration in an isolated repository with fake stages.
@@ -114,6 +115,28 @@ for (const failure of ['none', 'exit', 'throw', 'missing', 'partial', 'skip'] as
     } finally { removeDir(root) }
   })
 }
+
+it('L3 L4: CI accepts role capability evidence and rejects missing, failed or misplaced checks', () => {
+  const root = makeTempDir('l4-role-report')
+  try {
+    const path = join(root, 'report.json')
+    const startedAt = new Date().toISOString()
+    const steps = ['context', 'prerequisites', 'profile-init', 'install-link', 'role-agent-capability',
+      'web-link', 'install-mismatch', 'web-mismatch', 'install-tarball', 'web-tarball', 'cleanup']
+      .map(name => ({ name, ok: true, durationMs: 1 }))
+    const report = { version: 1, kind: 'l4', ok: true, startedAt, cleanup: 'retained --keep', steps }
+    writeFileSync(path, JSON.stringify(report))
+    assert.doesNotThrow(() => assertTestReport(path, 'l4', startedAt))
+    for (const invalid of [
+      steps.filter(step => step.name !== 'role-agent-capability'),
+      steps.map(step => step.name === 'role-agent-capability' ? { ...step, ok: false } : step),
+      [...steps.slice(0, 4), steps[5], steps[4], ...steps.slice(6)],
+    ]) {
+      writeFileSync(path, JSON.stringify({ ...report, steps: invalid }))
+      assert.throws(() => assertTestReport(path, 'l4', startedAt), /incomplete or failed l4 report/)
+    }
+  } finally { removeDir(root) }
+})
 
 for (const phase of ['build', 'compile-browser', 'prerequisites', 'cleanup', 'success'] as const) {
   it(`L3 L5: ${phase} writes an accurate per-run and latest report`, () => {

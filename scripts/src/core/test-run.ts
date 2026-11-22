@@ -8,7 +8,7 @@ import type { WebHarness } from './web-harness.js'
 import { isRecord, writeText } from './json.js'
 
 export const requiredTestSteps = {
-  l4: ['context', 'prerequisites', 'profile-init', 'install-link', 'web-link', 'install-mismatch', 'web-mismatch', 'install-tarball', 'web-tarball', 'cleanup'],
+  l4: ['context', 'prerequisites', 'profile-init', 'install-link', 'role-agent-capability', 'web-link', 'install-mismatch', 'web-mismatch', 'install-tarball', 'web-tarball', 'cleanup'],
   l5: ['context', 'build', 'compile-browser', 'prerequisites', 'profile-init', 'baseline', 'install-fixture', 'fixture', 'cleanup'],
 } as const
 
