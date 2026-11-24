@@ -19,7 +19,7 @@ node scripts/dev.mjs ci
 
 | 设置 | 默认与覆盖 |
 |---|---|
-| Node / DSH / pnpm 版本 | 根 package.json 与 lockfile；当前 Node 24、DSH 0.2.2-rc.1、pnpm 11.28.5 |
+| Node / DSH / pnpm 版本 | 根 package.json 与 lockfile；当前 Node 24、DSH 0.2.2-rc.5、pnpm 11.28.5 |
 | pnpm 脚本 | 默认自动发现 npm/Corepack 安装；可选 `--pnpm-script` > `DSH_PNPM` 覆盖；需要时检查版本 |
 | 开发浏览器 | Edge；未指定路径且找不到 Edge 时用系统默认浏览器；`--browser` / `--browser-path` 覆盖 |
 | 开发启动 | 打开浏览器、超时 30000 ms；`--no-open` / `--startup-timeout` 覆盖 |
@@ -57,7 +57,7 @@ node scripts/install.mjs status --profile my-web
 
 外部 DSH 默认从当前 Node 的 npm 全局包布局解析，PATH 中同一 Node 的别名可参与定位；存在配套 npm 时，以当前 Node 执行 `npm prefix --global` 读取全局安装前缀（包括 Windows 的 AppData 布局），workspace DSH 不可作为安装宿主；缺失、多个候选或不支持的布局要求显式 `--dsh-cli`。不扫描 Electron 或其他私人 runtime。
 
-home 遵循 DSH 0.2.2-rc.1 的 dsh-home-paths 规则：`--home` > `DSH_HOME` > `~/.dsh`，支持 `~`、`~/`、`~\\`；相对路径按启动时 cwd 解析。`DSH_PROFILE` 不补齐必填 profile，`DSH_PROFILE_DIR` 不覆盖计算结果，`DSH_CLI` 不覆盖宿主选择。解析值和来源会在执行前显示。
+home 遵循 DSH 0.2.2-rc.5 的 dsh-home-paths 规则：`--home` > `DSH_HOME` > `~/.dsh`，支持 `~`、`~/`、`~\\`；相对路径按启动时 cwd 解析。`DSH_PROFILE` 不补齐必填 profile，`DSH_PROFILE_DIR` 不覆盖计算结果，`DSH_CLI` 不覆盖宿主选择。解析值和来源会在执行前显示。
 
 目标 profile 必须已经存在，宿主版本必须匹配仓库声明。install 保留缓存复用及必要时构建打包，不自动跑功能验收；status 只读，不构建或安装。完整参数、默认 patch 与失败行为见[安装指南](profile-install.md)。
 

@@ -3,14 +3,12 @@ import { describe, it } from 'node:test'
 import type { Context } from '@deepseek-ai/cordis'
 import { detectEnvironment as detectAppRestart } from '@mbda9091/app-restart'
 import { detectEnvironment as detectWebNotify } from '@mbda9091/notify-web'
-import { detectEnvironment as detectNotify } from '@mbda9091/desktop-notify'
 import { withElectron } from '../harness/env.js'
 import { createFakeContext } from '../harness/fake-context.js'
 
 const detectors = [
   { name: 'app-restart', detect: detectAppRestart },
   { name: 'notify-web', detect: detectWebNotify },
-  { name: 'desktop-notify', detect: detectNotify },
 ]
 
 const WEB_BUNDLES = ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app']

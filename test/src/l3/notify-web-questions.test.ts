@@ -20,7 +20,7 @@ async function setup(session = Session.create(SessionId('root'))) {
   const registry = new SessionProjectionRegistry(new Context())
   const root = { session }
   const roots = [root]
-  const fake = createFakeContext({ agents: { roots: () => roots }, sessionProjections: registry })
+  const fake = createFakeContext({ agents: { list: () => roots }, sessionProjections: registry })
   const source = await createQuestionSource(fake as unknown as Context)
   const updates: Array<{ type: string; kind: string; id: string }> = []
   source.subscribe(update => updates.push(update))
@@ -70,7 +70,7 @@ it('L3 question: the original DSH timed tool and service return pending without 
   const f = await setup(); t.after(() => f.source.dispose())
   const ctx = new Context()
   const agent = { id: f.session.id, session: f.session }
-  ctx.provide('agents', { get: () => agent, roots: () => [agent] })
+  ctx.provide('agents', { get: () => agent, list: () => [agent] })
   new UserQuestionService(ctx)
   let definition: ToolDefinition | undefined
   ctx.provide('tools', { register(tool: ToolDefinition) { definition = tool; return () => {} } })

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Shared notification content and locale for desktop-notify and notify-web",
+  "description": "Shared notification content and locale for notify-web",
   "exports": {
     ".": {
       "types": "./lib/index.d.ts",

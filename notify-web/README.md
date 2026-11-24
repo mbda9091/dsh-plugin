@@ -7,7 +7,7 @@
 - 形态：Web（`dsh web` 的浏览器界面）；桌面应用、headless 不适用。
 - 平台：Windows、macOS、Linux 宿主（浏览器通知本身跨平台；平台声明用于宿主侧的目标校验）。
 - 声明：`package.json` 的 `dsh.targets` 为 `["web"]` / `["linux","mac","windows"]`。
-- 桌面应用使用 `desktop-notify`，不要同时安装本插件；客户端检测到桌面启动标记时会主动跳过，避免重复。
+- 桌面应用不在本插件适用范围；客户端检测到桌面启动标记时会主动跳过。原桌面通知插件已[归档停更](../archive/desktop-notify/README.md)。
 
 ## 行为
 
@@ -125,7 +125,7 @@ dsh --profile macos-web --patch "$HOME/.dsh/profiles/macos-web/mbda9091/cordis.p
 - `src/index.ts`：Web Host。建立共享通知源，并通过 DSH Connection 的认证 Fetch 路由 `GET /api/notify-web/events` 提供 SSE。
 - `src/client/question-requests.ts`：第一启动阶段观察 Remote 提问请求，原样传递回答与错误。
 - `src/client/index.ts`：浏览器入口。按请求收讫放行提问通知，消费 SSE、按当前 locale 格式化、请求权限、显示/撤回通知、处理点击和多标签页。
-- `@mbda9091/notify-host`：与 `desktop-notify` 共用的触发逻辑（根会话过滤、审批延迟、`turn/end`、`agent/disposed` 清理）。
+- `@mbda9091/notify-host`：Host 触发逻辑（根会话过滤、审批延迟、`turn/end`、`agent/disposed` 清理）。
 - `@mbda9091/notify-core`：共用的文案与 locale。
 - 两个 `@mbda9091/*` 共享库都由 esbuild 在构建期内联，profile 不需要安装。
 - `build.json` 声明 Host（ESM）和 Client（IIFE classic script）两个 bundle 入口。Client 只注入 `locale` 与 `uiWorkspace`，不再读取当前 Session 或逐 Session 事件流。
@@ -167,5 +167,4 @@ Web GUI 左侧 **Plugins（插件）** 页 → 安装 → 填本目录的绝对�
 - 不支持 Service Worker 的环境回退为页面级通知，不能保证关页后点击；Worker 注册/投递失败会记录诊断错误，不静默回退到会遗留通知的路径。
 - 浏览器权限被拒绝、页面被冻结或 Web Locks/存储不可用时，投递能力和跨标签页去重会退化。
 - SSE 恢复窗口默认只有 2 分钟；超出窗口按重置处理，只同步当前待审批和待回答问题，不补齐丢失的完成/错误。
-- `notify-web` 与 `desktop-notify` 是独立插件，需要分别安装到对应 profile。
 - 真实操作系统提示与点击聚焦仍需在浏览器里人工验收；模拟 `Notification` 不能代替。

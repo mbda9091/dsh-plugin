@@ -1,5 +1,7 @@
 # 测试与 Web L5 方案（v0.1）
 
+> 当前插件集合（2026-11-24）：app-restart、notify-web、role-agent。desktop-notify 因用户确认没有使用场景，源码与专属测试已[归档停更](../archive/desktop-notify/README.md)，不再参与 workspace、测试或打包；下方涉及它的轮次保留为历史事实。归档范围与本轮验证见[归档记录](desktop-notify-archive-plan.md)。
+
 > 当前入口调整：开发测试使用 scripts/dev.mjs，安装使用 scripts/install.mjs；不要求 config init 或命名目标，旧 bootstrap/stable-install 不再执行。下文各历史轮次的命令与验收记录保留，不作为当前操作指南；当前规则见[环境输入](configuration-v2.md)，本轮结果见[分离方案](development-delivery-separation-plan.md)。
 
 > 2026-11-06 轮次扫描：本文是按版本追加的测试建设与验收记录，M1–M5/P0 的历史完成、按需 M6、环境扩展及宿主升级分别判断。§19.10 的 DSH 0.2.2-rc.1 改动随后提交为 `7011a6b53a65b62254dc5ad21a16611f88500d41`；该提交补齐版本落点，但正文原报告来自提交前工作区，不自动变成提交后重新验收。本次不重跑历史 CI，不将早期测试数量/平台结论用于最新版本。

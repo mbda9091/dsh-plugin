@@ -5,6 +5,7 @@ import type {} from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-user-questions'
 import type {} from '@deepseek-ai/dsh-tool-executor-ptc'
 import { z } from 'zod'
+import { rootAgents } from '@mbda9091/notify-host'
 import { clip } from '@mbda9091/notify-core'
 import type { QuestionShowUpdate, QuestionWithdrawUpdate } from './protocol.js'
 
@@ -125,7 +126,7 @@ export async function createQuestionSource(ctx: Context): Promise<QuestionSource
   }
   const reconcile = (session: Session, event?: SessionEvent): void => {
     if (disposed) return
-    const root = ctx.get('agents')?.roots().some(agent => agent.session === session) === true
+    const root = rootAgents(ctx).some(agent => agent.session === session)
     const active = root ? handle.stateOf(session).active : []
     const ids = new Set(active.map(item => `${session.id}:question:${item.callId}`))
     for (const [id, previous] of shown) {
@@ -157,7 +158,7 @@ export async function createQuestionSource(ctx: Context): Promise<QuestionSource
     subscribe(listener) { listeners.add(listener); return () => { listeners.delete(listener) } },
     snapshot() {
       if (disposed) return []
-      const roots = ctx.get('agents')?.roots() ?? []
+      const roots = rootAgents(ctx)
       const live = new Set<string>(roots.map(agent => agent.session.id))
       for (const [id, update] of shown) {
         if (!live.has(update.sessionId)) {

@@ -135,7 +135,7 @@ const plugins = discover()
 
 describe('L2 package contracts: discovery', () => {
   it('finds every top-level bundle package and nothing else', () => {
-    assert.deepEqual(plugins.map((plugin) => plugin.dirName), ['app-restart', 'desktop-notify', 'notify-web', 'role-agent'])
+    assert.deepEqual(plugins.map((plugin) => plugin.dirName), ['app-restart', 'notify-web', 'role-agent'])
   })
 
   it('keeps directory name, package suffix and loader row id aligned', () => {

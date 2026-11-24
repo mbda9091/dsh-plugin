@@ -244,6 +244,12 @@ describe('L1 scripts/core: plugin discovery basics', () => {
       mkdirSync(withoutBundle, { recursive: true })
       writeFileSync(join(withoutBundle, 'package.json'), JSON.stringify({ name: '@mbda9091/a-tool' }), 'utf8')
 
+      const archived = join(repo, 'archive', 'old-plugin')
+      mkdirSync(archived, { recursive: true })
+      writeFileSync(join(archived, 'package.json'), JSON.stringify({
+        name: '@mbda9091/old-plugin', dsh: { bundle: { patch: './cordis.patch.yml' } },
+      }), 'utf8')
+
       const skipped = ['node_modules', 'dist', '.hidden']
       for (const name of skipped) {
         const dir = join(repo, name)
@@ -268,7 +274,7 @@ describe('L1 scripts/core: plugin discovery basics', () => {
 
   it('discovers the repository plugins in a stable order', () => {
     const plugins = discoverPlugins(repoRoot)
-    assert.deepEqual(plugins.map((plugin) => plugin.dirName), ['app-restart', 'desktop-notify', 'notify-web', 'role-agent'])
+    assert.deepEqual(plugins.map((plugin) => plugin.dirName), ['app-restart', 'notify-web', 'role-agent'])
     for (const plugin of plugins) {
       assert.equal(plugin.packageName, `@mbda9091/${plugin.dirName}`)
       assert.equal(plugin.dir, join(repoRoot, plugin.dirName))

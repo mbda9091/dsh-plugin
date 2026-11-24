@@ -27,9 +27,9 @@ function setup() {
   let activation = 'armed'
   let join = async (): Promise<boolean> => false
   let joins = 0
-  const registry = { get: () => live, list: () => [live], roots: () => [live] }
+  const registry = { get: () => live, list: () => [live] }
   const goals = { get: () => phase === undefined ? undefined : { phase, activation } }
-  const subagents = { waitForChildren: () => { joins++; return join() } }
+  const subagents = { rootOf: () => live, waitForTreeWork: () => { joins++; return join() } }
   const ctx = createFakeContext({ agents: registry, goals, subagents })
   const source = createNotificationSource(ctx as unknown as Context, {
     notifyOnApproval: true, approvalDelayMs: 0, notifyOnTurnEnd: true, notifyOnTurnError: true,
@@ -152,7 +152,7 @@ describe('L3 notify-host: settled Web completion', () => {
     const children = deferred<boolean>(); h.setJoin(() => children.promise)
     h.end(); await setImmediate()
     let newJoins = 0
-    h.ctx.services.set('subagents', { waitForChildren: async () => { newJoins++; return false } })
+    h.ctx.services.set('subagents', { rootOf: () => h.root, waitForTreeWork: async () => { newJoins++; return false } })
     h.event('turn/start'); h.end(); await setImmediate()
     assert.equal(newJoins, 1)
     assert.equal(h.updates.length, 1)

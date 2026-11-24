@@ -16,7 +16,7 @@ node scripts/install.mjs install --profile custom-web --dsh-cli /path/to/dsh/lib
 
 profile 必填；默认解析当前 Node 全局环境中的外部 DSH，home 使用 `DSH_HOME` 或 `~/.dsh`，`--platform` 默认当前系统。固定 Web，不接受 `--surface` 或 `--target`。找不到唯一宿主时提示显式 `--dsh-cli`；不回退到 workspace 开发 DSH。可继续用 `pnpm run install-plugins --profile custom-web`。`--pnpm-script`、`--archive-root`、`--only`、`--dry-run`、`--rebuild` 保留；pnpm 默认自动识别 npm/Corepack 安装，无需传路径，工具未准备好或版本不匹配则报错。
 
-安装（含 `--dry-run`）先检查目标 DSH 版本，要求与仓库根 `package.json` 中 `@deepseek-ai/dsh` 的精确版本一致（当前 `0.2.2-rc.1`）；不匹配或无法读取版本时，在安装包和写入配置前停止。安装不要求功能验收记录，也不声明功能已验收。
+安装（含 `--dry-run`）先检查目标 DSH 版本，要求与仓库根 `package.json` 中 `@deepseek-ai/dsh` 的精确版本一致（当前 `0.2.2-rc.5`）；不匹配或无法读取版本时，在安装包和写入配置前停止。安装不要求功能验收记录，也不声明功能已验收。
 
 安装先检查当前 tarball 的源码快照、工具链和内容哈希。匹配则输出 `reuse-tarball`，不编译或打包；仅编译输出有效时输出 `reuse-build`，只打包；否则输出 `rebuild`。版本号相同不代表内容相同；损坏的包拒绝使用。源码快照包含文档和 Git 状态，使用保守整批复用。入口通过共享 launch.mjs 编译脚本自身的步骤仍保留。
 

@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { evaluateTarget as evaluateAppRestart } from '@mbda9091/app-restart'
-import { evaluateTarget as evaluateNotify } from '@mbda9091/desktop-notify'
 import { evaluateTarget as evaluateWebNotify } from '@mbda9091/notify-web'
 
 const DESKTOP_WINDOWS = { surfaces: ['desktop'], platforms: ['windows'] }
@@ -10,7 +9,6 @@ const WEB_UNIVERSAL = { surfaces: ['web'], platforms: ['linux', 'mac', 'windows'
 describe('L1 plugin target guards', () => {
   it('accepts a desktop plugin on desktop/windows', () => {
     assert.equal(evaluateAppRestart(DESKTOP_WINDOWS, { surface: 'desktop', platform: 'windows' }), undefined)
-    assert.equal(evaluateNotify(DESKTOP_WINDOWS, { surface: 'desktop', platform: 'windows' }), undefined)
   })
 
   it('rejects a desktop plugin in the web surface', () => {
@@ -20,13 +18,13 @@ describe('L1 plugin target guards', () => {
   })
 
   it('rejects a desktop plugin on another platform', () => {
-    const problem = evaluateNotify(DESKTOP_WINDOWS, { surface: 'desktop', platform: 'mac' })
+    const problem = evaluateAppRestart(DESKTOP_WINDOWS, { surface: 'desktop', platform: 'mac' })
     assert.ok(problem !== undefined)
     assert.match(problem, /current surface=desktop platform=mac$/)
   })
 
   it('rejects the headless surface for every packaged plugin', () => {
-    for (const evaluate of [evaluateAppRestart, evaluateNotify, evaluateWebNotify]) {
+    for (const evaluate of [evaluateAppRestart, evaluateWebNotify]) {
       const problem = evaluate(
         { surfaces: ['desktop', 'web'], platforms: ['windows', 'mac', 'linux'] },
         { surface: 'headless', platform: 'windows' },
@@ -39,7 +37,6 @@ describe('L1 plugin target guards', () => {
   it('accepts Linux Web and rejects Windows-only plugins there', () => {
     const environment = { surface: 'web', platform: 'linux' }
     assert.equal(evaluateWebNotify(WEB_UNIVERSAL, environment), undefined)
-    assert.match(evaluateNotify(DESKTOP_WINDOWS, environment)!, /target mismatch/)
     assert.match(evaluateAppRestart(DESKTOP_WINDOWS, environment)!, /target mismatch/)
   })
 

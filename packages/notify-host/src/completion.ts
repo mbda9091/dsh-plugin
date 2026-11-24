@@ -1,3 +1,4 @@
+import { rootAgents } from './agents.js'
 import type { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { GoalService } from '@deepseek-ai/dsh-goal'
@@ -95,7 +96,7 @@ export function createCompletionGate(ctx: Context, emit: (update: TurnEndShowUpd
     const { agent } = candidate
     const agents = ctx.get('agents')
     return !disposed && candidates.get(agent.session.id) === candidate
-      && agents !== undefined && agents.get(agent.session.id) === agent && agents.roots().includes(agent)
+      && agents !== undefined && agents.get(agent.session.id) === agent && rootAgents(ctx).includes(agent)
       && provider(ctx.get('goals')) === provider(candidate.goals)
       && provider(ctx.get('subagents')) === provider(candidate.subagents)
   }
@@ -117,7 +118,7 @@ export function createCompletionGate(ctx: Context, emit: (update: TurnEndShowUpd
         const identity = provider(service)!
         let waits = childWaits.get(identity)
         if (waits === undefined) { waits = new WeakMap(); childWaits.set(identity, waits) }
-        const joined = await pendingWork(waits, agent, () => service.waitForChildren(agent)).observe(controller.signal)
+        const joined = await pendingWork(waits, agent, () => service.waitForTreeWork(agent)).observe(controller.signal)
         // Once child work has advanced, its result must be consumed in a new
         // root turn. Sending the old root turn's notification would be stale.
         if (joined === CANCELLED || joined || !ready(candidate)) return

@@ -35,13 +35,12 @@ interface Frame {
   readonly data: unknown
 }
 
-function agents(): { get(id: string): FakeAgent | undefined; list(): FakeAgent[]; roots(): FakeAgent[] } {
+function agents(): { get(id: string): FakeAgent | undefined; list(): FakeAgent[] } {
   const root: FakeAgent = { session: Session.create(SessionId('root')), status: 'idle', inbox: { nextTurn: [], nextStep: [] }, whenIdle: async () => {} }
-  const sub: FakeAgent = { ...root, session: Session.create(SessionId('sub')) }
+  const sub: FakeAgent = { ...root, session: Session.create(SessionId('sub'), [], { ...root.session.header, id: SessionId('sub'), origin: 'subagent' }) }
   return {
     get: id => [root, sub].find(agent => agent.session.id === id),
     list: () => [root, sub],
-    roots: () => [root],
   }
 }
 
@@ -88,7 +87,7 @@ function createHost(): {
   }
   return {
     ctx: ctx as unknown as Context,
-    session: agentRegistry.roots()[0]!.session,
+    session: agentRegistry.list()[0]!.session,
     emit(event, ...args) {
       for (const listener of listeners.filter((item) => item.event === event)) listener.handler(...args)
     },

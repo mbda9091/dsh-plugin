@@ -1,7 +1,7 @@
 /**
  * Shared Host notification trigger logic.
  *
- * Both delivery adapters use this module: it owns the global `session/event`
+ * The Web delivery adapter uses this module: it owns the global `session/event`
  * listener, root-Agent filtering, approval delay/cancellation, and the
  * `turn/end` decision. It emits serializable notification intents and knows
  * nothing about Windows, HTTP, SSE, browser permissions, or the current UI
@@ -18,6 +18,8 @@ import type { Session, SessionEvent, TurnEndReason } from '@deepseek-ai/dsh-sess
 // `approval/asked` / `approval/decided`.
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-user-approval'
+import { rootAgents } from './agents.js'
+export { rootAgents } from './agents.js'
 import { createCompletionGate } from './completion.js'
 
 /** Trigger configuration shared by both adapters. */
@@ -106,14 +108,7 @@ interface PendingApproval {
  * @returns the live root, when positively identified.
  */
 function rootAgent(ctx: Context, session: Session): Agent | undefined {
-  const agents = ctx.get('agents')
-  if (agents === undefined) return undefined
-  try {
-    const agent = agents.list().find((item) => item.session.id === session.id)
-    return agent !== undefined && agents.roots().includes(agent) ? agent : undefined
-  } catch {
-    return undefined
-  }
+  return rootAgents(ctx).find(item => item.session.id === session.id)
 }
 
 /**

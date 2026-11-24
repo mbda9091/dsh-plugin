@@ -51,7 +51,7 @@ export function apply(ctx) {
       if (!session) return new Response('fixture session required', { status: 404 })
       if (action === 'question' || action === 'question-ptc' || action === 'question-timed') {
         if (questions.has(sessionId)) return new Response('question already running', { status: 409 })
-        const agent = ctx.agents.roots().find(agent => agent.session === session)
+        const agent = ctx.agents.list().find(agent => agent.session === session && ctx.subagents.rootOf(agent) === agent)
         if (!agent) return new Response('root missing', { status: 404 })
         const controller = new AbortController()
         let release, started

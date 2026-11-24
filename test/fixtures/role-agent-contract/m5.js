@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { LlmAdapter, createUserMessage } from '@deepseek-ai/dsh-llm'
 
-export const excluded = new Set(['subagent','subagent_fork','list_subagent_models','list_agents','send_message','interrupt_agent','workflow'])
+export const excluded = new Set(['subagent','subagent_fork','list_subagent_models','list_agents','send_message','interrupt_agent','wait_agent','workflow'])
 export const m5Checks = ['standard-tool-parity','standard-schema-parity','no-delegation-tools','native-files-search-shell','native-web-provider-contract','native-jobs-schedule','native-skill-todo-goal-present-question','native-plan-isolation']
 export function registerM5Providers(ctx) {
   ctx.effect(() => ctx.web.registerSearchProvider({ id:'m5-test',available:()=>true,search:async()=>({sources:[{url:'https://example.test/m5',title:'M5 isolated material',summary:'Synthetic provider result, not public Internet evidence.'}],truncated:false}) }))

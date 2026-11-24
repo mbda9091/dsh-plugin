@@ -18,7 +18,7 @@ interface FakeAgent {
   readonly session: { readonly id: string }
 }
 
-function createContext(agents?: { list(): FakeAgent[]; roots(): FakeAgent[] }): {
+function createContext(agents?: { list(): FakeAgent[] }): {
   ctx: Context
   emit(event: string, ...args: unknown[]): void
   listeners: Array<{ event: string; handler: (...args: unknown[]) => unknown }>
@@ -43,12 +43,11 @@ function createContext(agents?: { list(): FakeAgent[]; roots(): FakeAgent[] }): 
   }
 }
 
-function agentsWith(roots: string[], subs: string[]): { list(): FakeAgent[]; roots(): FakeAgent[] } {
-  const rootAgents = roots.map((id) => ({ session: { id } }))
-  const subAgents = subs.map((id) => ({ session: { id } }))
+function agentsWith(roots: string[], subs: string[]): { list(): FakeAgent[] } {
+  const rootAgents = roots.map((id) => ({ session: { id, header: {} } }))
+  const subAgents = subs.map((id) => ({ session: { id, header: { origin: 'subagent' } } }))
   return {
     list: () => [...rootAgents, ...subAgents],
-    roots: () => rootAgents,
   }
 }
 

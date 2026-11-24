@@ -12,20 +12,22 @@
 | 插件 | 用途 | 适用形态 | 平台 |
 | --- | --- | --- | --- |
 | [app-restart](app-restart/README.md) | 在对话中输入 `/restart`，重启桌面应用及 Host | 桌面 | Windows |
-| [desktop-notify](desktop-notify/README.md) | 审批申请、任务完成或出错时弹出系统通知，可播放提示音 | 桌面 | Windows |
 | [notify-web](notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS、Linux |
+| [role-agent](role-agent/README.md) | 专用角色对话、可追溯记忆与成长 | 桌面、Web | Windows、macOS、Linux |
+
+`desktop-notify` 已于 2026-11-24 [归档并停止维护](archive/desktop-notify/README.md)，不再参与构建、测试或安装打包。
 
 完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断。2026-11-06 宿主升级轮次的 macOS 完整 CI 通过记录见[历史验收](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)，不代表后续入口重构已全量验收。入口拆分轮次已按用户确认的 macOS 范围完成，验收基线 `4049f6f` 的完整 CI 通过；Windows/Linux 与真实 DSH 沙箱暂缓，详见[分离方案记录](docs/development-delivery-separation-plan.md)。真实 Desktop 和个人日常 profile 不作为本轮已验收结果。
 
 ## 准备环境
 
-- DeepSeek Harness：当前开发与类型依赖版本为 **`0.2.2-rc.1`**，开发宿主由 workspace 冻结安装，无需全局 DSH；正式桌面应用单独管理。
+- DeepSeek Harness：当前开发与类型依赖版本为 **`0.2.2-rc.5`**，开发宿主由 workspace 冻结安装，无需全局 DSH；正式桌面应用单独管理。
 - Node.js **24**、pnpm **11.28.5**；下面的依赖安装命令要求 pnpm 在 PATH 中可用。
 - 安全扫描要求 **Git 2.54.0 及以上**和 **uv**；`pnpm install` 会自动运行仓库内的 `.security/setup.sh`，安装扫描工具并注册 Git 原生 `pre-commit` hook，无需全局 `repo-security`。配置失败会打印原因并使安装命令返回失败；见[安全扫描说明](docs/repo-security.md)。
 
-2026-11-06 查询 npm `latest` 得到 `0.2.2-rc.1`，仓库使用该精确版本及锁文件保证可复现安装。宿主、插件类型包和真实环境测试版本同步；未来升级仍先解析 `latest` 再更新精确版本。`pnpm-workspace.yaml` 允许新增 WebSocket 原生依赖构建；可选 Kerberos 模块默认不构建，因为其 node-gyp 在带空格的用户目录下编译失败。普通 Web 与代理功能不依赖它；需要 Negotiate/SPNEGO 代理认证时，须在支持的本机环境单独启用并验证 Kerberos 构建。
+2026-11-24 查询 npm `latest` 得到 `0.2.2-rc.5`，仓库使用该精确版本及锁文件保证可复现安装。宿主、插件类型包和真实环境测试版本同步；未来升级仍先解析 `latest` 再更新精确版本。`pnpm-workspace.yaml` 允许新增 WebSocket 原生依赖构建；可选 Kerberos 模块默认不构建，因为其 node-gyp 在带空格的用户目录下编译失败。普通 Web 与代理功能不依赖它；需要 Negotiate/SPNEGO 代理认证时，须在支持的本机环境单独启用并验证 Kerberos 构建。
 
-普通 Node 24 需要在 PATH 中，或使用绝对路径启动脚本。无需 config init 或 local.json；工具按命令需要解析。pnpm 默认自动发现，支持 npm 与 Corepack 安装，不需要手填绝对路径；`--pnpm-script` 仅保留为可选覆盖。详见[环境输入](docs/configuration-v2.md)。
+本次接口迁移与验证边界见 [rc.5 适配记录](docs/dsh-rc5-adaptation-plan.md)。普通 Node 24 需要在 PATH 中，或使用绝对路径启动脚本。无需 config init 或 local.json；工具按命令需要解析。pnpm 默认自动发现，支持 npm 与 Corepack 安装，不需要手填绝对路径；`--pnpm-script` 仅保留为可选覆盖。详见[环境输入](docs/configuration-v2.md)。
 
 ```sh
 git clone https://github.com/mbda9091/dsh-plugin.git
@@ -42,13 +44,13 @@ node scripts/dev.mjs build
 
 ## 安装到桌面应用
 
-构建完成后，打开 DSH 的 **Plugins（插件）** 页面，按需安装对应插件目录的绝对路径。例如，在仓库根目录执行以下命令取得桌面通知插件的路径：
+构建完成后，打开 DSH 的 **Plugins（插件）** 页面，按需安装对应插件目录的绝对路径。例如，在仓库根目录执行以下命令取得桌面重启插件的路径：
 
 ```sh
-node -p "require('node:path').resolve('desktop-notify')"
+node -p "require('node:path').resolve('app-restart')"
 ```
 
-把输出填入插件安装页面。桌面场景可选择 `desktop-notify` 和 `app-restart`；Web 通知使用单独的 `notify-web`。
+把输出填入插件安装页面。桌面重启使用 `app-restart`；Web 通知使用 `notify-web`。
 
 替换已加载的 Host 代码或安装包后，按宿主提示重启 DSH；更新 Client 代码后刷新页面。`/restart` 会中断正在进行的回合。
 
@@ -145,7 +147,7 @@ Corepack 安装也自动发现 pnpm，无需初始化 JSON 或填写 pnpm 绝对
 
 启动器打印访问地址；有桌面会话时可去掉 `--no-open`，通过 `xdg-open` 打开默认浏览器。自动化测试可用 `node node_modules/playwright-core/cli.js install --with-deps chromium` 准备浏览器及系统依赖。
 
-Linux 支持 `notify-web`。通过 `node scripts/install.mjs install --profile <名称>` 安装到外部 profile，平台默认识别为 Linux；不要求固定产物验收证据，固定包验收由内部测试负责。`app-restart`、`desktop-notify` 仅适用于 Windows 桌面端。日常 DSH 启动由用户自行管理；仓库的 `web`、`daily-launcher` 入口已移除，开发环境使用 `dev-web`。
+Linux 支持 `notify-web` 和 `role-agent`。通过 `node scripts/install.mjs install --profile <名称>` 安装到外部 profile，平台默认识别为 Linux；不要求固定产物验收证据，固定包验收由内部测试负责。`app-restart` 仅适用于 Windows 桌面端。日常 DSH 启动由用户自行管理；仓库的 `web`、`daily-launcher` 入口已移除，开发环境使用 `dev-web`。
 
 ### WSL 默认工作区与验收边界
 

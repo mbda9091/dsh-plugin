@@ -24,7 +24,7 @@ export function registerCompletionFixture(ctx) {
         for (let n = 0; n < 2; n++) {
           await ctx.subagents.startActivation({
             provider: childProvider, label: `controlled-${n}`, delivery: 'parent', signal: signal.signal,
-            request: { parent: agent, prompt: [{ type: 'text', text: 'Synthetic child work.' }] },
+            parent: agent, prompt: [{ type: 'text', text: 'Synthetic child work.' }],
           })
         }
         state.stage = 'waiting'

@@ -24,7 +24,7 @@
     "install-plugins": "node scripts/install.mjs install"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh": "0.2.2-rc.1",
+    "@deepseek-ai/dsh": "0.2.2-rc.5",
     "@mbda9091/notify-core": "workspace:*",
     "@mbda9091/notify-host": "workspace:*",
     "@types/node": "^24.0.0",

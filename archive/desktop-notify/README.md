@@ -1,5 +1,10 @@
 # @mbda9091/desktop-notify
 
+> 已归档，停止维护（2026-11-24）。用户确认当前没有使用场景，不再跟随 DSH 更新。
+> 源码和 `tests/` 专属测试冻结于 `caf23be4197821c1bf207e0e1e492a508edf26e8`，保留 DSH `0.2.2-rc.1` 类型依赖，不代表兼容 rc.5。
+> 不参与 workspace、构建、测试、CATALOG 或安装打包；当前共享库继续供 notify-web 使用，不是归档插件的兼容依赖。
+> 下方命令、路径及测试 import 是历史说明，需恢复原仓库布局和对应基线后才能使用。完整历史共享库可从该提交回溯；不要直接安装归档目录。
+
 在 **桌面应用** 中，当工具申请权限或一轮对话结束时，弹出 Windows 通知并播放提示音。
 
 ## 适用场景
@@ -79,7 +84,7 @@ Web UI 左侧 **Plugins（插件）** 页 → 安装 → 填本目录的绝对�
 
 `dev-install` 固定面向 Web，会跳过本桌面插件；桌面开发安装沿用上方宿主入口，替换 Host 代码后需重启。
 
-`node scripts/dev.mjs pack` 构建并生成 `dist/batches/<批次>/*.tgz`。当前 install/status 仅支持 Web，不提供桌面脚本安装；桌面使用宿主插件管理器。内部 Web 验收不能冒充桌面能力证据。详见[配置 v2](../docs/configuration-v2.md)。
+`node scripts/dev.mjs pack` 构建并生成 `dist/batches/<批次>/*.tgz`。当前 install/status 仅支持 Web，不提供桌面脚本安装；桌面使用宿主插件管理器。内部 Web 验收不能冒充桌面能力证据。详见[配置 v2](../../docs/configuration-v2.md)。
 
 ## 限制
 

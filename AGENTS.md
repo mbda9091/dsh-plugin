@@ -20,7 +20,7 @@
 
 | 项 | 值 |
 |---|---|
-| dsh 版本 | `0.2.2-rc.1` |
+| dsh 版本 | `0.2.2-rc.5` |
 | profile | 开发固定 `web`；测试一次性 `web`；外部安装必须显式填写 profile，其他字段按规则解析 |
 | profile 目录 | 由对应上下文的 home/profile 组合，不继承日常 `DSH_PROFILE_DIR` |
 | `DSH_HOME` | 开发 `.local/dsh-dev/home`；测试 `.tmp`；外部目标解析出的 home |
@@ -73,7 +73,8 @@ dsh-plugin/
 ├── profiles/web/             # Web patch 模板与本机 patch（不是插件）
 ├── packages/                 # 非插件的 workspace 私有共享库（不进 CATALOG）
 │   ├── notify-core/          # 通知内容/locale；构建期内联进插件
-│   └── notify-host/          # 通知触发逻辑；构建期内联进 desktop-notify / notify-web
+│   └── notify-host/          # 通知触发逻辑；构建期内联进 notify-web
+├── archive/                  # 停止维护的插件源码和专属测试，不参与 workspace/构建/安装
 ├── test/                     # L1–L5 测试：src/（node:test）、fixtures/、e2e/（Playwright）；不是插件，不进 CATALOG
 ├── my-first-plugin/          # 一个插件一个目录；目录名 = 插件 id
 │   ├── package.json
@@ -96,7 +97,7 @@ dsh-plugin/
 规则：
 
 1. **顶层目录即插件**，目录名用 `kebab-case`。目录名、包名后缀、loader 行 `id` 三者保持一致，例如目录 `todo-badge` ↔ 包名 `@mbda9091/todo-badge` ↔ 行 `id: todo-badge`。
-2. 仓库根目录只放仓库级文件（`AGENTS.md`、`.gitignore`、`.gitattributes`、workspace 配置、`scripts/`）、`packages/` 下的非插件共享库和插件目录。
+2. 仓库根目录只放仓库级文件（`AGENTS.md`、`.gitignore`、`.gitattributes`、workspace 配置、`scripts/`）、`packages/` 下的非插件共享库、`archive/` 下的停更快照和活跃插件目录。归档插件移入 `archive/<插件 id>/`，专属测试一并移出 `test/src/`；不参与 workspace、构建、CATALOG、测试或安装打包，不再跟随宿主升级。
 3. **插件必须自包含**：不能从自己目录之外相对导入（安装时插件目录会被单独链接/复制到 profile，跨目录导入会失效）。需要共用代码时，把它复制/内联进各插件，或后续单独引入共享包方案（见 §8）。
 4. 删除插件 = 删除目录，并在插件管理器里移除对应 bundle；profile 里的依赖记录由插件管理器负责回收，别手工改。
 5. **仓库只存源码**：`lib/`（`tsc` 产物）和 `dist/`（`pnpm pack` 产物）都不入库，由 `node scripts/dev.mjs build`、`node scripts/dev.mjs pack` 生成。出问题按 构建 → 打包 → 安装 的顺序定位，不要用"提交产物"来保留上一次能跑的状态。
@@ -166,8 +167,8 @@ dsh-plugin/
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.1.0",
-    "@deepseek-ai/dsh-agent": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-session": "0.2.2-rc.1",
+    "@deepseek-ai/dsh-agent": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-session": "0.2.2-rc.5",
     "@types/node": "^24.0.0",
     "typescript": "7.0.2"
   },
@@ -216,7 +217,7 @@ UI 插件在此基础上增加：
 - `dsh.targets` 必填，示例是桌面 Windows；通用插件写 `["desktop","web"]` / `["linux","mac","windows"]`（UI 模板示例就是通用，locale 前缀按实际值写）。字段语义见 §4.1 与 [docs/plugin-targets.md](docs/plugin-targets.md)。
 - `exports.types` 指向编译产物，`default` 指向 `lib/index.js`；loader 只加载 `lib`，**不要**把入口指回 `src/`。
 - `files` 必须覆盖**所有运行时文件**；新增模块或资源时同步更新（本地目录安装是链接，不受 `files` 过滤，但打包/发布时会用到）。
-- devDependencies 里的 DSH 类型包必须**与运行时版本一致**（当前 `0.2.2-rc.1`）；升级 dsh 后同步升级，否则类型和运行时漂移。
+- devDependencies 里的 DSH 类型包必须**与运行时版本一致**（当前 `0.2.2-rc.5`）；升级 dsh 后同步升级，否则类型和运行时漂移。
 - `dsh.client.inject` 只用于决定 Client 模块的激活顺序，不是依赖声明。
 - 运行时依赖保持零：类型包只放在 `devDependencies`，编译时擦除。
 
@@ -450,7 +451,7 @@ node scripts/install.mjs status --profile my-web
 - **外部固定来源**：`install --archive-root <外部绝对目录>` 先归档原清单、所选固定包，再由外部副本 add/update；保留 install 完整性和兼容性检查并核对 lockfile 和安装字节。逐包报告同步到归档父目录 `receipts`。仍被 profile 引用的归档不得随仓库清理删除。详见 [日常隔离方案](docs/archive/daily-environment-isolation-plan.md)。
 
 - **运行时零依赖**是默认目标：Host 侧只用 `ctx` 提供的服务与 Node 内置模块；Client 侧用浏览器模块表里的 React。这样插件被链接进 profile 后不需要额外安装步骤。
-- **类型依赖**放在 `devDependencies`，版本与运行时对齐（`@deepseek-ai/dsh-*` 用 `0.2.2-rc.1`，cordis 用 `4.1.0`，TypeScript 固定 `7.0.2`）。它们不会进入运行时产物。
+- **类型依赖**放在 `devDependencies`，版本与运行时对齐（`@deepseek-ai/dsh-*` 用 `0.2.2-rc.5`，cordis 用 `4.1.0`，TypeScript 固定 `7.0.2`）。它们不会进入运行时产物。
 - **场景门禁**：`build` 先跑 `check-targets` 校验 `dsh.targets`、locale 前缀和 README 场景，再跑 `catalog --check`；`CATALOG.md` 由 `catalog` 生成，不要手改。实现都在 `scripts/src/commands/`，统一通过 `node scripts/dev.mjs <command>` 调用。
 - **构建**：`src/*.ts` → `lib/*.js` + `lib/*.d.ts`，产物**不入库**（`.gitignore` 忽略 `lib/`）。链接安装和打包都不会替你编译，所以 `dev-install` / `pack` 都会先构建，缺产物时直接报错。构建命令：
   - `node scripts/dev.mjs build` 重新构建；仅完整成功后写入源码及 lib 哈希构建记录，`pack --skip-build` 必须匹配该记录

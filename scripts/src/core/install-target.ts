@@ -7,7 +7,7 @@ import { assertExternalDsh, webDsh } from './config-tools.js'
 import { runToTemporaryFiles } from './exec.js'
 import { platformFromNode } from './targets.js'
 
-/** DSH 0.2.2-rc.1 dsh-home-paths contract: explicit > DSH_HOME > ~/.dsh. */
+/** DSH 0.2.2-rc.5 dsh-home-paths contract: explicit > DSH_HOME > ~/.dsh. */
 export function installHome(explicit: string | undefined, env: NodeJS.ProcessEnv, userHome = homedir()): string {
   const value = explicit ?? envValue(env, 'DSH_HOME') ?? join(userHome, '.dsh')
   if (!value.trim() || /[\0\r\n]/.test(value)) throw new Error('invalid installation home')

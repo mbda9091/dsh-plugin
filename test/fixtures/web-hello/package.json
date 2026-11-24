@@ -5,9 +5,9 @@
   "type": "module",
   "description": "Minimal Web fixture plugin for the DSH Web L5 harness",
   "dependencies": {
-    "@deepseek-ai/dsh-llm": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-tool-executor-ptc": "0.2.2-rc.1",
-    "@deepseek-ai/dsh-tool-ask-user": "0.2.2-rc.1"
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-tool-executor-ptc": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-tool-ask-user": "0.2.2-rc.5"
   },
   "exports": {
     ".": "./index.js",

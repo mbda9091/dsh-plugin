@@ -136,7 +136,9 @@ describe('L1 local configuration lifecycle', () => {
       const patch = renderWebPatch(template, f.root)
       assert.deepEqual(parse(patch)[0].config.ignored, parse(template)[0].config.ignored)
       writeFileSync(f.paths.patch, patch + '\n- id: x\n  disabled: !!js "throw new Error(\'must not execute\')"\n')
-      assert.equal(inspectWebPatch(f.paths.patch, f.root).roots.length, 3)
+      assert.deepEqual(inspectWebPatch(f.paths.patch, f.root).roots, [
+        join(f.root, 'app-restart/lib'), join(f.root, 'notify-web/lib'),
+      ])
       writeFileSync(f.paths.patch, '- id: x\n  config: [\n')
       assert.throws(() => inspectWebPatch(f.paths.patch, f.root), /invalid YAML/)
       writeFileSync(f.paths.patch, '- id: hmr\n  config: {root: [relative]}\n')
