@@ -200,9 +200,9 @@ it('L3 L5: a successful process must still supply every successful browser check
   try {
     assert.throws(() => assertBrowserResults(root, 'baseline'), /ENOENT/)
     const good = ['notification-reopen-continues', 'slot-interaction-theme-locale-reload', 'question-real-tool-sse', 'question-ptc-received-sse', 'question-leader-handover',
-      'notification-en', 'notification-zh', 'notification-denied']
+      'completion-goal', 'completion-subagents', 'notification-en', 'notification-zh', 'notification-denied']
       .map(name => ({ name, ok: true }))
-    for (const invalid of [[], good.slice(1), [...good, good[0]], good.map((entry, i) => i === 1 ? { ...entry, ok: false } : entry), [good[0], good[1], good[1], good[3]]]) {
+    for (const invalid of [[], good.filter(entry => entry.name !== 'completion-goal'), good.filter(entry => entry.name !== 'completion-subagents'), good.slice(1), [...good, good[0]], good.map((entry, i) => i === 1 ? { ...entry, ok: false } : entry), [good[0], good[1], good[1], good[3]]]) {
       write(root, 'results.json', JSON.stringify(invalid))
       assert.throws(() => assertBrowserResults(root, 'fixture'), /incomplete or failed/)
     }

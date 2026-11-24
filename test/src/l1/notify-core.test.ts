@@ -35,15 +35,23 @@ describe('L1 notify-core: content', () => {
     assert.ok(body.length <= 'pwsh 正在请求授权：'.length + 180)
   })
 
-  it('maps completed and max-tokens to the completion notification', () => {
+  it('distinguishes successful completion from an output-limit stop', () => {
     assert.deepEqual(turnEndContent({ kind: 'completed' }, zh), {
       title: '对话已完成',
       body: '本轮回复已结束，可以回来查看了。',
     })
-    assert.deepEqual(turnEndContent({ kind: 'max-tokens' }, en), {
-      title: 'Turn completed',
-      body: 'The reply has finished; you can come back now.',
+    assert.deepEqual(turnEndContent({ kind: 'max-tokens' }, zh, 'stopped'), {
+      title: '本轮已达到输出上限',
+      body: '任务可能尚未完成，请返回会话查看。',
     })
+    assert.deepEqual(turnEndContent({ kind: 'max-tokens' }, en, 'stopped'), {
+      title: 'Output limit reached',
+      body: 'The task may be unfinished; return to the conversation.',
+    })
+  })
+
+  it('preserves output-limit copy for consumers that do not opt into Web semantics', () => {
+    assert.deepEqual(turnEndContent({ kind: 'max-tokens' }, en), turnEndContent({ kind: 'completed' }, en))
   })
 
   it('maps error and keeps the message bounded', () => {

@@ -17,11 +17,14 @@ Host 全局监听已提交的 `session/event`，按真实 Agent registry 只处�
 |---|---|
 | 浏览器收到根会话的 `user-questions/request` | 「需要你的回复」+ 首个问题摘要 |
 | 根会话工具申请权限 | 「需要确认权限」+ 工具名/理由 |
-| 根会话 `turn/end` 为 `completed` / `max-tokens` | 「对话已完成」 |
+| 根会话正常结束，goal 不存在或已完成，且子结果已汇总、无待处理输入 | 「对话已完成」 |
+| 根会话 `turn/end` 为 `max-tokens` | 「本轮已达到输出上限」，提示任务可能尚未完成 |
 | 根会话 `turn/end` 为 `error` | 「对话出错」+ 错误信息 |
 | `aborted`、`blocked`、`interrupted`、`forked` 及其他结束原因 | 不通知 |
 | subagent 的审批或回合结束 | 不通知 |
 
+- goal 为 active（包括 disarmed）、paused 或 blocked 时，中间回合结束不发成功通知。标记 goal complete 不立即通知，等待主 agent 最终回复收尾。
+- 等待过子 agent 的旧回合不补发完成通知；由主 agent 收齐结果并汇总后的新回合重新判断。新输入、新回合或卸载会作废旧检查。
 - 每批提问一条通知。带 callId 的请求收到后才放行对应 SSE 候选；限时等待结束后仍可回答时保留，实际回答提交后撤回。旧式无 callId 的阻塞请求由接收页面提醒，回答、取消或请求结束时关闭。
 - `tool/call`、`tool/ptc-dispatch-start` 只建立候选，不直接弹提醒。Client 在第一启动阶段订阅 Remote 提问入口，先调用 next() 放行真实卡片处理器，再处理通知；不加固定延迟，也不承诺卡片已经完成绘制。普通聊天问句不识别，approval intent 卡片沿用审批通知。
 - 审批通知先等待 `approvalDelayMs`；延迟内收到 `approval/decided` 会取消。
@@ -69,7 +72,7 @@ Worker 使用独立的 `api/notify-web/` scope，不接管应用页面或拦截�
 | `notifyOnQuestion` | `true` | 标准用户提问需要回复时通知；旧配置省略时默认开启 |
 | `notifyOnApproval` | `true` | 根会话需要工具权限审批时通知；不会替你批准权限 |
 | `approvalDelayMs` | `300` 毫秒 | 等待后再弹审批通知；期间审批已决定则取消，避免短暂请求造成打扰 |
-| `notifyOnTurnEnd` | `true` | 根会话一轮正常完成或达到输出上限时通知 |
+| `notifyOnTurnEnd` | `true` | 根会话通过完成检查或达到输出上限时通知；上限提醒不表示任务完成 |
 | `notifyOnTurnError` | `true` | 根会话一轮因错误结束时通知 |
 
 ### 内部通信参数

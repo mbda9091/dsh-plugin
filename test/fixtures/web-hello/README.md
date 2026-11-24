@@ -10,3 +10,5 @@
 - 空白会话的欢迎页不会渲染 composer dock，因此初始化包含一条有 id/source 的用户消息及完整回合边界。
 
 不要安装到日常 profile；测试端点可以写入会话事件。
+
+- `completion.js` 使用受控模型和子任务 provider，验证真实 Agent、goal、subagent 生命周期与 SSE；覆盖 goal / 普通模式双子任务返回、中间轮静默、goal complete 后最终回复收尾。它不调用外部模型，浏览器通知由 L5 stub 记录，不证明原生弹窗。

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import { setImmediate } from 'node:timers/promises'
 import { MessageId, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { Session, SessionId } from '@deepseek-ai/dsh-session'
 import { SessionProjectionRegistry } from '@deepseek-ai/dsh-session-projection'
@@ -17,6 +18,9 @@ import type { MessagePort } from 'node:worker_threads'
 
 interface FakeAgent {
   readonly session: Session
+  readonly status: 'idle'
+  readonly inbox: { nextTurn: never[]; nextStep: never[] }
+  whenIdle(): Promise<void>
 }
 
 interface Route {
@@ -31,10 +35,11 @@ interface Frame {
   readonly data: unknown
 }
 
-function agents(): { list(): FakeAgent[]; roots(): FakeAgent[] } {
-  const root = { session: Session.create(SessionId('root')) }
-  const sub = { session: Session.create(SessionId('sub')) }
+function agents(): { get(id: string): FakeAgent | undefined; list(): FakeAgent[]; roots(): FakeAgent[] } {
+  const root: FakeAgent = { session: Session.create(SessionId('root')), status: 'idle', inbox: { nextTurn: [], nextStep: [] }, whenIdle: async () => {} }
+  const sub: FakeAgent = { ...root, session: Session.create(SessionId('sub')) }
   return {
+    get: id => [root, sub].find(agent => agent.session.id === id),
     list: () => [root, sub],
     roots: () => [root],
   }
@@ -255,9 +260,10 @@ describe('L3 notify-web host: SSE route', () => {
     const [initial] = await first.next()
     const epoch = (initial?.data as { epoch: string }).epoch
     await first.cancel()
-    host.emit('session/event', { id: 'root' }, approvalAsked('pending'))
+    host.emit('session/event', host.session, approvalAsked('pending'))
     await delay(10)
-    host.emit('session/event', { id: 'root' }, turnEnd(2))
+    host.emit('session/event', host.session, turnEnd(2))
+    await setImmediate() // Completion is published after root retirement.
     const resume = async (): Promise<{ reset: boolean; replay: unknown[]; pending: Array<{ id: string }> }> => {
       const reader = new SseReader(await route.fetch(protocolRequest(`http://localhost/api/notify-web/events?epoch=${epoch}&seq=0`)))
       const [frame] = await reader.next()
@@ -313,10 +319,11 @@ describe('L3 notify-web host: SSE route', () => {
     const reader = new SseReader(response)
     await reader.next(1)
 
-    host.emit('session/event', { id: 'root' }, approvalAsked('a1'))
+    host.emit('session/event', host.session, approvalAsked('a1'))
     await delay(10)
-    host.emit('session/event', { id: 'root' }, turnEnd(2))
-    host.emit('session/event', { id: 'root' }, { type: 'approval/decided', seq: 3, time: 1_002, data: { id: 'a1', outcome: 'rejected' } })
+    host.emit('session/event', host.session, turnEnd(2))
+    await setImmediate() // Completion is published after root retirement.
+    host.emit('session/event', host.session, { type: 'approval/decided', seq: 3, time: 1_002, data: { id: 'a1', outcome: 'rejected' } })
 
     const frames = await reader.next(3)
     const updates = frames.map((frame) => frame.data as { seq: number; update: { type: string; kind?: string } })
@@ -337,9 +344,10 @@ describe('L3 notify-web host: SSE route', () => {
     const [first] = await reader.next(1)
     const epoch = (first?.data as { epoch: string }).epoch
     await reader.cancel()
-    host.emit('session/event', { id: 'root' }, approvalAsked('a1'))
+    host.emit('session/event', host.session, approvalAsked('a1'))
     await delay(10)
-    host.emit('session/event', { id: 'root' }, turnEnd(2))
+    host.emit('session/event', host.session, turnEnd(2))
+    await setImmediate() // Completion is published after root retirement.
 
     const replayResponse = await route.fetch(protocolRequest(
       `http://127.0.0.1/api/notify-web/events?epoch=${encodeURIComponent(epoch)}&seq=0`,
@@ -359,7 +367,7 @@ describe('L3 notify-web host: SSE route', () => {
     const host = createHost()
     await apply(host.ctx, { approvalDelayMs: 0 })
     const route = host.route()
-    host.emit('session/event', { id: 'root' }, approvalAsked('a1'))
+    host.emit('session/event', host.session, approvalAsked('a1'))
     await delay(10)
     const controller = new AbortController()
     const response = await route.fetch(protocolRequest('http://127.0.0.1/api/notify-web/events', { signal: controller.signal }))
@@ -383,9 +391,9 @@ describe('L3 notify-web host: SSE route', () => {
     const epoch = (initial?.data as { epoch: string }).epoch
     await firstReader.cancel()
 
-    host.emit('session/event', { id: 'root' }, approvalAsked('a1'))
+    host.emit('session/event', host.session, approvalAsked('a1'))
     await delay(10)
-    host.emit('session/event', { id: 'root' }, { type: 'approval/decided', seq: 2, time: 1_001, data: { id: 'a1', outcome: 'rejected' } })
+    host.emit('session/event', host.session, { type: 'approval/decided', seq: 2, time: 1_001, data: { id: 'a1', outcome: 'rejected' } })
 
     const replayResponse = await route.fetch(protocolRequest(
       `http://127.0.0.1/api/notify-web/events?epoch=${encodeURIComponent(epoch)}&seq=0`,

@@ -192,7 +192,7 @@ async function prepareFixture(page: Page, name: string, alreadyOpen = false): Pr
   assert.equal(state.slot, 'conversation.composer.dock')
 }
 
-async function notify(page: Page, action: 'approval' | 'complete' | 'withdraw' | 'question' | 'question-ptc' | 'question-timed' | 'question-release' | 'answer'): Promise<void> {
+async function notify(page: Page, action: 'approval' | 'complete' | 'max-tokens' | 'withdraw' | 'question' | 'question-ptc' | 'question-timed' | 'question-release' | 'answer'): Promise<void> {
   const status = await page.evaluate(async action => {
     const response = await fetch(new URL('api/web-hello/notify', document.baseURI), {
       method: 'POST', headers: { 'content-type': 'application/json' },
@@ -372,6 +372,67 @@ try {
       await follower.close()
     })
 
+    for (const withGoal of [true, false]) {
+      await check(withGoal ? 'completion-goal' : 'completion-subagents', async (page, _context, directory) => {
+        await prepareFixture(page, withGoal ? 'completion-goal' : 'completion-subagents')
+        await switchLocale(page, 'en')
+        await page.waitForFunction(() => localStorage.getItem('notify-web:v3:cursor:/') !== null)
+        await page.evaluate(() => { window.__L5_NOTIFICATIONS__.calls = [] })
+        interface State { sessionId: string; stage: string; status: string; goal: string | null; remaining: number; intermediateRounds: number }
+        const evidence: State[] = []
+        let sessionId: string | undefined
+        const action = async (action: string, index?: number): Promise<State> => {
+          const result = await page.evaluate(async body => {
+            const response = await fetch(new URL('api/web-hello/completion', document.baseURI), {
+              method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+            })
+            return { status: response.status, text: await response.text() }
+          }, { action, sessionId, index, withGoal })
+          assert.equal(result.status, 200, result.text)
+          return JSON.parse(result.text) as State
+        }
+        const checkpoint = async (predicate: (state: State) => boolean): Promise<State> => {
+          const deadline = Date.now() + 15_000
+          do {
+            const state = await action('state')
+            if (predicate(state)) { evidence.push(state); return state }
+            await page.waitForTimeout(25)
+          } while (Date.now() < deadline)
+          throw new Error('controlled completion checkpoint timed out')
+        }
+        const silent = async (): Promise<void> => {
+          // Observe real SSE beyond any microtask scheduling, not as a production delay.
+          await page.waitForTimeout(150)
+          assert.deepEqual(await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls), [])
+        }
+        try {
+          const initial = await action('start'); sessionId = initial.sessionId; evidence.push(initial)
+          assert.equal(initial.remaining, 2)
+          assert.equal(initial.status, 'idle')
+          assert.equal(initial.goal, withGoal ? 'active' : null)
+          await silent()
+          await action('release', 0)
+          await checkpoint(state => state.intermediateRounds > 0 && state.status === 'idle')
+          await silent()
+          await action('release', 1)
+          const summarizing = await checkpoint(state => state.stage === 'summarizing')
+          assert.equal(summarizing.goal, withGoal ? 'complete' : null)
+          assert.equal(summarizing.status, 'running')
+          await silent() // Marking the goal complete must not precede the final reply.
+          evidence.push(await action('finish'))
+          await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.length === 1)
+          const notifications = await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls)
+          assert.equal(notifications[0]?.title, 'Turn completed')
+          assert.ok(notifications[0]?.tag.startsWith(`dsh-turn-end:${sessionId}:turn-end:`))
+          await page.waitForTimeout(150)
+          assert.equal(await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls.length), 1)
+          writeFileSync(join(directory, 'completion.json'), JSON.stringify({ evidence, notifications }, null, 2))
+        } finally {
+          if (sessionId) await action('dispose')
+        }
+      })
+    }
+
     for (const language of ['en', 'zh', 'denied'] as const) {
       await check(`notification-${language}`, async page => {
         let streams = 0
@@ -412,6 +473,10 @@ try {
               ['对话已完成', '本轮回复已结束，可以回来查看了。'],
             ])
             assert.ok(streams >= 1)
+            await notify(page, 'max-tokens')
+            await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls.length === 3)
+            assert.equal(await page.evaluate(() => window.__L5_NOTIFICATIONS__.calls[2]?.title),
+              language === 'en' ? 'Output limit reached' : '本轮已达到输出上限')
             await notify(page, 'withdraw')
             settled = true
             await page.waitForFunction(() => window.__L5_NOTIFICATIONS__.calls[0]?.closed === true)

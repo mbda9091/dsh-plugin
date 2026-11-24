@@ -16,8 +16,9 @@ import type { Context } from '@deepseek-ai/cordis'
 import type { Session, SessionEvent, TurnEndReason } from '@deepseek-ai/dsh-session'
 // Type-only imports: they augment Context with `agents` and SessionEventMap with
 // `approval/asked` / `approval/decided`.
-import type {} from '@deepseek-ai/dsh-agent'
+import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-user-approval'
+import { createCompletionGate } from './completion.js'
 
 /** Trigger configuration shared by both adapters. */
 export interface TriggerOptions {
@@ -94,24 +95,24 @@ interface PendingApproval {
 }
 
 /**
- * Whether a Session belongs to a live root Agent.
+ * Find the live root Agent owning a Session.
  *
- * An unavailable or failing Agent registry yields `false`: without positive
+ * An unavailable or failing Agent registry yields `undefined`: without positive
  * root evidence the source stays silent rather than treating a subagent as a
  * conversation the user should be summoned for.
  *
  * @param ctx - Host context.
  * @param session - Session that appended the event.
- * @returns whether the Agent is a live root.
+ * @returns the live root, when positively identified.
  */
-function isRootSession(ctx: Context, session: Session): boolean {
+function rootAgent(ctx: Context, session: Session): Agent | undefined {
   const agents = ctx.get('agents')
-  if (agents === undefined) return false
+  if (agents === undefined) return undefined
   try {
     const agent = agents.list().find((item) => item.session.id === session.id)
-    return agent !== undefined && agents.roots().includes(agent)
+    return agent !== undefined && agents.roots().includes(agent) ? agent : undefined
   } catch {
-    return false
+    return undefined
   }
 }
 
@@ -133,9 +134,10 @@ function boundMessage(value: string): string {
  *
  * @param ctx - Host context with `agents` available.
  * @param options - shared trigger options.
+ * @param completion - `settled` enables the Web goal/child-work gate; `turn` preserves the original contract.
  * @returns the source; callers own its lifetime.
  */
-export function createNotificationSource(ctx: Context, options: TriggerOptions): NotificationSource {
+export function createNotificationSource(ctx: Context, options: TriggerOptions, completion: 'turn' | 'settled' = 'turn'): NotificationSource {
   const listeners = new Set<(update: NotificationUpdate) => void>()
   /** Approval timers waiting for {@link TriggerOptions.approvalDelayMs}. */
   const pending = new Map<string, PendingApproval>()
@@ -152,6 +154,10 @@ export function createNotificationSource(ctx: Context, options: TriggerOptions):
       }
     }
   }
+
+  // The Web adapter opts into goal-aware completion; other consumers keep
+  // their existing turn-based contract without depending on these services.
+  const gate = completion === 'settled' ? createCompletionGate(ctx, emit) : undefined
 
   const cancelPending = (id: string): void => {
     const record = pending.get(id)
@@ -173,6 +179,7 @@ export function createNotificationSource(ctx: Context, options: TriggerOptions):
   }
 
   const onSessionEvent = (session: Session, event: SessionEvent): void => {
+    if (event.type === 'turn/start' || event.type === 'user/message' || event.type === 'goal/change') gate?.invalidate(session.id)
     if (event.type === 'approval/decided') {
       // Handle decisions before the root check: an Agent may already be gone,
       // and its pending timer/visible approval still needs cleanup.
@@ -184,7 +191,7 @@ export function createNotificationSource(ctx: Context, options: TriggerOptions):
     }
 
     if (event.type === 'approval/asked') {
-      if (!options.notifyOnApproval || !isRootSession(ctx, session)) return
+      if (!options.notifyOnApproval || rootAgent(ctx, session) === undefined) return
       const id = `${session.id}:approval:${String(event.data.id)}`
       if (pending.has(id) || shown.has(id)) return
       const state: ApprovalShowUpdate = {
@@ -199,7 +206,7 @@ export function createNotificationSource(ctx: Context, options: TriggerOptions):
       }
       const timer = setTimeout(() => {
         pending.delete(id)
-        if (disposed || !isRootSession(ctx, session)) return
+        if (disposed || rootAgent(ctx, session) === undefined) return
         shown.set(id, state)
         emit(state)
       }, Math.max(0, Math.floor(options.approvalDelayMs)))
@@ -209,8 +216,10 @@ export function createNotificationSource(ctx: Context, options: TriggerOptions):
     }
 
     if (event.type !== 'turn/end') return
-    if (!isRootSession(ctx, session)) return
+    const agent = rootAgent(ctx, session)
+    if (agent === undefined) return
     const reason: TurnEndReason = event.data.reason
+    if (reason.kind !== 'completed') gate?.invalidate(session.id)
     if (reason.kind === 'completed' || reason.kind === 'max-tokens') {
       if (!options.notifyOnTurnEnd) return
     } else if (reason.kind === 'error') {
@@ -228,11 +237,13 @@ export function createNotificationSource(ctx: Context, options: TriggerOptions):
       reasonKind: reason.kind,
       ...reason.kind === 'error' ? { errorMessage: boundMessage(reason.error.message) } : {},
     }
-    emit(update)
+    if (gate !== undefined && reason.kind === 'completed') gate.consider(agent, session, update)
+    else emit(update)
   }
 
   const onAgentDisposed = (payload: { agent: { session: { id: string } } }): void => {
     const sessionId = payload.agent.session.id
+    gate?.invalidate(sessionId)
     for (const [id, record] of [...pending]) {
       if (record.state.sessionId !== sessionId) continue
       clearTimeout(record.timer)
@@ -269,6 +280,7 @@ export function createNotificationSource(ctx: Context, options: TriggerOptions):
     dispose() {
       if (disposed) return
       disposed = true
+      gate?.dispose()
       for (const record of pending.values()) clearTimeout(record.timer)
       pending.clear()
       shown.clear()

@@ -166,7 +166,7 @@ export async function apply(ctx: Context, config: Config = {}): Promise<void> {
 
   const questions = options.notifyOnQuestion ? await createQuestionSource(ctx) : undefined
   if (questions !== undefined) ctx.effect(() => () => questions.dispose())
-  const source = createNotificationSource(ctx, triggers)
+  const source = createNotificationSource(ctx, triggers, 'settled')
   const epoch = randomUUID()
   const heartbeatMs = Number.isFinite(options.heartbeatMs)
     ? Math.max(1000, Math.floor(options.heartbeatMs))

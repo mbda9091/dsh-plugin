@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto'
 import { PtcExecutor } from '@deepseek-ai/dsh-tool-executor-ptc'
 import { apply as applyAskUser } from '@deepseek-ai/dsh-tool-ask-user'
+import { registerCompletionFixture } from './completion.js'
 
 export const name = 'web-hello'
-export const inject = ['connection', 'sessions', 'agents']
+export const inject = ['connection', 'sessions', 'agents', 'llm', 'goals', 'subagents']
 
 // Test-only authenticated endpoint: proves a UI interaction reaches the Host.
 export function apply(ctx) {
+  registerCompletionFixture(ctx)
   const seeded = new Set()
   const questions = new Map()
   // Hold forwarding at the Host boundary, then delegate to the real Client card.
@@ -86,9 +88,9 @@ export function apply(ctx) {
         questions.delete(sessionId)
       } else if (action === 'approval') {
         session.append('approval/asked', { id: 'l5-approval', toolName: 'shell-test', reason: 'L5 test' })
-      } else if (action === 'complete') {
+      } else if (action === 'complete' || action === 'max-tokens') {
         session.append('turn/start', { turn: 1 })
-        session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+        session.append('turn/end', { turn: 1, reason: { kind: action === 'complete' ? 'completed' : 'max-tokens' } })
       } else if (action === 'withdraw') {
         session.append('approval/decided', { id: 'l5-approval', outcome: 'rejected' })
       } else return new Response('invalid action', { status: 400 })

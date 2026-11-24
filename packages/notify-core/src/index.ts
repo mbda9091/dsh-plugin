@@ -10,6 +10,8 @@ export type LocaleKey =
   | 'approval.toolFallback'
   | 'turnEnd.completed.title'
   | 'turnEnd.completed.body'
+  | 'turnEnd.maxTokens.title'
+  | 'turnEnd.maxTokens.body'
   | 'turnEnd.error.title'
   | 'turnEnd.error.body'
 
@@ -26,6 +28,8 @@ export const zh: Record<LocaleKey, string> = {
   'approval.toolFallback': '工具',
   'turnEnd.completed.title': '对话已完成',
   'turnEnd.completed.body': '本轮回复已结束，可以回来查看了。',
+  'turnEnd.maxTokens.title': '本轮已达到输出上限',
+  'turnEnd.maxTokens.body': '任务可能尚未完成，请返回会话查看。',
   'turnEnd.error.title': '对话出错',
   'turnEnd.error.body': '{message}',
 }
@@ -40,6 +44,8 @@ export const en: Record<LocaleKey, string> = {
   'approval.toolFallback': 'Tool',
   'turnEnd.completed.title': 'Turn completed',
   'turnEnd.completed.body': 'The reply has finished; you can come back now.',
+  'turnEnd.maxTokens.title': 'Output limit reached',
+  'turnEnd.maxTokens.body': 'The task may be unfinished; return to the conversation.',
   'turnEnd.error.title': 'Turn failed',
   'turnEnd.error.body': '{message}',
 }
@@ -115,16 +121,20 @@ export function approvalContent(input: ApprovalInput, t: Translate): Notificatio
  *
  * @param reason - `turn/end` reason.
  * @param t - translator for the active locale.
+ * @param outputLimit - Web opts into a stopped reminder; other consumers retain their existing copy.
  * @returns title and body for the delivery adapter, or `undefined`.
  */
-export function turnEndContent(reason: TurnEndReason, t: Translate): NotificationContent | undefined {
+export function turnEndContent(reason: TurnEndReason, t: Translate, outputLimit: 'completed' | 'stopped' = 'completed'): NotificationContent | undefined {
   switch (reason.kind) {
     case 'completed':
-    case 'max-tokens':
       return {
         title: t('turnEnd.completed.title'),
         body: t('turnEnd.completed.body'),
       }
+    case 'max-tokens': {
+      const prefix = outputLimit === 'stopped' ? 'turnEnd.maxTokens' : 'turnEnd.completed'
+      return { title: t(`${prefix}.title`), body: t(`${prefix}.body`) }
+    }
     case 'error': {
       const message = typeof reason.error?.message === 'string' ? clip(reason.error.message, 180) : ''
       return {

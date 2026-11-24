@@ -9,3 +9,16 @@
 - `agent/disposed` 时清理待审批与已显示审批。
 
 它只发出可序列化的 `NotificationUpdate`，不知道 Windows Toast、SSE、浏览器权限或当前选中的会话。构建时由 esbuild 内联进两个插件，profile 不需要安装。
+
+## Web 完成判定
+
+`createNotificationSource(ctx, options, 'settled')` 由 notify-web 启用：
+
+| 条件 | 结果 |
+|---|---|
+| goal active / paused / blocked | 不发成功通知 |
+| goal complete / 无 goal，根 agent 收尾、无子工作与待处理输入 | 一次完成通知 |
+| 等待过子工作 / 新回合 / 新输入 / goal 变更 | 作废旧回合，等主 agent 汇总后的新回合 |
+| 检查失败 / Agent 替换 / 卸载 | 作废检查 |
+
+复用宿主 goals 与 subagents；每个服务提供者与 Agent 组合复用一组实际子工作等待。根收尾与子工作均使用可移除观察者，失效后释放旧回合回调，不取消任务。默认 `turn` 模式保留现有消费者契约，不新增用户配置。

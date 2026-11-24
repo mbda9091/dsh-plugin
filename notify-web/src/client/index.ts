@@ -568,7 +568,7 @@ function install(uiWorkspace: UiWorkspaceService, locale: LocaleService | undefi
     const reason: TurnEndReason = update.errorMessage === undefined
       ? { kind: update.reasonKind }
       : { kind: update.reasonKind, error: { message: update.errorMessage } }
-    const content = turnEndContent(reason, t)
+    const content = turnEndContent(reason, t, 'stopped')
     if (content === undefined) return
     const previous = turnEndBySession.get(update.sessionId)
     if (previous !== undefined) closeNotification(previous)

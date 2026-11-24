@@ -4,7 +4,7 @@ import { isRecord, readJson } from './json.js'
 export const browserChecks = {
   baseline: ['no-custom-plugins'],
   fixture: ['notification-reopen-continues', 'slot-interaction-theme-locale-reload', 'question-real-tool-sse', 'question-ptc-received-sse', 'question-leader-handover',
-    'notification-en', 'notification-zh', 'notification-denied'],
+    'completion-goal', 'completion-subagents', 'notification-en', 'notification-zh', 'notification-denied'],
 } as const
 
 /** A zero exit code alone does not prove that the browser ran every check. */

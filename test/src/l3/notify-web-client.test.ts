@@ -183,6 +183,8 @@ function createFixture(options: FixtureOptions = {}): Fixture {
     'approval.toolFallback': '工具',
     'turnEnd.completed.title': '对话已完成',
     'turnEnd.completed.body': '本轮回复已结束，可以回来查看了。',
+    'turnEnd.maxTokens.title': '本轮已达到输出上限',
+    'turnEnd.maxTokens.body': '任务可能尚未完成，请返回会话查看。',
     'turnEnd.error.title': '对话出错',
     'turnEnd.error.body': '{message}',
   }
@@ -195,6 +197,8 @@ function createFixture(options: FixtureOptions = {}): Fixture {
     'approval.toolFallback': 'Tool',
     'turnEnd.completed.title': 'Turn completed',
     'turnEnd.completed.body': 'The reply has finished; you can come back now.',
+    'turnEnd.maxTokens.title': 'Output limit reached',
+    'turnEnd.maxTokens.body': 'The task may be unfinished; return to the conversation.',
     'turnEnd.error.title': 'Turn failed',
     'turnEnd.error.body': '{message}',
   }
