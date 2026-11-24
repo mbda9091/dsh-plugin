@@ -52,7 +52,7 @@ rc.5 移除了 `AgentRegistry.roots()`，并将 `SubagentRuntime.waitForChildren
 
 ## 8. 验收状态与证据
 
-2026-11-24 的本机结果如下；链接为本地忽略目录，清理后可能失效。
+2026-11-24 归档前首次适配的本机结果如下；最终两插件的完整 CI 与日常安装见 §9.1。链接为本地忽略目录，清理后可能失效。
 
 - 升级前 L1–L3：334 通过、0 失败、1 跳过；升级后：336 通过、0 失败、1 平台跳过。见[最终测试日志](../.tmp/dsh-rc5-upgrade/test.log)。
 - `build --check`、`build`、`install --frozen-lockfile`、`pack` 通过；见[类型检查](../.tmp/dsh-rc5-upgrade/check.log)、[冻结安装](../.tmp/dsh-rc5-upgrade/frozen-install.log)。冻结安装复用了已有系统缓存，不代表冷缓存安装。
@@ -68,6 +68,16 @@ rc.5 移除了 `AgentRegistry.roots()`，并将 `SubagentRuntime.waitForChildren
 
 类型检查定位并修正了根 Agent 与等待接口、Zod 类型不匹配。真实 L4 的标准工具对账识别到新增的 `wait_agent`，按角色不委派约束补入排除清单。真实 L5 识别到测试后端仍使用旧启动参数，修正后验证通过。期间一次 PTC 提问浏览器等待超时；单独重跑及随后固定 tarball L5 均通过，未据此放宽断言或将超时视为通过。
 
+### 9.1 最终两插件完整 CI 与日常安装（2026-11-24）
+
+验收源码为干净提交 `3d4613aa0f7306299bf08ed3710a33278b3e820c`，活跃插件仅 notify-web、role-agent。macOS arm64、普通 Node `v24.16.0`、pnpm `11.28.5`、系统 Chrome 上执行完整 `node scripts/dev.mjs ci` 并通过，见 [CI 报告](../.tmp/ci/run-CZQpBN/report.json)：环境 all 的 42 项全部通过，类型检查通过，L1–L3 为 268 通过、0 失败、1 平台跳过，主 L4/L5 及清理通过。环境测试包含独立冷缓存冻结安装及真实外部 profile 交付。
+
+随后生成固定批次 `c8afe225-034c-4310-9525-4a6603fffbe1`，再次通过相同 tarball 的角色 Host 能力契约、通知 L4/L5 和 `verify-artifacts --check`，见[固定包验收](../dist/verification/c8afe225-034c-4310-9525-4a6603fffbe1/web-mac.json)。
+
+按用户明确指令安装到普通 Node DSH `0.2.2-rc.5` 的 `~/.dsh`、profile `macos-web`：更新 notify-web，新增 role-agent。安装从持久外部归档消费同一批固定包；逐包文件、lockfile、归档 SHA 与 bundle 注册核验通过，warnings 均为空，见[安装回执](../dist/consumption/run-TliVIB/report.json)。现有 notify-web 配置保留，新增 role-agent 配置，命名空间 patch 改写前已备份，profile 根 patch 哈希未变。
+
+安装自动状态只核验文件和 bundle，不证明日常进程已加载；安装器提示命名空间配置需显式加载，已向用户说明重启 DSH 并刷新浏览器。用户随后反馈“没啥问题”，记录为本地试用无异常，不扩大 macOS 自动化验收范围，也不据此证明真实 Hindsight 服务或长期成长效果。后续仅补充本节记录，没有修改上述已测运行时代码；提交及文档变化会按仓库规则使交付缓存失效。
+
 ## 10. 当前未完成事项与下一步
 
-本轮本机 Web 范围及提交对账已完成。Windows 桌面及其他平台的实机验证按对应宿主执行，不以 macOS Web 结果替代；desktop-notify 已停止维护，不再作为当前升级或验收待办。
+本轮本机 Web 范围、完整 CI、固定包验收及日常安装已完成。Windows 桌面及其他平台的实机验证按对应宿主执行，不以 macOS Web 结果替代；desktop-notify、app-restart 已归档停更，不再作为当前升级或验收待办。
