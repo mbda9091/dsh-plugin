@@ -1,10 +1,11 @@
 # desktop-notify 归档记录
 
 > 范围：停止维护 desktop-notify，将源码及专属测试移出活跃插件集合。
-> 完成：否（本机检查通过，实现未提交，待提交对账）。
-> 状态：待验收（待提交对账）。
+> 完成：是（本机归档检查与提交字节对账通过）。
+> 状态：已完成。
 > 日期：2026-11-24（Asia/Shanghai）。
-> 实现 commit：未提交；基线 `caf23be4197821c1bf207e0e1e492a508edf26e8` 加本轮工作区改动。
+> 完成日期：2026-11-24。
+> 实现 commit：`4cc5ca723054d2e6a67120b0cdedd3fe1d52f006`；测试在提交前执行，提交后核对文件字节一致。
 > 当前结论：归档已实施，活跃插件检查通过，结果与交付集合见第 8 节。
 
 ## 1. 结论摘要
@@ -25,7 +26,7 @@
 
 ## 5. 里程碑
 
-归档、活跃引用清理及锁文件更新已实施；验证见第 8 节，实现提交待对账。
+归档、活跃引用清理、锁文件更新、本机验证及实现提交对账均已完成，证据见第 8 节。
 
 ## 6. 决策记录
 
@@ -37,14 +38,15 @@
 
 ## 8. 验收状态
 
-2026-11-24，macOS arm64、Node `v24.16.0`、pnpm `11.28.5`，基于上述提交加未提交改动：
+2026-11-24，macOS arm64、Node `v24.16.0`、pnpm `11.28.5`，测试基线为 `caf23be4197821c1bf207e0e1e492a508edf26e8` 加本轮改动，随后提交为 `4cc5ca723054d2e6a67120b0cdedd3fe1d52f006`：
 
 - 类型、targets 与生成目录检查通过，仅发现 app-restart、notify-web、role-agent，见[检查日志](../.tmp/desktop-notify-archive/check.log)。
 - L1–L3：300 通过、0 失败、1 平台跳过，见[测试日志](../.tmp/desktop-notify-archive/test.log)。
 - 快速环境检查 28 项通过，见[环境报告](../.tmp/environment-tests/run-KbfCOF/report.json)；冻结安装通过，见[冻结安装日志](../.tmp/desktop-notify-archive/frozen-install.log)。
 - `pnpm list -r --depth -1` 仅列出根包、三个活跃插件和两个共享库；锁文件没有 desktop-notify 或 archive importer。归档代码、清单及专属测试逐字节匹配冻结提交，README 仅补充归档说明与修正链接。
 - 安装预览只列出兼容的 notify-web、role-agent，app-restart 按场景跳过，见[预览日志](../.tmp/desktop-notify-archive/install-dry-run.log)。
-- 最终完整工作区执行 `pack`，日志在 `.tmp/desktop-notify-archive/pack.log`；交付清单以 [dist/current.json](../dist/current.json) 指向批次为准，必须仅包含三个活跃插件，不包含归档包。
+- 最终完整工作区 `pack` 通过，日志在 `.tmp/desktop-notify-archive/pack.log`；[批次 8d4d64c9-6034-49bf-827d-9d6a134882b1](../dist/batches/8d4d64c9-6034-49bf-827d-9d6a134882b1/manifest.json) 已核对仅包含三个活跃插件，不包含归档包。
+- 实现提交前检查了该清单的全部源码文件哈希，均与暂存内容一致；提交后工作区干净，确认提交保存了同一组字节。后续仅更新本页及 rc.5 记录的提交对账，不将本次核对表述为提交后重新跑测试。提交元信息及文档变化会使交付缓存失效，后续安装由脚本按快照规则重新构建打包。
 
 本轮没有修改 Web 运行时行为，未重跑真实 L4/L5 或桌面实机能力。上一轮 rc.5 的 Web 能力证据见[适配记录](dsh-rc5-adaptation-plan.md)，其四插件批次和测试数量保留为归档前历史事实。
 
@@ -54,4 +56,4 @@
 
 ## 10. 当前未完成事项与下一步
 
-实现尚未提交，提交后补齐 SHA 与已测差异对账；不新增 desktop-notify 的适配或桌面验收待办。恢复该插件须另行明确决定、还原历史布局并重新适配验收。
+本轮无未完成实施事项；不新增 desktop-notify 的适配或桌面验收待办。恢复该插件须另行明确决定、还原历史布局并重新适配验收。
