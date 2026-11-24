@@ -1,5 +1,7 @@
 # desktop-notify 归档记录
 
+> 后续轮次（2026-11-24）：用户将 app-restart 一并归档，当前活跃插件为 notify-web、role-agent。本页三插件批次、测试数量及完成事实保留为当轮记录；后续范围与验证见[app-restart 归档记录](app-restart-archive-plan.md)。
+
 > 范围：停止维护 desktop-notify，将源码及专属测试移出活跃插件集合。
 > 完成：是（本机归档检查与提交字节对账通过）。
 > 状态：已完成。

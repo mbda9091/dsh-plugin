@@ -3,7 +3,7 @@
 开发测试入口为 `node scripts/dev.mjs`；安装入口为 `node scripts/install.mjs install --profile NAME`。无参数显示各自帮助。安装自动解析已准备好的 Node/DSH 环境，日常启动由用户管理。
 
 
-为 DeepSeek Harness（DSH）编写的自定义插件，提供桌面重启、审批提醒和任务完成通知。
+为 DeepSeek Harness（DSH）编写的自定义插件，提供浏览器提问／审批提醒、任务完成通知和角色对话。
 
 每个插件都是独立的 npm 包和 Cordis bundle，可以按需安装到 DSH profile，单独启停。本仓库保存插件源码、构建脚本和文档，使用前需要安装 DSH 并构建插件。
 
@@ -11,11 +11,10 @@
 
 | 插件 | 用途 | 适用形态 | 平台 |
 | --- | --- | --- | --- |
-| [app-restart](app-restart/README.md) | 在对话中输入 `/restart`，重启桌面应用及 Host | 桌面 | Windows |
 | [notify-web](notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS、Linux |
 | [role-agent](role-agent/README.md) | 专用角色对话、可追溯记忆与成长 | 桌面、Web | Windows、macOS、Linux |
 
-`desktop-notify` 已于 2026-11-24 [归档并停止维护](archive/desktop-notify/README.md)，不再参与构建、测试或安装打包。
+`desktop-notify` 和 `app-restart` 已于 2026-11-24 [归档并停止维护](archive/README.md)，不再参与构建、测试或安装打包。
 
 完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断。2026-11-06 宿主升级轮次的 macOS 完整 CI 通过记录见[历史验收](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)，不代表后续入口重构已全量验收。入口拆分轮次已按用户确认的 macOS 范围完成，验收基线 `4049f6f` 的完整 CI 通过；Windows/Linux 与真实 DSH 沙箱暂缓，详见[分离方案记录](docs/development-delivery-separation-plan.md)。真实 Desktop 和个人日常 profile 不作为本轮已验收结果。
 
@@ -42,17 +41,17 @@ node scripts/dev.mjs build
 
 快速环境检查使用 `node scripts/dev.mjs test-env --suite fast`；完整验证使用 `node scripts/dev.mjs ci`。
 
-## 安装到桌面应用
+## 安装插件
 
-构建完成后，打开 DSH 的 **Plugins（插件）** 页面，按需安装对应插件目录的绝对路径。例如，在仓库根目录执行以下命令取得桌面重启插件的路径：
+构建完成后，打开目标 DSH 的 **Plugins（插件）** 页面，按适用场景安装对应插件目录的绝对路径。例如，在仓库根目录执行以下命令取得 Web 通知插件的路径：
 
 ```sh
-node -p "require('node:path').resolve('app-restart')"
+node -p "require('node:path').resolve('notify-web')"
 ```
 
-把输出填入插件安装页面。桌面重启使用 `app-restart`；Web 通知使用 `notify-web`。
+把输出填入 Web 插件安装页面。`notify-web` 仅适用于 Web；`role-agent` 同时支持桌面和 Web，具体以插件声明为准。
 
-替换已加载的 Host 代码或安装包后，按宿主提示重启 DSH；更新 Client 代码后刷新页面。`/restart` 会中断正在进行的回合。
+替换已加载的 Host 代码或安装包后，按宿主提示重启 DSH；更新 Client 代码后刷新页面。
 
 ## 启动 Web
 
@@ -147,7 +146,7 @@ Corepack 安装也自动发现 pnpm，无需初始化 JSON 或填写 pnpm 绝对
 
 启动器打印访问地址；有桌面会话时可去掉 `--no-open`，通过 `xdg-open` 打开默认浏览器。自动化测试可用 `node node_modules/playwright-core/cli.js install --with-deps chromium` 准备浏览器及系统依赖。
 
-Linux 支持 `notify-web` 和 `role-agent`。通过 `node scripts/install.mjs install --profile <名称>` 安装到外部 profile，平台默认识别为 Linux；不要求固定产物验收证据，固定包验收由内部测试负责。`app-restart` 仅适用于 Windows 桌面端。日常 DSH 启动由用户自行管理；仓库的 `web`、`daily-launcher` 入口已移除，开发环境使用 `dev-web`。
+Linux 支持 `notify-web` 和 `role-agent`。通过 `node scripts/install.mjs install --profile <名称>` 安装到外部 profile，平台默认识别为 Linux；不要求固定产物验收证据，固定包验收由内部测试负责。日常 DSH 启动由用户自行管理；仓库的 `web`、`daily-launcher` 入口已移除，开发环境使用 `dev-web`。
 
 ### WSL 默认工作区与验收边界
 

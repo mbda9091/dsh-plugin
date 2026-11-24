@@ -1,5 +1,7 @@
 # DSH 0.2.2 rc.5 适配与验收记录
 
+> 当前活跃集合已按后续 [app-restart 归档轮次](app-restart-archive-plan.md) 调整为 notify-web、role-agent；本页其余插件范围、批次与测试数量保留为当轮事实。
+
 > 后续范围调整（2026-11-24）：用户确认 desktop-notify 当前没有使用场景，决定停止更新并归档。其源码与专属测试恢复为升级前 rc.1 快照，移出活跃插件集合；本页四插件批次与测试数量保留为归档前历史证据，当前范围及验证见[归档记录](desktop-notify-archive-plan.md)。
 
 > 本轮范围：将活跃插件及开发测试宿主从 `0.2.2-rc.1` 适配到 npm `latest` 的 `0.2.2-rc.5`；desktop-notify 按用户后续决定冻结归档。

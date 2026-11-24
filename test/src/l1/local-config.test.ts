@@ -32,7 +32,7 @@ describe('L1 local configuration lifecycle', () => {
       assert.equal(existsSync(f.paths.patch), false)
       const patch = renderWebPatch(readFileSync(f.paths.patchExample, 'utf8'), f.root)
       const parsed = parse(patch) as Array<{ id: string; config: { root?: string[] } }>
-      assert.equal(parsed[0]?.config.root?.[0], join(f.root, 'app-restart/lib'))
+      assert.equal(parsed[0]?.config.root?.[0], join(f.root, 'notify-web/lib'))
       const devPatch = renderWebPatch(readFileSync(join(f.root, 'profiles/web/cordis.dev.patch.yml'), 'utf8'), f.root)
       const workspace = (parse(devPatch) as Array<{ id: string; config: { documentsDirectory?: string } }>).find(row => row.id === 'workspace-controller')
       assert.equal(workspace?.config.documentsDirectory, join(f.root, '.local/dsh-dev/home/documents'))
@@ -132,12 +132,12 @@ describe('L1 local configuration lifecycle', () => {
     try {
       const template = readFileSync(f.paths.patchExample, 'utf8')
       assert.throws(() => renderWebPatch(template + '\n- id: x\n  config: {url: "${secret}"}\n', f.root), /placeholder outside/)
-      assert.throws(() => renderWebPatch(template.replace('app-restart/lib', '../escape'), f.root), /invalid HMR/)
+      assert.throws(() => renderWebPatch(template.replace('notify-web/lib', '../escape'), f.root), /invalid HMR/)
       const patch = renderWebPatch(template, f.root)
       assert.deepEqual(parse(patch)[0].config.ignored, parse(template)[0].config.ignored)
       writeFileSync(f.paths.patch, patch + '\n- id: x\n  disabled: !!js "throw new Error(\'must not execute\')"\n')
       assert.deepEqual(inspectWebPatch(f.paths.patch, f.root).roots, [
-        join(f.root, 'app-restart/lib'), join(f.root, 'notify-web/lib'),
+        join(f.root, 'notify-web/lib'),
       ])
       writeFileSync(f.paths.patch, '- id: x\n  config: [\n')
       assert.throws(() => inspectWebPatch(f.paths.patch, f.root), /invalid YAML/)

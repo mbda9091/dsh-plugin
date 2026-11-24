@@ -51,7 +51,7 @@ it('L3 Node bootstrap works without PS wrappers from another cwd and a spaced, C
     writeFileSync(f.paths.local, 'invalid legacy JSON must be ignored')
     assert.match(run(['dev-web', '--help']).stdout, /OS-assigned port/)
     const before = [f.paths.local].map(path => readFileSync(path, 'utf8'))
-    for (const name of ['app-restart', 'notify-web']) mkdirSync(join(f.root, name, 'lib'), { recursive: true })
+    mkdirSync(join(f.root, 'notify-web', 'lib'), { recursive: true })
     mkdirSync(join(f.root, 'alpha/lib'), { recursive: true })
     writeFileSync(join(f.root, 'alpha/lib/index.js'), '')
     writeFileSync(join(f.root, 'alpha/package.json'), JSON.stringify({

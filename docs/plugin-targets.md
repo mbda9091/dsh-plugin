@@ -111,7 +111,7 @@ node scripts/dev.mjs check-targets
 错误形如：
 
 ```
-[app-restart] target mismatch: declared surfaces=desktop platforms=windows; current surface=web platform=windows
+[notify-web] target mismatch: declared surfaces=web platforms=linux+mac+windows; current surface=desktop platform=windows
 ```
 
 | 当前形态 | 判定 |
@@ -154,11 +154,10 @@ node scripts/dev.mjs check-targets
 
 | 插件 | surfaces | platforms | 原因 |
 |---|---|---|---|
-| `@mbda9091/app-restart` | `["desktop"]` | `["windows"]` | 使用 WMI / Windows Script Host 重启桌面应用 |
 | `@mbda9091/notify-web` | `["web"]` | `["linux","mac","windows"]` | Host 统一判断并通过认证 SSE 投递，浏览器 `Notification` 展示 |
 | `@mbda9091/role-agent` | `["desktop","web"]` | `["linux","mac","windows"]` | Host 角色 preset、记忆及成长能力 |
 
-`desktop-notify` 已[归档停更](../archive/desktop-notify/README.md)，不在当前插件集合中。
+`desktop-notify` 和 `app-restart` 已[归档停更](../archive/README.md)，不在当前插件集合中。
 
 ## 8. 不采用的做法
 
