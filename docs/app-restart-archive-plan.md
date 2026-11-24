@@ -1,10 +1,11 @@
 # app-restart 归档记录
 
 > 范围：停止维护 Windows 桌面重启插件 app-restart，将源码与专属测试移出活跃集合。
-> 完成：否（本机检查通过，实现未提交，待提交对账）。
-> 状态：待验收（待提交对账）。
+> 完成：是（本机归档检查与提交字节对账通过）。
+> 状态：已完成。
 > 更新日期：2026-11-24（Asia/Shanghai）。
-> 实现 commit：未提交；基线 `41dccc994b59fd728c53415e33f1a5528de84a2e` 加本轮改动。
+> 完成日期：2026-11-24。
+> 实现 commit：`cddf30ad0307b1139106fd0093f9263f36f90f2c`；测试在提交前执行，提交后核对文件字节一致。
 > 当前结论：归档已实施，仅保留 notify-web、role-agent 为活跃插件，本机检查通过；验证与交付集合见第 8 节。
 
 ## 1. 结论摘要
@@ -25,7 +26,7 @@ app-restart 只适用于 Windows 桌面，依赖 WMI 与 Windows Script Host。�
 
 ## 5. 里程碑
 
-源码与专属测试归档、活跃引用清理、目录更新及本机检查均已完成；证据见第 8 节，实现提交待对账。
+源码与专属测试归档、活跃引用清理、目录更新、本机检查及实现提交对账均已完成；证据见第 8 节。
 
 ## 6. 决策记录
 
@@ -37,7 +38,7 @@ app-restart 只适用于 Windows 桌面，依赖 WMI 与 Windows Script Host。�
 
 ## 8. 验收状态
 
-2026-11-24，macOS arm64、Node `v24.16.0`、pnpm `11.28.5`，基于上述提交加本轮未提交改动：
+2026-11-24，macOS arm64、Node `v24.16.0`、pnpm `11.28.5`，测试基线为 `41dccc994b59fd728c53415e33f1a5528de84a2e` 加本轮改动，随后提交为 `cddf30ad0307b1139106fd0093f9263f36f90f2c`：
 
 - 类型、targets 与生成目录检查通过，仅发现 notify-web、role-agent，见[检查日志](../.tmp/app-restart-archive/check.log)。
 - L1–L3：268 通过、0 失败、1 平台跳过，见[测试日志](../.tmp/app-restart-archive/test.log)。
@@ -45,7 +46,8 @@ app-restart 只适用于 Windows 桌面，依赖 WMI 与 Windows Script Host。�
 - workspace 仅列出根包、两个活跃插件和两个共享库，见[成员清单](../.tmp/app-restart-archive/workspace.json)；锁文件仅移除了 app-restart importer，未改动其他依赖版本。
 - 归档源码、清单与两份专属测试逐字节匹配冻结提交，README 仅补充归档说明，见[快照核对](../.tmp/app-restart-archive/snapshot.json)。
 - 安装预览只包含 notify-web、role-agent，见[预览日志](../.tmp/app-restart-archive/install-dry-run.log)。
-- 最终完整工作区执行 `pack`，日志在 `.tmp/app-restart-archive/pack.log`；交付清单以 [dist/current.json](../dist/current.json) 指向批次为准，核验标准为仅包含两个活跃插件，不包含任一归档包。
+- 最终完整工作区 `pack` 通过，日志在 `.tmp/app-restart-archive/pack.log`；[批次 954dcb56-69c9-47e2-a471-f8f452a5870c](../dist/batches/954dcb56-69c9-47e2-a471-f8f452a5870c/manifest.json) 已核对仅包含两个活跃插件，不包含任一归档包。
+- 提交前核对该清单的全部源码文件哈希，与暂存内容一致；提交后工作区干净，确认实现提交保存了同一组字节。本次仅更新本页提交对账，不宣称提交后重新执行了测试。提交元信息及文档变化会使交付缓存失效，后续安装由脚本按快照规则重新构建打包。
 
 本轮没有修改 Web 运行时行为，未重跑真实 L4/L5 或 Windows 桌面实机能力；此前验证保留为各自轮次的历史证据，不代替本轮交付集合检查。
 
@@ -55,4 +57,4 @@ app-restart 只适用于 Windows 桌面，依赖 WMI 与 Windows Script Host。�
 
 ## 10. 当前未完成事项与下一步
 
-实现尚未提交，后续提交时补齐 SHA 和已测差异对账；不新增 app-restart 的适配或桌面验收待办。恢复该插件须另行明确决定、还原原布局并重新适配验收。
+本轮无未完成实施事项；不新增 app-restart 的适配或桌面验收待办。恢复该插件须另行明确决定、还原原布局并重新适配验收。
