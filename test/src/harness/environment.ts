@@ -4,13 +4,13 @@ import { copyFileSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirS
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { it as test } from 'node:test'
-import type { TestOptions } from 'node:test'
+import type { TestFn, TestOptions } from 'node:test'
 import { configPaths } from '../../../scripts/.build/core/config.js'
 import { digest } from '../../../scripts/.build/core/config-transaction.js'
 
 export const sourceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 /** node:test run() does not filter in-process registrations on Node 24. */
-export function environmentTest(name: string, optionsOrBody: TestOptions | (() => void | Promise<void>), body?: () => void | Promise<void>): void {
+export function environmentTest(name: string, optionsOrBody: TestOptions | TestFn, body?: TestFn): void {
   const selected = process.env.DSH_ENV_TEST_ONLY?.split(',')
   if (selected && !selected.includes(name.split(' ')[0]!)) return
   if (typeof optionsOrBody === 'function') test(name, optionsOrBody)

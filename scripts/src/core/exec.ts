@@ -3,6 +3,8 @@ import type { ChildProcess } from 'node:child_process'
 import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, rmSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { safeConfigPath } from './config-transaction.js'
+import { currentOwnedProcesses } from './owned-processes.js'
+import type { OwnedProcesses } from './owned-processes.js'
 
 /**
  * Child-process helpers that never use pipes.
@@ -97,8 +99,18 @@ export interface StartedProcess extends OutputPaths {
   readonly spawnError: () => Error | undefined
 }
 
+interface OwnedTree {
+  scope: OwnedProcesses | undefined
+  proof: OutputPaths
+  confirmed: boolean
+  stopping?: Promise<void>
+}
+const ownedTrees = new WeakMap<ChildProcess, OwnedTree>()
+
 /** Start a long-running command with stdout/stderr redirected to files. */
 export function startToFiles(command: string, args: readonly string[], options: RunOptions): StartedProcess {
+  const scope = options.ownProcessTree ? currentOwnedProcesses() : undefined
+  scope?.assertOpen()
   prepare(options.stdoutPath)
   prepare(options.stderrPath)
   const outFd = openSync(options.stdoutPath, 'w')
@@ -114,6 +126,12 @@ export function startToFiles(command: string, args: readonly string[], options: 
     })
     let error: Error | undefined
     child.once('error', (cause) => { error = cause })
+    if (options.ownProcessTree) {
+      ownedTrees.set(child, { scope, confirmed: false, proof: {
+        stdoutPath: options.stdoutPath + '.processes', stderrPath: options.stderrPath + '.processes',
+      } })
+      scope?.track(child, () => stopOwnedTree(child))
+    }
     return { child, spawnError: () => error, stdoutPath: options.stdoutPath, stderrPath: options.stderrPath }
   } finally {
     // The child holds duplicated handles; the parent no longer needs these.
@@ -200,20 +218,79 @@ export async function stopChild(child: ChildProcess, timeoutMs = 10_000): Promis
 
 /** Only for children spawned with ownProcessTree; never use recorded/ambient PIDs. */
 export async function stopOwnedTree(child: ChildProcess): Promise<void> {
-  if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return
+  const tree = ownedTrees.get(child)
+  if (!tree) throw new Error('cannot stop an unowned process tree')
+  if (tree.confirmed) return
+  if (tree.stopping) return tree.stopping
+  const stopping = stopTree(child, tree).then(() => {
+    tree.confirmed = true
+    tree.scope?.confirmed(child)
+  })
+  tree.stopping = stopping
+  try { await stopping } finally { tree.stopping = undefined }
+}
+
+function groupExists(pid: number): boolean {
+  try { process.kill(-pid, 0); return true }
+  catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ESRCH') return false
+    if (code === 'EPERM') return true // Includes all-zombie groups on macOS; verify with ps.
+    throw error
+  }
+}
+
+/** Zombies have no executable threads and cannot write the shared host. */
+function onlyZombies(pid: number, proof: OutputPaths): boolean {
+  const result = runToFiles('ps', ['-axo', 'pid=,pgid=,stat='], { ...proof, timeoutMs: 5000 })
+  if (result.status !== 0) throw new Error('cannot verify owned process group members')
+  const members = result.stdout.trim().split(/\r?\n/).map(line => /^\s*(\d+)\s+(\d+)\s+(\S+)/.exec(line))
+    .filter(match => match && Number(match[2]) === pid)
+  return members.length > 0 && members.every(match => match![3]!.startsWith('Z'))
+}
+
+async function waitForGroup(pid: number, proof: OutputPaths, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    if (!groupExists(pid) || onlyZombies(pid, proof)) return true
+    if (Date.now() >= deadline) return false
+    await sleep(50)
+  }
+}
+
+async function stopTree(child: ChildProcess, tree: OwnedTree): Promise<void> {
+  if (child.pid === undefined) return // spawn failed, no OS process was created
   if (process.platform === 'win32') {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      if (tree.scope) throw new Error('cannot prove Windows descendants exited after their leader; shared host lock retained')
+      return
+    }
     // Windows has no POSIX process groups; /T covers this live child's pnpm/browser descendants.
     const result = spawnSync('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true, timeout: 10_000 })
     if (result.error) throw result.error
-    if (result.status !== 0 && child.exitCode === null && child.signalCode === null) {
+    if (result.status !== 0) {
+      if (tree.scope) throw new Error('owned Windows process tree exit is unconfirmed')
+      if (child.exitCode !== null || child.signalCode !== null) return
       try { process.kill(child.pid, 0) } catch { return }
       throw new Error('failed to stop owned test process tree')
     }
     await waitForExit(child, 10_000)
   } else {
-    try { process.kill(-child.pid, 'SIGTERM') } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error }
-    await stopChild(child)
-    try { process.kill(-child.pid, 'SIGKILL') } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error }
+    // The process group may outlive its direct child. Never use leader exit as proof.
+    if (!groupExists(child.pid)) {
+      await stopChild(child)
+      if (!groupExists(child.pid)) return
+    }
+    if (onlyZombies(child.pid, tree.proof)) { await waitForExit(child, 10_000); return }
+    try { process.kill(-child.pid, 'SIGTERM') } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH' && !onlyZombies(child.pid, tree.proof)) throw error
+    }
+    if (await waitForGroup(child.pid, tree.proof, 300)) { await waitForExit(child, 10_000); return }
+    try { process.kill(-child.pid, 'SIGKILL') } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH' && !onlyZombies(child.pid, tree.proof)) throw error
+    }
+    await waitForExit(child, 10_000)
+    if (!await waitForGroup(child.pid, tree.proof, 5000)) throw new Error('owned process group still has executable members')
   }
 }
 

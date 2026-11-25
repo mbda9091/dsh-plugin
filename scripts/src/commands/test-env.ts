@@ -10,6 +10,7 @@ import { assertEnvironmentResults, environmentIds } from '../core/environment-re
 import { redactLaunchTokens } from '../core/web-harness.js'
 import { failureAnnotation } from '../core/github-annotations.js'
 import { sourceState } from '../core/artifacts.js'
+import { assertEnvironmentHostEvidence, sharedHostCases, supportsSharedEnvironmentHost } from '../core/environment-host.js'
 
 function reportFailure(detail: string): void {
   const message = redactLaunchTokens(detail)
@@ -43,7 +44,8 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
     commit: revision.commit, dirty: revision.dirty,
     source: digest(JSON.stringify(sources)), sourceFiles: sources,
     typescript: JSON.parse(readFileSync(join(repoRoot, 'node_modules/typescript/package.json'), 'utf8')).version as string,
-    started: new Date().toISOString(), ended: '', status: 'failed', results, cleanup: 'per-case evidence', reason: '' }
+    started: new Date().toISOString(), ended: '', status: 'failed', results, cleanup: 'per-case evidence', reason: '',
+    sharedHost: undefined as unknown }
   const oldRun = process.env.DSH_ENV_TEST_RUN
   const oldKeep = process.env.DSH_ENV_TEST_KEEP
   const oldPnpm = process.env.DSH_ENV_TEST_PNPM
@@ -73,6 +75,16 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
       results.push({ id, name: data.name, status, durationMs: data.details.duration_ms ?? 0, evidence: `${id}.json` })
       console.log(`test-env: ${status} ${data.name}`)
       if (event.type === 'test:fail') reportFailure(`${id}: ${inspect(event.data.details.error, { depth: 6, colors: false })}`)
+    }
+    if (expected.some(id => (sharedHostCases as readonly string[]).includes(id))) {
+      if (supportsSharedEnvironmentHost()) {
+        const evidence: unknown = JSON.parse(readFileSync(join(directory, 'shared-host.json'), 'utf8'))
+        // Preserve failed proof as well; validation decides success, not visibility.
+        report.sharedHost = evidence
+        assertEnvironmentHostEvidence(evidence, directory, expected)
+      } else {
+        report.sharedHost = { mode: 'isolated', reason: 'Windows retains independent fixtures until process-tree containment is available' }
+      }
     }
     for (const id of expected) {
       if (!results.some(result => result.id === id && result.status === 'pass')) throw new Error(`missing passing evidence: ${id}`)
