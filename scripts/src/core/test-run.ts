@@ -6,6 +6,7 @@ import { freshTestHome, removeTestData, validateTestRoot } from './test-isolatio
 import { redactLaunchTokens } from './web-harness.js'
 import type { WebHarness } from './web-harness.js'
 import { isRecord, writeText } from './json.js'
+import { keepEnvironmentPaths, noteTestInterruption } from './test-storage.js'
 
 export const requiredTestSteps = {
   l4: ['context', 'prerequisites', 'profile-init', 'install-link', 'role-agent-capability', 'web-link', 'install-mismatch', 'web-mismatch', 'install-tarball', 'web-tarball', 'cleanup'],
@@ -39,6 +40,7 @@ export async function runIsolatedTest(
   kind: string, settings: CommandContext, options: { keep: boolean; timeoutMs: number; home?: string | undefined },
   body: (context: TestRun) => Promise<void>, onReport?: (report: TestReport) => void,
 ): Promise<number> {
+  keepEnvironmentPaths(settings.root, [options.home])
   const base = join(settings.root, '.tmp', kind)
   validateTestRoot(settings, base)
   mkdirSync(base, { recursive: true })
@@ -46,7 +48,7 @@ export async function runIsolatedTest(
   const report: TestReport = { version: 1, kind, ok: false, runDir, platform: process.platform, node: process.version,
     startedAt: new Date().toISOString(), finishedAt: '', cleanup: 'retained failure', steps: [] }
   const controller = new AbortController()
-  const interrupt = (signal: string) => controller.abort(new Error(`test interrupted: ${signal}`))
+  const interrupt = (signal: string) => { noteTestInterruption(); controller.abort(new Error(`test interrupted: ${signal}`)) }
   const int = () => interrupt('SIGINT'), term = () => interrupt('SIGTERM')
   process.on('SIGINT', int); process.on('SIGTERM', term)
   const step = async (name: string, action: () => Promise<string | undefined>) => {

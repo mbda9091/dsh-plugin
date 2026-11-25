@@ -14,6 +14,10 @@ import { runPack } from './commands/pack.js'
 import { runInstall } from './commands/install.js'
 import { runVerifyArtifacts } from './commands/verify-artifacts.js'
 import { artifactLock, loadArtifacts } from './core/artifacts.js'
+import { keepEnvironmentPaths, withTestWorkLock } from './core/test-storage.js'
+import { repoRoot } from './core/repo.js'
+import { runPush } from './commands/push.js'
+import { runTestEnvClean } from './commands/test-env-clean.js'
 
 const TOOL_OPTIONS = { 'pnpm-script': { type: 'string' } } as const
 const TEST_OPTIONS = {
@@ -22,12 +26,34 @@ const TEST_OPTIONS = {
 const USAGE = `Usage: node scripts/dev.mjs <command> [options]
 Development/testing only; no local.json or external installation target.
 Commands: build [--check], test, ci, l4, l5, test-env, dev-web,
-          dev-install, pack, verify-artifacts, check-targets, catalog.
+          dev-install, pack, verify-artifacts, check-targets, catalog,
+          push -- <git push arguments>, test-env-clean [--dry-run | --apply].
 Tools: pnpm is discovered automatically (npm/Corepack); --pnpm-script or DSH_PNPM optionally overrides it.
 Tests: --test-browser chrome|chromium|firefox, --test-browser-path PATH, --timeout MS.
 External installation: node scripts/install.mjs install --profile NAME.`
 
 export async function main(argv: string[]): Promise<number> {
+  const command = argv[0] ?? 'help'
+  const forwardedPush = command === 'push' && argv[1] === '--'
+  if (['help', '--help', '-h'].includes(command) || (!forwardedPush && !['web', 'dev-web'].includes(command) && argv.slice(1).includes('--help'))) {
+    console.log(USAGE); return 0
+  }
+  try {
+    if (command === 'push') {
+      if (argv.length > 1 && !forwardedPush) throw new Error('use push -- <git push arguments>')
+      return await runPush(argv.slice(forwardedPush ? 2 : 1))
+    }
+    if (command === 'test-env-clean') {
+      const { values } = parseArgs({ args: argv.slice(1), options: { 'dry-run': { type: 'boolean' }, apply: { type: 'boolean' } } })
+      if (values.apply && values['dry-run']) throw new Error('--apply and --dry-run are mutually exclusive')
+      return await runTestEnvClean(values.apply === true)
+    }
+    const protectedCommand = ['test', 'test-env', 'ci', 'l4', 'l5', 'verify-artifacts', 'pack', 'dev-install'].includes(command)
+    return protectedCommand ? (await withTestWorkLock(repoRoot, 'test', () => dispatch(argv)))! : await dispatch(argv)
+  } catch (error) { console.error(`error: ${errorMessage(error)}`); return 1 }
+}
+
+async function dispatch(argv: string[]): Promise<number> {
   const command = argv[0] ?? 'help'
   const rest = argv.slice(1)
   if (['help', '--help', '-h'].includes(command) || (!['web', 'dev-web'].includes(command) && rest.includes('--help'))) {
@@ -57,6 +83,7 @@ export async function main(argv: string[]): Promise<number> {
       case 'verify-artifacts': {
         const { values } = parseArgs({ args: rest, options: { ...TEST_OPTIONS, manifest: { type: 'string' }, check: { type: 'boolean', default: false }, keep: { type: 'boolean', default: false } } })
         if (!values.manifest) throw new Error('--manifest is required')
+        keepEnvironmentPaths(repoRoot, [values.manifest])
         return await runVerifyArtifacts({ manifest: values.manifest, check: values.check, keep: values.keep }, settings(values, 'test'))
       }
       case 'dev-install': {
@@ -84,6 +111,7 @@ export async function main(argv: string[]): Promise<number> {
           ...(command === 'l4' ? { home: { type: 'string' as const }, 'skip-tarball': { type: 'boolean' as const, default: false } } : {}),
         } })
         const context = settings({ ...values, home: undefined }, 'test')
+        keepEnvironmentPaths(repoRoot, [typeof values.home === 'string' ? values.home : undefined, typeof values.manifest === 'string' ? values.manifest : undefined])
         const options = { keep: values.keep, timeoutMs: context.config.test.timeoutMs }
         if (command === 'ci') return await runCi(options, context)
         const release = values.manifest ? artifactLock(context.root) : () => {}

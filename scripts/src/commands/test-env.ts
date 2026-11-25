@@ -11,6 +11,8 @@ import { redactLaunchTokens } from '../core/web-harness.js'
 import { failureAnnotation } from '../core/github-annotations.js'
 import { sourceState } from '../core/artifacts.js'
 import { assertEnvironmentHostEvidence, sharedHostCases, supportsSharedEnvironmentHost } from '../core/environment-host.js'
+import { finishEnvironmentCleanup, handledTestInterruptionCount, startEnvironmentCleanup } from '../core/test-storage.js'
+import { synchronousInterruptCount } from '../core/exec.js'
 
 function reportFailure(detail: string): void {
   const message = redactLaunchTokens(detail)
@@ -27,6 +29,10 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
   safeConfigPath(repoRoot, base)
   mkdirSync(base, { recursive: true })
   const directory = mkdtempSync(join(base, 'run-'))
+  startEnvironmentCleanup(repoRoot, directory, keep)
+  const initialInterrupts = synchronousInterruptCount()
+  const initialHandledInterrupts = handledTestInterruptionCount()
+  let cancelled = false
   const reportPath = join(directory, 'report.json')
   const results: { id: string; name: string; status: string; durationMs: number; evidence: string }[] = []
   const sources: Record<string, string> = {}
@@ -74,7 +80,11 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
       const status = event.type === 'test:fail' ? 'fail' : data.skip ? 'skip' : 'pass'
       results.push({ id, name: data.name, status, durationMs: data.details.duration_ms ?? 0, evidence: `${id}.json` })
       console.log(`test-env: ${status} ${data.name}`)
-      if (event.type === 'test:fail') reportFailure(`${id}: ${inspect(event.data.details.error, { depth: 6, colors: false })}`)
+      if (event.type === 'test:fail') {
+        const detail = inspect(event.data.details.error, { depth: 6, colors: false })
+        if (/testTimeoutFailure|cancelledByParent|testAborted/.test(detail)) cancelled = true
+        reportFailure(`${id}: ${detail}`)
+      }
     }
     if (expected.some(id => (sharedHostCases as readonly string[]).includes(id))) {
       if (supportsSharedEnvironmentHost()) {
@@ -110,6 +120,13 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
     if (oldBrowserPath === undefined) delete process.env.DSH_ENV_TEST_BROWSER_PATH; else process.env.DSH_ENV_TEST_BROWSER_PATH = oldBrowserPath
     report.ended = new Date().toISOString()
     writeFileSync(reportPath, redactLaunchTokens(JSON.stringify(report, null, 2)))
+    const settled = !cancelled && synchronousInterruptCount() === initialInterrupts && handledTestInterruptionCount() === initialHandledInterrupts && expected.every(id => {
+      try {
+        const evidence = JSON.parse(readFileSync(join(directory, `${id}.json`), 'utf8'))
+        return evidence.id === id && (id !== 'TOOL-04' || evidence.passed === true)
+      } catch { return false }
+    })
+    finishEnvironmentCleanup(repoRoot, directory, report.status === 'passed' ? 'passed' : 'failed', settled)
     onReport?.(reportPath)
     console.log(`test-env: report ${reportPath}`)
   }

@@ -19,7 +19,7 @@ node scripts/dev.mjs ci
 
 macOS/Linux 环境套件的 TGT-04、TGT-05-real、TGT-06-real 共用一套独立测试 DSH，位于 `.local/environment-tests/host`。首次选中这些用例时准备一次；后续核对 DSH/工具链/根依赖输入、pnpm 实际安装配置及 hook 内容、宿主文件和版本，匹配则直接复用，失效则持锁重建。配置查询只保存摘要，不保存凭据。修改插件源码不触发宿主重装。三个用例仍各建独立 home/profile，报告记录宿主准备/复用、安装次数和锁释放结果；用例超时后也须等待实际异步操作结束，并确认所拥有进程组停止后再释放锁。安装在本次独立 staging 完成后复制并校验到共享宿主，避免脱离进程组的旧 installer 按原目录继续写入共享文件。Windows 保持逐用例独立宿主，报告 `isolated`，不申请共享锁。
 
-共享宿主没有过期天数，不随成功 fixture 清理删除。TOOL-04 继续用新 checkout 和空 store 验证从零安装，不使用这个缓存。历史现场清理和留存策略本轮未新增。实现记录见[宿主共用方案](environment-test-storage-plan.md)。
+共享宿主没有过期天数，不随成功 fixture 清理删除。TOOL-04 继续用新 checkout 和空 store 验证从零安装，不使用这个缓存。历史数据清理入口为 `node scripts/dev.mjs push -- <git push 参数>`（仅真实推送成功后尝试）及 `node scripts/dev.mjs test-env-clean [--dry-run|--apply]`（默认只读预览）。测试与清理串行，普通失败临时数据保留 7 天，keep、中断、退出未确认和旧格式现场跳过；报告日志、清单、截图/trace、固定产物和共享宿主不删。裸 git push/IDE 推送不接入，原测试收尾保持，测试前后不扫历史；规则与验证边界见[宿主复用与推送后清理方案](environment-test-storage-plan.md)。
 
 | 设置 | 默认与覆盖 |
 |---|---|

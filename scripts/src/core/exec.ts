@@ -48,6 +48,8 @@ function readOrEmpty(path: string): string {
 function prepare(path: string): void {
   mkdirSync(dirname(path), { recursive: true })
 }
+let synchronousInterrupts = 0
+export const synchronousInterruptCount = () => synchronousInterrupts
 
 /** Run a command to completion, capturing stdout/stderr in files. */
 export function runToFiles(command: string, args: readonly string[], options: RunOptions): RunResult {
@@ -64,6 +66,7 @@ export function runToFiles(command: string, args: readonly string[], options: Ru
       windowsHide: true,
       windowsVerbatimArguments: options.verbatim === true,
     })
+    if (result.signal || (result.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT') synchronousInterrupts++
     if (result.error && (result.error as NodeJS.ErrnoException).code !== 'ETIMEDOUT') {
       throw new Error(`cannot run ${command}: ${result.error.message}`)
     }
@@ -106,6 +109,8 @@ interface OwnedTree {
   stopping?: Promise<void>
 }
 const ownedTrees = new WeakMap<ChildProcess, OwnedTree>()
+const unstopped = new Set<ChildProcess>()
+export const hasUnstoppedOwnedProcesses = () => unstopped.size !== 0
 
 /** Start a long-running command with stdout/stderr redirected to files. */
 export function startToFiles(command: string, args: readonly string[], options: RunOptions): StartedProcess {
@@ -127,6 +132,7 @@ export function startToFiles(command: string, args: readonly string[], options: 
     let error: Error | undefined
     child.once('error', (cause) => { error = cause })
     if (options.ownProcessTree) {
+      unstopped.add(child)
       ownedTrees.set(child, { scope, confirmed: false, proof: {
         stdoutPath: options.stdoutPath + '.processes', stderrPath: options.stderrPath + '.processes',
       } })
@@ -224,6 +230,7 @@ export async function stopOwnedTree(child: ChildProcess): Promise<void> {
   if (tree.stopping) return tree.stopping
   const stopping = stopTree(child, tree).then(() => {
     tree.confirmed = true
+    unstopped.delete(child)
     tree.scope?.confirmed(child)
   })
   tree.stopping = stopping
@@ -283,11 +290,15 @@ async function stopTree(child: ChildProcess, tree: OwnedTree): Promise<void> {
     }
     if (onlyZombies(child.pid, tree.proof)) { await waitForExit(child, 10_000); return }
     try { process.kill(-child.pid, 'SIGTERM') } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ESRCH' && !onlyZombies(child.pid, tree.proof)) throw error
+      // macOS can reject signals while a process is exiting (ps state E).
+      // Wait for disappearance/zombies; EPERM itself never proves termination.
+      const code = (error as NodeJS.ErrnoException).code
+      if (code !== 'ESRCH' && !(code === 'EPERM' && await waitForGroup(child.pid, tree.proof, 5000))) throw error
     }
     if (await waitForGroup(child.pid, tree.proof, 300)) { await waitForExit(child, 10_000); return }
     try { process.kill(-child.pid, 'SIGKILL') } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ESRCH' && !onlyZombies(child.pid, tree.proof)) throw error
+      const code = (error as NodeJS.ErrnoException).code
+      if (code !== 'ESRCH' && !(code === 'EPERM' && await waitForGroup(child.pid, tree.proof, 5000))) throw error
     }
     await waitForExit(child, 10_000)
     if (!await waitForGroup(child.pid, tree.proof, 5000)) throw new Error('owned process group still has executable members')

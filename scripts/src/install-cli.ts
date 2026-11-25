@@ -4,6 +4,10 @@ import { errorMessage } from './core/json.js'
 import { envValue } from './core/config.js'
 import { runProfileInstall } from './commands/profile-install.js'
 import { runStatus } from './commands/status.js'
+import { keepEnvironmentPaths, usesEnvironmentPaths, withTestWorkLock } from './core/test-storage.js'
+import { repoRoot } from './core/repo.js'
+import { webDsh } from './core/config-tools.js'
+import { isAbsolute } from 'node:path'
 
 const usage = `Usage: node scripts/install.mjs install|status --profile NAME [options]
 Target: --dsh-cli PATH, --home PATH, --platform mac|windows|linux (defaults to current Node/DSH environment; Web only).
@@ -29,13 +33,19 @@ export async function main(argv: string[]): Promise<number> {
       profile: values.profile, dshCli: values['dsh-cli'], home: values.home, platform: values.platform,
       pnpmScript: values['pnpm-script'],
     }, undefined, undefined, 'target')
-    console.log(JSON.stringify({ target: context.target, sources: {
-      dshCli: values['dsh-cli'] ? 'command line' : 'current Node global package',
-      home: values.home ? 'command line' : envValue(process.env, 'DSH_HOME') ? 'DSH_HOME' : 'DSH default ~/.dsh',
-      profile: 'command line', platform: values.platform ? 'command line' : 'current system',
-    } }))
-    return command === 'install'
-      ? await runProfileInstall({ only: values.only, rebuild: values.rebuild ?? false, dryRun: values['dry-run'] ?? false, archiveRoot: values['archive-root'] }, context)
-      : runStatus({ manifest: values.manifest }, context)
+    const entry = context.target ? webDsh(context.target.dshCli, context.env).build([]).find(isAbsolute) : undefined
+    const paths = [values.manifest, values['archive-root'], context.target?.home, context.target?.dshCli, entry]
+    const action = async () => {
+      keepEnvironmentPaths(repoRoot, paths)
+      console.log(JSON.stringify({ target: context.target, sources: {
+        dshCli: values['dsh-cli'] ? 'command line' : 'current Node global package',
+        home: values.home ? 'command line' : envValue(process.env, 'DSH_HOME') ? 'DSH_HOME' : 'DSH default ~/.dsh',
+        profile: 'command line', platform: values.platform ? 'command line' : 'current system',
+      } }))
+      return command === 'install'
+        ? await runProfileInstall({ only: values.only, rebuild: values.rebuild ?? false, dryRun: values['dry-run'] ?? false, archiveRoot: values['archive-root'] }, context)
+        : runStatus({ manifest: values.manifest }, context)
+    }
+    return usesEnvironmentPaths(repoRoot, paths) ? (await withTestWorkLock(repoRoot, 'test', action))! : await action()
   } catch (error) { console.error(`error: ${errorMessage(error)}`); return 1 }
 }
