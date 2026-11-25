@@ -15,7 +15,11 @@ node scripts/dev.mjs test
 node scripts/dev.mjs ci
 ```
 
-内部使用 workspace 精确声明的 DSH，开发 home 位于 `.local/dsh-dev/home`，测试使用 `.tmp` 内一次性 home/profile。日常 DSH/profile 环境变量不会重定向这些命令。安装自己的依赖、模型配置、浏览器等仍由调用者准备；不自动下载或修复工具。
+开发、普通真实测试和 L4/L5 使用 workspace 精确声明的 DSH，开发 home 位于 `.local/dsh-dev/home`，测试使用 `.tmp` 内一次性 home/profile。日常 DSH/profile 环境变量不会重定向这些命令。安装自己的依赖、模型配置、浏览器等仍由调用者准备；不自动下载或修复工具。
+
+macOS/Linux 环境套件的 TGT-04、TGT-05-real、TGT-06-real 共用一套独立测试 DSH，位于 `.local/environment-tests/host`。首次选中这些用例时准备一次；后续核对 DSH/工具链/根依赖输入、pnpm 实际安装配置及 hook 内容、宿主文件和版本，匹配则直接复用，失效则持锁重建。配置查询只保存摘要，不保存凭据。修改插件源码不触发宿主重装。三个用例仍各建独立 home/profile，报告记录宿主准备/复用、安装次数和锁释放结果；用例超时后也须等待实际异步操作结束，并确认所拥有进程组停止后再释放锁。安装在本次独立 staging 完成后复制并校验到共享宿主，避免脱离进程组的旧 installer 按原目录继续写入共享文件。Windows 保持逐用例独立宿主，报告 `isolated`，不申请共享锁。
+
+共享宿主没有过期天数，不随成功 fixture 清理删除。TOOL-04 继续用新 checkout 和空 store 验证从零安装，不使用这个缓存。历史现场清理和留存策略本轮未新增。实现记录见[宿主共用方案](environment-test-storage-plan.md)。
 
 | 设置 | 默认与覆盖 |
 |---|---|

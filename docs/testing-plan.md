@@ -1,5 +1,7 @@
 # 测试与 Web L5 方案（v0.1）
 
+> 2026-11-25 宿主共用 M1：macOS/Linux 的三个真实 TGT 用例接入独立共享宿主及跨次有效性检查，home/profile 仍独立；Windows 保持逐用例独立宿主。补入有效安装配置/hook 摘要、进程组退出证明与 staging 独立复制发布，冷安装和既有现场收尾保持。实现与修复验证记录见[宿主共用方案](environment-test-storage-plan.md#95-cr-修复与回归2026-11-25)，不将本轮定向验证等同于完整 CI 或其他平台通过。
+
 > 当前插件集合（2026-11-24）：notify-web、role-agent。desktop-notify 与 app-restart 的源码及专属测试已[归档停更](../archive/README.md)，不再参与 workspace、测试或打包；下方涉及它们的轮次保留为历史事实。各轮验证分别见[desktop-notify 归档记录](desktop-notify-archive-plan.md)与[app-restart 归档记录](app-restart-archive-plan.md)。
 
 > 当前入口调整：开发测试使用 scripts/dev.mjs，安装使用 scripts/install.mjs；不要求 config init 或命名目标，旧 bootstrap/stable-install 不再执行。下文各历史轮次的命令与验收记录保留，不作为当前操作指南；当前规则见[环境输入](configuration-v2.md)，本轮结果见[分离方案](development-delivery-separation-plan.md)。

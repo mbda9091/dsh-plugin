@@ -458,6 +458,7 @@ node scripts/install.mjs status --profile my-web
   - `node scripts/dev.mjs build --check` 只做类型检查
   - `node scripts/dev.mjs ci` 运行完整本地检查（独立环境 all → 类型检查 → L1–L3 → L4 → L5），失败即停止；汇总在 `.tmp/ci/last-report.json`，引用本次独立报告并校验完整结果。需要 workspace 开发 DSH、已准备 pnpm 和冻结安装所需网络；不接受 `--dsh-cli` / `DSH_CLI` 重定向。该入口不提交、推送或上传产物。
   - `node scripts/dev.mjs test-env --suite fast` 独立验证 CFG/TOOL/DEV/ISO/ART/TGT；当前共 28 项，不要求本机配置、真实 DSH 或插件 build。`--suite real` 自动解析 pnpm，验证冻结安装、真实开发/测试生命周期、固定产物与独立外部 profile 安装；当前共 14 项（ART-04-real/06 需要已准备好的测试浏览器）。`all` 共 42 项；`--only ID,ID` 定向选择已实现用例。报告在 `.tmp/environment-tests/`，不代替未执行的平台或桌面验收。
+  - macOS/Linux 的 TGT-04/TGT-05-real/TGT-06-real 共用 `.local/environment-tests/host` 中的独立测试 DSH，并持有组级使用锁；输入指纹（含实际 pnpm 安装配置及 hook 文件）、宿主文件与版本检查通过时跨次复用，不按天数失效。安装先在本次 run 的唯一目录完成，再经独立复制和摘要校验发布，防止旧安装进程按原目录延迟写入共享宿主；无法确认所拥有进程组停止时保锁并失败。Windows 尚无同等进程树控制，保持逐用例独立宿主，报告 `isolated`，不宣称共享通过。各用例 home/profile 仍独立，成功清理 fixture 不删除共享宿主。TOOL-04 保持独立冷安装；不自动扫描或回收历史现场。遗留锁须核实持有者及子进程后处理，不按 PID 自动抢占。
   - L4/L5 共用一次性 DSH 生命周期，包管理配置及缓存/store/状态沿用系统；成功只清理本次 home/shim/workspace，保留报告与日志，失败或 `--keep` 保留现场。显式 `l4 --home` 也遵守该规则。可处理中断关闭自己的进程树及已知端口；缺证据、skip、清理/报告写入失败不得报通过。详见 [v2 协议](docs/configuration-v2.md)。
   - `node scripts/dev.mjs test` 先构建，再编译并运行 L1–L3；`node scripts/dev.mjs l4` 跑真实 `dsh web` 的 L4 harness（慢、需要本机 DSH）
   - 普通终端且 `node` 在 PATH 上时，也可以用根 `package.json` 的 `pnpm build` / `pnpm check` / `pnpm catalog` / `pnpm status` / `pnpm test`；**DSH 沙箱内不要用 `pnpm run`**（它会用管道 spawn 子进程，被沙箱拒绝后会卡住），直接用 `node scripts/dev.mjs <cmd>`。

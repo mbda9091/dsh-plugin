@@ -36,5 +36,6 @@
 
 ## 当前独立调整
 
+- [环境测试宿主共用与复用](environment-test-storage-plan.md)：macOS/Linux 三个真实安装用例共用独立测试 DSH 并跨次复用；2026-11-25 M1 已提交 `911d6de`，30 项定向回归通过，macOS 真实验证首次准备 1 次、后续 0 次；Windows 保持独立宿主，M3 完整 CI 未执行，清理逻辑暂缓。
 - [notify-web 用户提问提醒](notify-web-question-plan.md)：补齐标准 `ask_user_question` 的提醒、回答撤回及重连恢复；2026-11-16 已实现并安装日常 2.1.1，修正 PTC start 遗漏；自动验收及固定包 L4/L5 通过，待真实 OS 人工验收与提交对账。
 - [内部开发测试与外部交付分离](development-delivery-separation-plan.md)：已提交两个脚本入口、按用途解析输入，安装必填 profile，保留缓存及必要时构建打包，并合并 Linux Web 支持。本轮按用户确认的 macOS 范围已完成，验收基线 `4049f6f`，完整 CI 通过；Windows/Linux 与真实 DSH 沙箱暂缓。尚未归档，实现提交和证据见原文。
