@@ -36,7 +36,7 @@
 
 ## 当前独立调整
 
-- [插件与测试目录整理](repository-layout-plan.md)：活跃插件统一 plugins，共享库放 plugins/common，停更插件放 archive-plugins；测试区分 common 与各插件，再保留 L1–L5 层级。插件/测试目录迁移的完整 CI 已通过；追加共享库移动的冻结安装、类型、L1–L3、fast、L5 和打包对比通过，未提交；现有工作区的安全规则登记按方案所述提交流程处理。
+- [插件与测试目录整理](repository-layout-plan.md)：活跃插件统一 plugins，共享库放 plugins/common，停更插件放 archive-plugins；测试区分 common 与各插件，再保留 L1–L5 层级。插件/测试目录迁移的完整 CI 已通过；追加共享库移动的冻结安装、类型、L1–L3、fast、L5 和打包对比通过；已提交 `6341f2c`，原工作区安全登记已正常刷新。
 
 - [环境测试宿主复用与推送清理](environment-test-storage-plan.md)：M1–M3 的 v0.5 已提交并验收；v0.6 已改为原生 pre-push，普通 git push 推送前自动尝试清理，失败/dry-run 也可能触发，已提交 `ba03889`，本地验证通过、当前仓库已启用。保留共同锁、7 天和 keep，报告/产物/共享宿主不删。
 - [notify-web 用户提问提醒](notify-web-question-plan.md)：补齐标准 `ask_user_question` 的提醒、回答撤回及重连恢复；2026-11-16 已实现并安装日常 2.1.1，修正 PTC start 遗漏；自动验收及固定包 L4/L5 通过，待真实 OS 人工验收与提交对账。

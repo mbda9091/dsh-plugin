@@ -1,6 +1,6 @@
 # 插件与测试目录整理
 
-> 完成：否。状态：插件/测试迁移已验收；共享库追加迁移已验收，未提交。更新：2026-11-26。实现 commit：未提交，基线 `968b498`。
+> 完成：是。状态：已完成。更新 / 完成日期：2026-11-26。实现 commit：`6341f2c58e57b7f8daa4fe561a3ba9e1346cd3d1`；验收基线为 `968b498` 加本轮实现改动，提交后已核对范围。
 
 ## 目标与范围
 
@@ -31,7 +31,7 @@ test/fixtures/plugins/role-agent/           角色插件能力契约素材
 
 ## 验收与结果
 
-对象为 `968b498` 加本轮未提交改动，真实环境为本机 macOS、Node 24.16.0、pnpm 11.28.5、workspace DSH 0.2.2-rc.5；Windows/Linux 和角色独立 Hindsight 服务验收未实机执行。
+对象为实现提交 `6341f2c58e57b7f8daa4fe561a3ba9e1346cd3d1` 对应的本轮改动（原验证在 `968b498` 加本轮工作树执行，提交时逐文件核对交付范围），真实环境为本机 macOS、Node 24.16.0、pnpm 11.28.5、workspace DSH 0.2.2-rc.5；Windows/Linux 和角色独立 Hindsight 服务验收未实机执行。
 
 | 核对 | 结果与证据 |
 |---|---|
@@ -52,7 +52,7 @@ test/fixtures/plugins/role-agent/           角色插件能力契约素材
 
 初版完整 CI 在真实 DEV-03 失败：模拟插件仍建在旧根位置，已改到 plugins；第二次在 profile-install 测试 fixture 创建新父目录时缺少 recursive，已修正并先定向确认 L3 的 176 项通过，再重跑完整 CI。两次失败报告保留为 `.tmp/ci/run-u1LTkz/report.json`、`.tmp/ci/run-k6251P/report.json`；均未冒充通过。最终结果以上表 run-IkQVok 为准。
 
-### 现有工作区安全登记与后续提交
+### 工作区安全登记：原限制与交付结果
 
 现有安装记录仍登记旧 gitleaks 配置哈希。官方 `.security/setup.sh` 拒绝未提交的路径规则变化，pre-commit 又要求配置与旧安装记录一致，因而不能直接在当前工作区登记这份未提交规则。全局 setup 的只读预览也报告冲突。证据为 `.tmp/repository-layout-security-refresh.log`、`.tmp/repository-layout-security-plan.log`。没有删除/改写安装记录、关闭 hook 或使用 --no-verify。
 
@@ -60,7 +60,7 @@ test/fixtures/plugins/role-agent/           角色插件能力契约素材
 
 ## 当前未完成事项
 
-代码布局与必要验收已完成，当前未提交，完成标记保持“否”。待用户后续要求提交时，按上述正常安全流程交付并记录实际实现 SHA、刷新原工作区登记；不为关闭本文自动提交或推送。旧绝对路径的外部源码 link 需重新安装，受管开发环境的显式 reset/reinit 步骤见上文；用户日常 DSH 与已有固定归档未修改。
+本轮代码布局、必要验收和提交对账已完成；原工作区安全登记已通过官方 setup 刷新，没有范围内待实现或阻塞事项。旧绝对路径的外部源码 link 需重新安装，受管开发环境的显式 reset/reinit 步骤见上文；用户日常 DSH 与已有固定归档未修改。
 
 ## 追加调整：共享库归入 plugins/common（2026-11-26）
 
@@ -78,3 +78,9 @@ test/fixtures/plugins/role-agent/           角色插件能力契约素材
 | 打包比较 | 新 checkout pack 通过；notify-web 22 文件、role-agent 29 文件，包元数据及 4 个 JS token 序列完全一致。notify-web 仅 JS 路径注释与 sourcemap 改变，role-agent 全部文件字节一致。`.tmp/common-layout-package-comparison.json`、`.tmp/common-layout-pack.log` |
 
 本追加轮未重跑 real/L4 或完整 CI；完整 CI 的原始证据仍按前文明确属于追加之前的目录布局。
+
+## 提交对账（2026-11-26）
+
+用户明确要求提交及 push 后，最终交付快照在已正常登记新规则的隔离 checkout 完成原生 pre-commit 扫描：199 个文件、0 发现。实现提交为 `6341f2c58e57b7f8daa4fe561a3ba9e1346cd3d1`，包含活跃/归档插件、共享库、测试目录与对应工具链和文档变更。当前仓库接收该提交时保全原有工作树，原生官方 `.security/setup.sh` 随后通过，已登记迁移后的 gitleaks 规则；pre-commit 与原生 pre-push 均保留。证据为 `.tmp/repository-layout-commit.log`、`.tmp/repository-layout-commit-final.log`、`.tmp/repository-layout-security-final.log`。前文“未提交”“后续提交”和“登记限制”描述的是当时过程，本节记录其已解决结果。
+
+未纳入无关的 Codex 登录方案文件及其导航行，未提交临时目录和构建产物。提交前后实现快照逐文件匹配，未因交付额外改动运行代码；已有验证边界不变。push 结果以实际 Git 远端回读为准，不将本节作为未执行的推送成功证据。
