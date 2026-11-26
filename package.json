@@ -4,7 +4,7 @@
   "type": "module",
   "packageManager": "pnpm@11.28.5",
   "scripts": {
-    "postinstall": ".security/setup.sh",
+    "postinstall": "node scripts/git-hooks.mjs setup && .security/setup.sh",
     "ci": "node scripts/dev.mjs ci",
     "build": "node scripts/dev.mjs build",
     "check": "node scripts/dev.mjs build --check",

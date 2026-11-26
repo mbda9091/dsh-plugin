@@ -8,7 +8,7 @@
 pnpm install --frozen-lockfile
 ```
 
-根 `package.json` 的 `postinstall` 会自动执行 `.security/setup.sh`。缺少 Git/uv、下载失败、校验失败或 hook 注册失败时，脚本打印原因并返回非零，`pnpm install` 随之报错；不能把依赖已下载当作安全配置成功。修复原因后重新运行安装命令即可。使用 `--ignore-scripts` 会跳过自动配置；`git clone` 本身不执行初始化脚本。
+根 `package.json` 的 `postinstall` 先运行 `node scripts/git-hooks.mjs setup` 校验当前 checkout 并注册独立的测试清理 pre-push，然后自动执行 `.security/setup.sh`；清理 hook 与原安全 hook 并存，安全失败仍使安装失败。清理 hook 先注册不代表安全环境已准备成功。缺少 Git/uv、下载失败、校验失败或 hook 注册失败时，脚本打印原因并返回非零，`pnpm install` 随之报错；不能把依赖已下载当作安全配置成功。修复原因后重新运行安装命令即可。使用 `--ignore-scripts` 会跳过自动配置；`git clone` 本身不执行初始化脚本。
 
 GitHub Actions 在冻结安装前准备 uv 并检查、按需升级 Git。`TOOL-04` 的无 Git 元数据源码副本显式移除副本自身的根 `postinstall`，保留依赖构建脚本；它验证依赖隔离，不代表新 clone 的 hook 验收。
 

@@ -16,7 +16,6 @@ import { runVerifyArtifacts } from './commands/verify-artifacts.js'
 import { artifactLock, loadArtifacts } from './core/artifacts.js'
 import { keepEnvironmentPaths, withTestWorkLock } from './core/test-storage.js'
 import { repoRoot } from './core/repo.js'
-import { runPush } from './commands/push.js'
 import { runTestEnvClean } from './commands/test-env-clean.js'
 
 const TOOL_OPTIONS = { 'pnpm-script': { type: 'string' } } as const
@@ -27,22 +26,17 @@ const USAGE = `Usage: node scripts/dev.mjs <command> [options]
 Development/testing only; no local.json or external installation target.
 Commands: build [--check], test, ci, l4, l5, test-env, dev-web,
           dev-install, pack, verify-artifacts, check-targets, catalog,
-          push -- <git push arguments>, test-env-clean [--dry-run | --apply].
+          test-env-clean [--dry-run | --apply].
 Tools: pnpm is discovered automatically (npm/Corepack); --pnpm-script or DSH_PNPM optionally overrides it.
 Tests: --test-browser chrome|chromium|firefox, --test-browser-path PATH, --timeout MS.
 External installation: node scripts/install.mjs install --profile NAME.`
 
 export async function main(argv: string[]): Promise<number> {
   const command = argv[0] ?? 'help'
-  const forwardedPush = command === 'push' && argv[1] === '--'
-  if (['help', '--help', '-h'].includes(command) || (!forwardedPush && !['web', 'dev-web'].includes(command) && argv.slice(1).includes('--help'))) {
+  if (['help', '--help', '-h'].includes(command) || (!['web', 'dev-web'].includes(command) && argv.slice(1).includes('--help'))) {
     console.log(USAGE); return 0
   }
   try {
-    if (command === 'push') {
-      if (argv.length > 1 && !forwardedPush) throw new Error('use push -- <git push arguments>')
-      return await runPush(argv.slice(forwardedPush ? 2 : 1))
-    }
     if (command === 'test-env-clean') {
       const { values } = parseArgs({ args: argv.slice(1), options: { 'dry-run': { type: 'boolean' }, apply: { type: 'boolean' } } })
       if (values.apply && values['dry-run']) throw new Error('--apply and --dry-run are mutually exclusive')

@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict'
 import { it, mock } from 'node:test'
-import fs, { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import fs, { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { syncBuiltinESMExports } from 'node:module'
 import { cleanupEnvironmentTests, FAILURE_RETENTION_MS, finishEnvironmentCleanup, keepEnvironmentPaths, startEnvironmentCleanup, usesEnvironmentPaths, withTestWorkLock } from '../../../scripts/.build/core/test-storage.js'
-import { runPush } from '../../../scripts/.build/commands/push.js'
 import { resolveDsh } from '../../../scripts/.build/core/dsh-cli.js'
-import { runToFiles, runToFilesAsync, sleep } from '../../../scripts/.build/core/exec.js'
+import { runToFilesAsync, sleep } from '../../../scripts/.build/core/exec.js'
 import { makeTempDir, removeDir, repoRoot } from '../harness/tmp.js'
 
 function fixture() {
@@ -265,44 +264,4 @@ it('test cleanup: a failed removal stops the pass, reports failure and can be re
     assert.equal((await cleanupEnvironmentTests(f.root, true)).status, 'passed')
     assert.equal(existsSync(f.home), false)
   } finally { removeDir(f.root) }
-})
-
-it('push cleanup: real local success, dry-run, up-to-date, rejection and cleanup failure remain distinct', async () => {
-  const f = fixture(), remote = makeTempDir('test-storage-remote')
-  let calls = 0
-  const git = (args: string[]) => {
-    const result = runToFiles('git', args, { cwd: f.root, stdoutPath: join(f.root, `git-${calls++}.out`), stderrPath: join(f.root, `git-${calls}.err`) })
-    assert.equal(result.status, 0, result.stderr); return result.stdout
-  }
-  try {
-    git(['init', '-b', 'main']); git(['config', 'user.email', 'fixture@example.invalid']); git(['config', 'user.name', 'Fixture'])
-    writeFileSync(join(f.root, '.gitignore'), '.tmp/\ngit-*.out\ngit-*.err\n')
-    git(['add', '.gitignore']); git(['commit', '-m', 'fixture baseline'])
-    git(['init', '--bare', remote]); git(['remote', 'add', 'local-fixture', remote])
-    f.finish('failed'); const now = f.ended() + FAILURE_RETENTION_MS
-    assert.equal(await runPush(['--dry-run', 'local-fixture', 'main'], f.root, now), 0)
-    assert.ok(existsSync(f.home)); assert.equal(existsSync(join(f.root, '.tmp/environment-tests/last-cleanup.json')), false)
-    assert.equal(await runPush(['local-fixture', 'main'], f.root, now), 0); assert.equal(existsSync(f.home), false)
-    mkdirSync(f.home); f.finish('passed')
-    assert.equal(await runPush(['local-fixture', 'main'], f.root), 0); assert.equal(existsSync(f.home), false)
-    mkdirSync(f.home); f.finish('passed')
-    await withTestWorkLock(f.root, 'test', async () => {
-      assert.equal(await runPush(['local-fixture', 'main'], f.root), 0); assert.ok(existsSync(f.home))
-    })
-    const original = fs.rmSync
-    const mocked = mock.method(fs, 'rmSync', (...args: Parameters<typeof fs.rmSync>) => {
-      if (args[0] === f.home) throw new Error('cleanup failure after acknowledged push')
-      return original(...args)
-    })
-    syncBuiltinESMExports()
-    try { assert.equal(await runPush(['local-fixture', 'main'], f.root), 0); assert.ok(existsSync(f.home)) }
-    finally { mocked.mock.restore(); syncBuiltinESMExports() }
-    git(['--git-dir', remote, 'config', 'receive.denyNonFastForwards', 'true'])
-    assert.notEqual(await runPush(['local-fixture', 'main:refs/heads/..bad'], f.root), 0)
-    assert.ok(existsSync(f.home))
-    const hook = join(remote, 'hooks/update')
-    writeFileSync(hook, '#!/bin/sh\n[ "$1" != "refs/heads/rejected" ]\n'); chmodSync(hook, 0o755)
-    assert.notEqual(await runPush(['local-fixture', 'main:refs/heads/accepted', 'main:refs/heads/rejected'], f.root), 0)
-    assert.ok(existsSync(f.home)); assert.ok(existsSync(join(remote, 'refs/heads/accepted')))
-  } finally { removeDir(f.root); removeDir(remote) }
 })

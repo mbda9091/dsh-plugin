@@ -43,7 +43,7 @@ it('TOOL-04 clean frozen install, public CLI, internal pnpm and real tarball (TO
   // and must never discover and configure the enclosing developer checkout.
   const manifestPath = join(clean, 'package.json')
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-  assert.equal(manifest.scripts.postinstall, '.security/setup.sh')
+  assert.equal(manifest.scripts.postinstall, 'node scripts/git-hooks.mjs setup && .security/setup.sh')
   delete manifest.scripts.postinstall
   writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
   const env = { ...process.env }
