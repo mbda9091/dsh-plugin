@@ -157,7 +157,7 @@ node scripts/dev.mjs check-targets
 | `@mbda9091/notify-web` | `["web"]` | `["linux","mac","windows"]` | Host 统一判断并通过认证 SSE 投递，浏览器 `Notification` 展示 |
 | `@mbda9091/role-agent` | `["desktop","web"]` | `["linux","mac","windows"]` | Host 角色 preset、记忆及成长能力 |
 
-`desktop-notify` 和 `app-restart` 已[归档停更](../archive/README.md)，不在当前插件集合中。
+`desktop-notify` 和 `app-restart` 已[归档停更](../archive-plugins/README.md)，不在当前插件集合中。
 
 ## 8. 不采用的做法
 

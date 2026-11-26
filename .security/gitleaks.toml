@@ -10,6 +10,6 @@ useDefault = true
 description = "Reviewed notify-web question projection identifier"
 targetRules = ["generic-api-key"]
 condition = "AND"
-paths = ['''^notify-web/src/questions[.]ts$''']
+paths = ['''^plugins/notify-web/src/questions[.]ts$''']
 regexTarget = "line"
 regexes = ['''^\s*key:\s*'mbda9091[.]notifyWebQuestions',\s*$''']

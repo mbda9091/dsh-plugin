@@ -1,8 +1,10 @@
 # 测试与 Web L5 方案（v0.1）
 
+> 当前目录（2026-11-26）：活跃插件位于 `plugins/<id>/`，共享库位于 `plugins/common/`，停更源码位于 `archive-plugins/`；通用测试位于 `test/src/common/`，插件专属测试位于 `test/src/plugins/<id>/`。下文历史轮次中的 `packages/` 等旧路径保留当时语境；当前目录与本轮验收见[目录整理方案](repository-layout-plan.md)，各测试目录职责见[test/README](../test/README.md)。
+
 > 2026-11-25 宿主共用 M1：macOS/Linux 的三个真实 TGT 用例接入独立共享宿主及跨次有效性检查，home/profile 仍独立；Windows 保持逐用例独立宿主。补入有效安装配置/hook 摘要、进程组退出证明与 staging 独立复制发布，冷安装和既有现场收尾保持。实现与修复验证记录见[宿主共用方案](environment-test-storage-plan.md#95-cr-修复与回归2026-11-25)，不将本轮定向验证等同于完整 CI 或其他平台通过。
 
-> 当前插件集合（2026-11-24）：notify-web、role-agent。desktop-notify 与 app-restart 的源码及专属测试已[归档停更](../archive/README.md)，不再参与 workspace、测试或打包；下方涉及它们的轮次保留为历史事实。各轮验证分别见[desktop-notify 归档记录](desktop-notify-archive-plan.md)与[app-restart 归档记录](app-restart-archive-plan.md)。
+> 当前插件集合（2026-11-24）：notify-web、role-agent。desktop-notify 与 app-restart 的源码及专属测试已[归档停更](../archive-plugins/README.md)，不再参与 workspace、测试或打包；下方涉及它们的轮次保留为历史事实。各轮验证分别见[desktop-notify 归档记录](desktop-notify-archive-plan.md)与[app-restart 归档记录](app-restart-archive-plan.md)。
 
 > 当前入口调整：开发测试使用 scripts/dev.mjs，安装使用 scripts/install.mjs；不要求 config init 或命名目标，旧 bootstrap/stable-install 不再执行。下文各历史轮次的命令与验收记录保留，不作为当前操作指南；当前规则见[环境输入](configuration-v2.md)，本轮结果见[分离方案](development-delivery-separation-plan.md)。
 
@@ -64,9 +66,9 @@
 
 | 层 | 内容 | 需要 DSH 运行 | 工具 | 当前状态 |
 |---|---|---|---|---|
-| L1 | 纯逻辑：格式化、转义、配置合并、target 判定 | 否 | `node:test` | 已实施（M4，`test/src/l1/`） |
-| L2 | 包/契约：包名、`dsh.targets`、patch、locale、`exports`、`files`、`lib` 入口 | 否 | `node:test` + `tsc` | 已实施（M4，`test/src/l2/`） |
-| L3 | Host 集成：用假 Context 调 `apply`，断言监听器、命令、事件路由 | 否（同进程） | `node:test` | 已实施（M4，`test/src/l3/`） |
+| L1 | 纯逻辑：格式化、转义、配置合并、target 判定 | 否 | `node:test` | 已实施（M4，`test/src/common/l1/`） |
+| L2 | 包/契约：包名、`dsh.targets`、patch、locale、`exports`、`files`、`lib` 入口 | 否 | `node:test` + `tsc` | 已实施（M4，`test/src/common/l2/`） |
+| L3 | Host 集成：用假 Context 调 `apply`，断言监听器、命令、事件路由 | 否（同进程） | `node:test` | 已实施（M4，`test/src/common/l3/`） |
 | L4 | 临时 profile 安装（link + tarball）、loader 行、`dsh web` 就绪、CLI/HTTP 检查 | 是，不开浏览器 | Node 脚本 | 已实施（M4，`l4` 命令） |
 | L5 | 真实 Web UI：Playwright 打开页面，断言 slot、交互、主题、locale、console | 是，浏览器 | Playwright | M5 已实施：基线、slot/交互、主题/locale、通知、错误门禁（§19） |
 | 探索 | 自然语言驱动的页面探索、录屏、人工验收 | 是 | `browser-use` | 手动，不进 CI |
@@ -226,7 +228,7 @@ Web 应用参数（`dsh web --help`）：
 
 已落地：
 
-- fixture：`test/fixtures/web-hello/`
+- fixture：`test/fixtures/common/web-hello/`
   - Host 入口 `index.js`（空 `apply`）；
   - `client.js` 设置 `window.__DSH_WEB_HELLO__` 并在 `conversation.composer.dock` 注册 slot；
   - `dsh.targets` 为 `web` / `windows+mac`，`dsh.client.immediately: true`；
@@ -234,7 +236,7 @@ Web 应用参数（`dsh web --help`）：
 - 安装（workspace-local home）：
   ```powershell
   $env:DSH_HOME = Join-Path $PWD '.tmp/dsh-home'
-  dsh plugin --profile web add (Join-Path $PWD 'test/fixtures/web-hello')
+  dsh plugin --profile web add (Join-Path $PWD 'test/fixtures/common/web-hello')
   ```
   结果：profile `package.json` 增加 `@mbda9091/web-hello` 的 `link:` 依赖，bundles 增加该包。
 - L4 证据：
@@ -242,11 +244,11 @@ Web 应用参数（`dsh web --help`）：
   - `dsh web` 返回的 HTML boot 数据包含
     `{"id":"@mbda9091/web-hello","url":"plugins/??@mbda9091/web-hello/client.js...","immediately":true}`；
   - HTTP 200，说明 server 侧 loader 和 client module 注册都生效。
-- L5 脚本：`test/e2e/web-l5.mjs`
+- L5 脚本：`test/src/plugins/notify-web/e2e/web-l5.mjs`
   - 使用 `playwright-core` + 系统 Chrome（不下载浏览器）；
   - 读取 `DSH_E2E_URL`（和当前桌面 GUI 的 `DSH_WEB_URL` 分开），也支持 `.tmp/dsh-e2e-url.txt`；
   - 等待 `window.__DSH_WEB_HELLO__.factory`，随后断言 `applied`，收集 console/pageerror，检查 `slot entry crashed`，截图到 `.tmp/web-l5.png`；
-  - 命令：`node test/e2e/web-l5.mjs`。
+  - 命令：`node test/src/plugins/notify-web/e2e/web-l5.mjs`。
 
 **L5 实测（2026-10-24）**：在 `danger-full-access` 下 Chrome 可以启动，L5 通过：
 
@@ -275,7 +277,7 @@ dsh web --no-open --host 127.0.0.1 --port 0
 
 # 终端 2：把完整 URL（含 token）传给脚本
 $env:DSH_E2E_URL = 'http://127.0.0.1:<port>/?token=<token>'
-node test/e2e/web-l5.mjs
+node test/src/plugins/notify-web/e2e/web-l5.mjs
 ```
 
 **沙箱结论**：workspace-write 下 Chrome 无法启动（`spawn EPERM` / crashpad/mojo access denied）；`danger-full-access` 下可以启动，所以 L5 需要一次提权审批。
@@ -496,7 +498,7 @@ test/
 各 README 和现行操作说明均已迁移。本机已知 `dshweb` 函数也改为调用 bootstrap，
 修改前在其配置文件旁保留备份；其他机器的个人快捷方式按 Web README 自行迁移。
 
-新增 `test/src/l3/node-entrypoints.test.ts` 直接复制并编译脚本源码，从带空格、中文和
+新增 `test/src/common/l3/node-entrypoints.test.ts` 直接复制并编译脚本源码，从带空格、中文和
 单引号的目录运行真实 bootstrap；覆盖 PATH/绝对 Node、不同 CWD、无需 PS 的帮助、
 缺配置提示、init 预览与重复初始化、check、安装 dry-run/参数/退出码、status 和 Web 参数/退出码。
 Windows 默认浏览器改用系统 URL handler，新增回归断言 URL 作为单个参数传入；macOS 仍用 `open`。
@@ -622,7 +624,7 @@ P1–P4 的工具/环境隔离、配置 repair/migrate 尚未实现。
 1. CI 里用系统 Chrome 还是 Playwright 下载的 Chromium？浏览器安装/缓存如何管理？
 2. L5 的 CI 运行器：Windows 还是 macOS，是否都能跑 DSH Web？
 3. TS 脚本的 Node 下限：仅 Node 24，还是兼容 Node 20？
-4. 第一个 Web/UI 插件是什么，何时替换 `test/fixtures/web-hello`？
+4. 第一个 Web/UI 插件是什么，何时替换 `test/fixtures/common/web-hello`？
 
 ## 13. M1–M4 验收状态
 
@@ -637,11 +639,11 @@ M1：
 
 M2：
 
-- [x] 最小 fixture `test/fixtures/web-hello` 创建。
+- [x] 最小 fixture `test/fixtures/common/web-hello` 创建。
 - [x] fixture 以 `link:` 装进 workspace-local web profile。
 - [x] `--dump-config` 出现 `web-hello` 行。
 - [x] Web HTML boot 数据包含 `@mbda9091/web-hello` client module。
-- [x] L5 脚本 `test/e2e/web-l5.mjs` 就绪（playwright-core + Chrome + marker/console/screenshot）。
+- [x] L5 脚本 `test/src/plugins/notify-web/e2e/web-l5.mjs` 就绪（playwright-core + Chrome + marker/console/screenshot）。
 - [x] 实际跑通 L5：`factory/applied/registered=true`，console/pageerror 为空，截图已生成。
 - [x] `conversation.composer.dock` 的注册、可见 DOM、交互与刷新单次渲染均由 M5 验证（§19）。
 
@@ -686,7 +688,7 @@ M4：
 
 ### M2：L5 原型存在假通过，待修
 
-L5 指真实浏览器测试；当前 `test/e2e/web-l5.mjs` 是 M2 的最小原型，用来验证 DSH Web 能加载测试插件。M5 才负责把它扩展成完整测试并接入 CI。
+L5 指真实浏览器测试；当前 `test/src/plugins/notify-web/e2e/web-l5.mjs` 是 M2 的最小原型，用来验证 DSH Web 能加载测试插件。M5 才负责把它扩展成完整测试并接入 CI。
 
 当前原型只等待 factory、断言 apply，不断言 `registered`，且只对包含 `slot entry crashed` 的 console error 判失败。用模拟浏览器返回 `registered=false` 并报告连接错误，脚本仍成功退出，已复现假通过。应补充等待与注册/slot 断言，并对全部非预期 console errors 判失败；实际 DOM、主题和交互断言在 M5 完善。本次仅同步缺口，未修改 L5 脚本。
 
@@ -787,7 +789,7 @@ Windows / PowerShell 7 实测矩阵（每组均清除 `DSH_NODE`、`DSH_PROFILE`
   主题、locale、交互或 console —— 那是 L5（M5）。
 - L3 用的是假 Context/假服务，不是真实 Cordis Host；真实服务契约仍由 L4 的加载结果兜底。
 - 本机实测平台为 Windows；macOS 的 L4（进程停止、pnpm 路径）尚未实测，CI 接入属 M5。
-- L5 原型 `test/e2e/web-l5.mjs` 的假通过缺口未改动，仍按 §14 由 M5 处理。
+- L5 原型 `test/src/plugins/notify-web/e2e/web-l5.mjs` 的假通过缺口未改动，仍按 §14 由 M5 处理。
 
 ## 16. 后续修正：Web 改用默认 Node 的 dsh（2026-10-25）
 
@@ -859,7 +861,7 @@ Windows / PowerShell 7 实测矩阵（每组均清除 `DSH_NODE`、`DSH_PROFILE`
     `cmd.exe` 回退；
   - L4 在运行目录生成 `pnpm` shim（Windows 为 `pnpm.cmd`，POSIX 为可执行脚本）并加入子进程
     PATH，避免依赖宿主机 Corepack 缓存。
-- `test/fixtures/target-mismatch` 的内联守卫同步新判定（声明 `headless`，在任何真实 Host 中
+- `test/fixtures/common/target-mismatch` 的内联守卫同步新判定（声明 `headless`，在任何真实 Host 中
   都会失败）。
 - L3 新增 `target-environment.test.ts`，覆盖 desktop/web/headless、别名 bundle、畸形
   `startedBundles`、以及“旧 webServer 信号不再生效”。
@@ -960,10 +962,10 @@ M4 本轮三个问题已修复。M5 的正式 L5、CI 和 macOS 真机验证仍�
 - 仓库现有 **三个插件**：`app-restart`、`desktop-notify`、`notify-web`。
 - **两个构建期共享库**：`packages/notify-core`（文案/locale）、`packages/notify-host`（触发逻辑）；它们不进 CATALOG，也不安装到 profile。
 - L1–L3 当前为 **189 tests / 35 suites / 189 pass / 0 fail**。
-- 新增 `test/src/l3/notify-host.test.ts`：根/子会话、审批延迟与取消、重复 asked、已显示审批撤回、`agent/disposed`、全部 `turn/end` 原因、四个开关。
-- 新增 `test/src/l3/notify-web-host.test.ts`：直接调用 `connection.fetch.register` 的 route，读取 SSE 流，覆盖 `sync`、增量 `update`、同 epoch replay、非法游标 400、epoch 重置。
-- 重写 `test/src/l3/notify-web-client.test.ts`：在 VM 中提供 `fetch` 可控 SSE 流、Notification、localStorage、`document.baseURI`，覆盖审批/完成/错误/撤回/点击、权限手势、cursor 恢复、replay 去重。
-- `test/src/l3/desktop-notify.test.ts` 更新为共享源的语义：`session/event` + `agent/disposed` 两个全局监听、重复审批只发第一条、无法确认根身份不通知。
+- 新增 `test/src/plugins/notify-web/l3/notify-host.test.ts`：根/子会话、审批延迟与取消、重复 asked、已显示审批撤回、`agent/disposed`、全部 `turn/end` 原因、四个开关。
+- 新增 `test/src/plugins/notify-web/l3/notify-web-host.test.ts`：直接调用 `connection.fetch.register` 的 route，读取 SSE 流，覆盖 `sync`、增量 `update`、同 epoch replay、非法游标 400、epoch 重置。
+- 重写 `test/src/plugins/notify-web/l3/notify-web-client.test.ts`：在 VM 中提供 `fetch` 可控 SSE 流、Notification、localStorage、`document.baseURI`，覆盖审批/完成/错误/撤回/点击、权限手势、cursor 恢复、replay 去重。
+- `test/src/common/l3/desktop-notify.test.ts` 更新为共享源的语义：`session/event` + `agent/disposed` 两个全局监听、重复审批只发第一条、无法确认根身份不通知。
 - L4 `web-link` 现在先交换一次启动 token 并保留 Cookie，然后断言：
   - 无 Cookie 的 `GET /api/notify-web/events` 返回 401/403；
   - 带 Cookie 返回 200、`content-type: text/event-stream`；
@@ -996,9 +998,9 @@ M4 本轮三个问题已修复。M5 的正式 L5、CI 和 macOS 真机验证仍�
 
 ### 19.2 正式 L5
 
-入口：`node scripts/bootstrap.mjs l5`，或 `pnpm test:e2e:web`（普通终端）。旧 `node test/e2e/web-l5.mjs` 为兼容薄壳，也转到新 harness，不再使用手工维护的 URL 文件或用户 GUI URL。
+入口：`node scripts/bootstrap.mjs l5`，或 `pnpm test:e2e:web`（普通终端）。旧 `node test/src/plugins/notify-web/e2e/web-l5.mjs` 为兼容薄壳，也转到新 harness，不再使用手工维护的 URL 文件或用户 GUI URL。
 
-执行顺序：构建 → `tsc -p test/e2e/tsconfig.json` → 一次性 home → 官方 shipped `web` → 无自定义插件的浏览器基线 → 安装 fixture 与真实 `notify-web` → 重启测试服务 → 浏览器断言 → 退出/端口关闭。
+执行顺序：构建 → `tsc -p test/src/plugins/notify-web/e2e/tsconfig.json` → 一次性 home → 官方 shipped `web` → 无自定义插件的浏览器基线 → 安装 fixture 与真实 `notify-web` → 重启测试服务 → 浏览器断言 → 退出/端口关闭。
 
 五项浏览器检查：
 
@@ -1167,6 +1169,6 @@ P0 与环境 M1–M6 已实现；当前双平台及后续提交 CI 状态见 §1
 
 ### 角色插件 M3 隔离契约（2026-11-15）
 
-新增 role-agent 的 L3 引擎／模拟 Hindsight 协议测试，及真实 DSH Web 的 `role-agent-v1` Host-only 能力契约（测试夹具位于 `test/fixtures/role-agent-contract`）。契约验证专属 preset、局部人格／状态／工具、普通模式不变、subagent排除、实际工具未配置失败、合成模型两轮请求的快照去重及消息落盘。固定 tarball 通过 `verify-artifacts` 登记能力证据，未知 Host-only 包继续拒绝；原 notify-web 的浏览器／SSE 验收保留。
+新增 role-agent 的 L3 引擎／模拟 Hindsight 协议测试，及真实 DSH Web 的 `role-agent-v1` Host-only 能力契约（测试夹具位于 `test/fixtures/plugins/role-agent/contract`）。契约验证专属 preset、局部人格／状态／工具、普通模式不变、subagent排除、实际工具未配置失败、合成模型两轮请求的快照去重及消息落盘。固定 tarball 通过 `verify-artifacts` 登记能力证据，未知 Host-only 包继续拒绝；原 notify-web 的浏览器／SSE 验收保留。
 
 这些是隔离宿主／协议检查，不验证真实 Hindsight 语义或成长效果。用户本轮明确没有服务，只做实现及隔离契约；真实接口、内部模型审计、中文召回、费用、持续成长和其他平台均待验。全量回归的历史 L5 报告夹具改为显式选择 chromium，消除对已废弃 local.json 的依赖。最新报告在 `.tmp/l4`、`.tmp/l5` 与 `dist/verification`，不得以旧失败或旧成功覆盖本次实际状态。

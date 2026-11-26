@@ -29,7 +29,7 @@ export async function runL5(input: L5Options, settings: CommandContext = loadCom
       return 'built current source'
     })
     await step('compile-browser', async () => {
-      const result = await runToFilesAsync(process.execPath, [join(repoRoot, 'node_modules/typescript/bin/tsc'), '-p', join(repoRoot, 'test/e2e/tsconfig.json')], {
+      const result = await runToFilesAsync(process.execPath, [join(repoRoot, 'node_modules/typescript/bin/tsc'), '-p', join(repoRoot, 'test/src/plugins/notify-web/e2e/tsconfig.json')], {
         env: commandEnv(settings), signal: context.signal, timeoutMs: options.timeoutMs,
         stdoutPath: join(context.logDir, 'compile.out.log'), stderrPath: join(context.logDir, 'compile.err.log'),
       })
@@ -50,7 +50,7 @@ export async function runL5(input: L5Options, settings: CommandContext = loadCom
     await step('profile-init', () => initProfile(context, 'profile-init', context.home))
     const browser = (mode: 'baseline' | 'fixture') => step(mode, () => serveAndCheck(context, mode, async (url, stderr) => {
       if (/did not activate|@mbda9091\//.test(stderr)) throw new Error(`unexpected loader warnings: ${stderr}`)
-      const result = await runToFilesAsync(process.execPath, [join(repoRoot, 'test/.build/e2e/web-l5.js')], {
+      const result = await runToFilesAsync(process.execPath, [join(repoRoot, 'test/.build/plugins/notify-web/e2e/web-l5.js')], {
         cwd: runDir, signal: context.signal,
         env: { ...childEnv(context, context.home), DSH_E2E_URL: url, DSH_E2E_MODE: mode,
           DSH_E2E_ARTIFACTS: join(runDir, 'artifacts', mode), DSH_E2E_WORKSPACE: join(runDir, 'workspace'),
@@ -69,7 +69,7 @@ export async function runL5(input: L5Options, settings: CommandContext = loadCom
     await browser('baseline')
     await step(options.artifacts ? 'install-artifacts' : 'install-fixture', async () => {
       const evidence = options.artifacts ? await installArtifacts(context, options.artifacts) : ''
-      const fixtures: readonly (readonly [string, string])[] = options.artifacts ? [['web-hello', 'test/fixtures/web-hello']] : [['web-hello', 'test/fixtures/web-hello'], ['notify-web', 'notify-web']]
+      const fixtures: readonly (readonly [string, string])[] = options.artifacts ? [['web-hello', 'test/fixtures/common/web-hello']] : [['web-hello', 'test/fixtures/common/web-hello'], ['notify-web', 'plugins/notify-web']]
       for (const [name, target] of fixtures) {
         await runDsh(context, `install-${name}`, ['plugin', '--profile', 'web', 'add', join(repoRoot, target)], context.home)
       }

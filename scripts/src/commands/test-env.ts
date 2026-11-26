@@ -44,7 +44,7 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
     }
   }
   for (const directory of ['scripts/src', 'test/src']) fingerprint(join(repoRoot, directory))
-  for (const path of ['scripts/dev.mjs', 'scripts/install.mjs', 'scripts/launch.mjs', 'scripts/bootstrap.mjs', 'package.json', 'pnpm-workspace.yaml', 'scripts/config/schema.json', 'scripts/config/schema.v1.json', 'test/src/harness/environment.ts', 'test/src/harness/development.ts', 'test/src/harness/isolation.ts', 'profiles/web/cordis.dev.patch.yml', 'pnpm-lock.yaml']) sources[path] = digest(readFileSync(join(repoRoot, path)))
+  for (const path of ['scripts/dev.mjs', 'scripts/install.mjs', 'scripts/launch.mjs', 'scripts/bootstrap.mjs', 'package.json', 'pnpm-workspace.yaml', 'scripts/config/schema.json', 'scripts/config/schema.v1.json', 'test/src/common/harness/environment.ts', 'test/src/common/harness/development.ts', 'test/src/common/harness/isolation.ts', 'profiles/web/cordis.dev.patch.yml', 'pnpm-lock.yaml']) sources[path] = digest(readFileSync(join(repoRoot, path)))
   const revision = sourceState(repoRoot)
   const report = { version: 1, suite, selected: expected, platform: process.platform, node: process.version, nodePath: process.execPath,
     commit: revision.commit, dirty: revision.dirty,
@@ -69,7 +69,7 @@ export async function runTestEnv(suite: string, keep: boolean, pnpmScript?: stri
     if (browser?.browser) process.env.DSH_ENV_TEST_BROWSER = browser.browser
     if (browser?.browserPath) process.env.DSH_ENV_TEST_BROWSER_PATH = browser.browserPath
     const folders = suite === 'all' ? ['fast', 'real'] : [suite]
-    const files = folders.flatMap(kind => { const folder = join(repoRoot, 'test/.build-env/environment', kind); return readdirSync(folder).filter(name => name.endsWith('.test.js')).map(name => join(folder, name)) })
+    const files = folders.flatMap(kind => { const folder = join(repoRoot, 'test/.build-env/common/environment', kind); return readdirSync(folder).filter(name => name.endsWith('.test.js')).map(name => join(folder, name)) })
     const stream = run({ files, isolation: 'none', concurrency: 1, testNamePatterns: [new RegExp(`^(?:${expected.join('|')}) `)] })
     for await (const raw of stream) {
       const event = raw as TestEvent

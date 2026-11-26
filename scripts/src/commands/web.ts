@@ -95,7 +95,7 @@ export async function runWeb(args: readonly string[], root: string = repoRoot, e
     const release = acquireDevelopmentLock(context)
     try {
       if (action === 'init') { initializeDevelopment(context); console.log(`development initialized: ${p.directory}`); return 0 }
-      validateDevelopmentTree(context)
+      validateDevelopmentTree(context, true)
       console.log(`reset scope: ${p.directory} (home, logs, patch and management records; legacy local caches if present, never shared stores); verified plugin links are unlinked, source is retained`)
       if (!rest.includes('--yes')) { console.log('preview only; execute with dev-web reset --yes'); return 0 }
       await stopDevelopment(context)

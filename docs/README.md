@@ -19,11 +19,11 @@
 | [日常独立运行](archive/daily-environment-isolation-plan.md) | S1–S3 `d62a0d1`；S4 文档收尾 `fd286ce` | 已归档；Windows Web 历史已完成，原始报告本次未回读 |
 | [脚本职责与安装](script-scope-and-profile-install-plan.md) | `be2043e` 删除启动职责、实现显式安装及配置 | 已实现；正文各轮证据不冒充最终 head 全量通过 |
 
-独立后续变更：`b554760` 简化通知生成配置，记录在 [notify-web README](../notify-web/README.md)；`7011a6b` 升级 DSH/Cordis，完整变更与验收记录见 [测试方案 §19.10](testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)。`be2043e` 是多项变更的合并落点，不能仅凭该 SHA 推断其中每轮操作都在这个提交上验收。
+独立后续变更：`b554760` 简化通知生成配置，记录在 [notify-web README](../plugins/notify-web/README.md)；`7011a6b` 升级 DSH/Cordis，完整变更与验收记录见 [测试方案 §19.10](testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)。`be2043e` 是多项变更的合并落点，不能仅凭该 SHA 推断其中每轮操作都在这个提交上验收。
 
 ## 功能支线
 
-- [持续成长的角色扮演 Agent](companion/README.md)：按[调研依据](companion/role-agent-research.md)、[总体设计](companion/role-agent-design.md)、[初步落地](companion/role-agent-initial-plan.md)分工维护。M1 与 [M1.5 DSH 适配](companion/role-agent-dsh-adaptation.md)设计已完成，[M2 选型与成本](companion/role-agent-memory-evaluation.md)已按三方记忆／角色成长分工修订，M3 已有[角色插件](../role-agent/README.md)及[真实工程／短轨迹验收](companion/role-agent-m3-acceptance.md)，长期成长收益和部分费用未闭合；[M4 方案](companion/role-agent-m4-plan.md)已交付，反馈修补已实施，其余建设与持续试用未开始。 新增 [M5 标准工具对齐](companion/role-agent-m5-plan.md)，排除子 Agent，其余有效标准能力保留；已实现并完成隔离工具／长材料验证，交付记录见 M5 附件。
+- [持续成长的角色扮演 Agent](companion/README.md)：按[调研依据](companion/role-agent-research.md)、[总体设计](companion/role-agent-design.md)、[初步落地](companion/role-agent-initial-plan.md)分工维护。M1 与 [M1.5 DSH 适配](companion/role-agent-dsh-adaptation.md)设计已完成，[M2 选型与成本](companion/role-agent-memory-evaluation.md)已按三方记忆／角色成长分工修订，M3 已有[角色插件](../plugins/role-agent/README.md)及[真实工程／短轨迹验收](companion/role-agent-m3-acceptance.md)，长期成长收益和部分费用未闭合；[M4 方案](companion/role-agent-m4-plan.md)已交付，反馈修补已实施，其余建设与持续试用未开始。 新增 [M5 标准工具对齐](companion/role-agent-m5-plan.md)，排除子 Agent，其余有效标准能力保留；已实现并完成隔离工具／长材料验证，交付记录见 M5 附件。
 
 | 文档 | 使命 | 结果与核验边界 |
 |---|---|---|
@@ -35,6 +35,8 @@
 本次扫描只核对文档、Git 和相关源码入口；不产生新的功能验收通过结论。尚未核实的历史基线、原始报告以及当前外部归档专项覆盖各自记录，不能互相替代，也不因此重开已完成轮次。已将三份明确废弃的方案及当轮已完成的日常独立运行方案移入 archive，原路径保留跳转；Web 通知、OpenAI API Key 接入也已按用户确认的完成结果归档；其他文档仍在原位置。
 
 ## 当前独立调整
+
+- [插件与测试目录整理](repository-layout-plan.md)：活跃插件统一 plugins，共享库放 plugins/common，停更插件放 archive-plugins；测试区分 common 与各插件，再保留 L1–L5 层级。插件/测试目录迁移的完整 CI 已通过；追加共享库移动的冻结安装、类型、L1–L3、fast、L5 和打包对比通过，未提交；现有工作区的安全规则登记按方案所述提交流程处理。
 
 - [环境测试宿主复用与推送清理](environment-test-storage-plan.md)：M1–M3 的 v0.5 已提交并验收；v0.6 已改为原生 pre-push，普通 git push 推送前自动尝试清理，失败/dry-run 也可能触发，已提交 `ba03889`，本地验证通过、当前仓库已启用。保留共同锁、7 天和 keep，报告/产物/共享宿主不删。
 - [notify-web 用户提问提醒](notify-web-question-plan.md)：补齐标准 `ask_user_question` 的提醒、回答撤回及重连恢复；2026-11-16 已实现并安装日常 2.1.1，修正 PTC start 遗漏；自动验收及固定包 L4/L5 通过，待真实 OS 人工验收与提交对账。

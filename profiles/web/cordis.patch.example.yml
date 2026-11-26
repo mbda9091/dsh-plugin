@@ -4,7 +4,7 @@
 - id: hmr
   config:
     root:
-      - '${repoRoot}/notify-web/lib'
+      - '${repoRoot}/plugins/notify-web/lib'
     ignored:
       - '**/node_modules'
       - '**/.*'

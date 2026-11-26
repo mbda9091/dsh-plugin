@@ -21,7 +21,7 @@ interface BuildSpec {
 }
 
 const tsc = join(repoRoot, 'node_modules', 'typescript', 'bin', 'tsc')
-const packagesRoot = join(repoRoot, 'packages')
+const commonRoot = join(repoRoot, 'plugins', 'common')
 
 /**
  * Build the repository's private workspace libraries before the plugins that
@@ -31,15 +31,15 @@ const packagesRoot = join(repoRoot, 'packages')
  * @returns process status.
  */
 function buildWorkspaceLibraries(check: boolean, env: NodeJS.ProcessEnv): number {
-  if (!existsSync(packagesRoot)) return 0
-  const libraries = readdirSync(packagesRoot, { withFileTypes: true })
+  if (!existsSync(commonRoot)) return 0
+  const libraries = readdirSync(commonRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
-    .map((entry) => join(packagesRoot, entry.name))
+    .map((entry) => join(commonRoot, entry.name))
     .filter((dir) => existsSync(join(dir, 'package.json')) && existsSync(join(dir, 'tsconfig.json')))
     .sort()
 
   for (const dir of libraries) {
-    console.log(`· packages/${dir.slice(packagesRoot.length + 1)}`)
+    console.log(`· plugins/common/${dir.slice(commonRoot.length + 1)}`)
     const args = [tsc, '-p', join(dir, 'tsconfig.json')]
     if (check) args.push('--emitDeclarationOnly')
     const result = spawnSync(process.execPath, args, { stdio: 'inherit', env })
@@ -160,7 +160,7 @@ export async function runBuild(options: BuildOptions, context: CommandContext = 
   const librariesCode = buildWorkspaceLibraries(options.check, env)
   if (librariesCode !== 0) return librariesCode
 
-  // Discovery is manifest-driven: a top-level tsconfig.json alone is not a
+  // Discovery is manifest-driven: a tsconfig.json alone is not a
   // plugin, otherwise scripts/ itself would be compiled as one.
   const projects = discoverPlugins(repoRoot).filter((plugin) => existsSync(join(plugin.dir, 'tsconfig.json')))
   if (projects.length === 0) throw new Error('No plugin tsconfig.json found.')

@@ -6,7 +6,7 @@
 > 实现 commit：`dcfff6c1f72220de31c0cd26d0ab27bd8392f1c9`；本次提交对账见第 9.9 节。
 > 调研基线：`bd43b4b593cfae04a6e2bbe427508fc9aefc587c`，调研开始时工作区干净。
 > 验收基线：当前实现提交 `dcfff6c1f72220de31c0cd26d0ab27bd8392f1c9` 与最终 2.2.0 固定包对账；历史批次保留追溯：固定批次 `7f6b4d98-078f-4036-9c63-c049bb21fe01`，2.1.0 首轮固定包见第 9.2 节；2.1.1 修正结果见第 9.4 节；历史 2.1.2 固定批次为 1a9b44ae-e5c9-4205-9a51-c76bcce076ff，升级防护与验证见第 9.6 节。当前 2.2.0 固定批次为 3b5d6f25-b04e-4226-b7d7-757ce9bfeafb，见第 9.7 节。
-> 关联：[现有通知设计与历史验收](archive/notification-host-design.md)、[测试方案](testing-plan.md)、[notify-web 使用说明](../notify-web/README.md)。
+> 关联：[现有通知设计与历史验收](archive/notification-host-design.md)、[测试方案](testing-plan.md)、[notify-web 使用说明](../plugins/notify-web/README.md)。
 
 ## 1. 结论摘要
 
@@ -39,8 +39,8 @@
 
 | 对象 | 已有实现与依据 | 本轮影响 |
 |---|---|---|
-| 通知触发 | [notify-host](../packages/notify-host/src/index.ts) 的 `onSessionEvent` 只分支处理 `approval/asked`、`approval/decided`、`turn/end`；其他事件返回 | 提问不会生成通知意图 |
-| Web 投递 | [Host](../notify-web/src/index.ts) 的 pending 快照、重放过滤只认识审批；[Client](../notify-web/src/client/index.ts) 的 show、idKind、sync 同样只认识审批/结束 | 仅补 Host 触发还不够，须贯通协议、重放与 Client |
+| 通知触发 | [notify-host](../plugins/common/notify-host/src/index.ts) 的 `onSessionEvent` 只分支处理 `approval/asked`、`approval/decided`、`turn/end`；其他事件返回 | 提问不会生成通知意图 |
+| Web 投递 | [Host](../plugins/notify-web/src/index.ts) 的 pending 快照、重放过滤只认识审批；[Client](../plugins/notify-web/src/client/index.ts) 的 show、idKind、sync 同样只认识审批/结束 | 仅补 Host 触发还不够，须贯通协议、重放与 Client |
 | DSH 提问 | 本地 workspace 安装的 DSH `0.2.2-rc.1`：`dsh-tool-ask-user/lib/index.js` 调用 `ask` / `askTimed`，`dsh-user-questions/lib/index.js` 使用 `user-questions/request` waterfall | 提问与 `approval/asked` 是不同路径，不应套用审批文案 |
 | DSH 状态 | 同一版本 `dsh-user-questions` 的 `userQuestions` 投影从 `request/header`、`tool/call`、`tool/result`、`tool/ptc-dispatch`、`user/message` 重建限时提问；legacy blocking schema 不纳入其状态 | 参考并对齐其语义，新增通知投影补齐阻塞调用，不能只读现有 active 数组 |
 | 晚到回答 | `user-question-reply` 在实际提交为 `user/message` 后才关闭问题；排队中的回答可被丢弃 | 点击回答或 RPC 返回成功不能提前撤回 |
@@ -52,7 +52,7 @@
 
 ### 4.1 Web 专用提问源与持久投影
 
-在 `notify-web/src/` 新增提问源和 Host-only 投影模块，与已有 `createNotificationSource` 合并输出。共享 notify-host 仍负责原有审批/结束逻辑，避免为 Web 修复扩大 Desktop 行为。
+在 `plugins/notify-web/src/` 新增提问源和 Host-only 投影模块，与已有 `createNotificationSource` 合并输出。共享 notify-host 仍负责原有审批/结束逻辑，避免为 Web 修复扩大 Desktop 行为。
 
 使用 `ctx.sessionProjections.register()` 注册独立、带版本的投影，例如 `mbda9091.notifyWebQuestions`。await 注册完成后再挂载提问消费者和 SSE 路由；生命周期交给 Cordis effect，卸载释放投影 handle、监听器和定时器。`apply` 仍先执行目标守卫。缺少投影服务时明确加载失败，不静默降级为漏提醒。
 
@@ -108,11 +108,11 @@ Host/Client 协议 version 为 3，Client 对未知版本明确诊断并停止�
 
 | 位置 | 预计工作 |
 |---|---|
-| `notify-web/src/` | 新提问投影、提问源、Web 协议类型；Host 合并源及 pending/replay，Client 渲染/同步/版本判断 |
-| `packages/notify-core/src/index.ts` | 提问文案、摘要与中英文翻译键 |
-| `notify-web/package.json`、`profile.defaults.patch.yml`、lockfile | 必需的开发依赖、构建打包覆盖、新配置及版本更新 |
+| `plugins/notify-web/src/` | 新提问投影、提问源、Web 协议类型；Host 合并源及 pending/replay，Client 渲染/同步/版本判断 |
+| `plugins/common/notify-core/src/index.ts` | 提问文案、摘要与中英文翻译键 |
+| `plugins/notify-web/package.json`、`profile.defaults.patch.yml`、lockfile | 必需的开发依赖、构建打包覆盖、新配置及版本更新 |
 | notify-web / notify-core README、locale | 行为边界、开关与升级步骤，保留场景前缀；元数据变更时由 catalog 生成目录 |
-| `test/src/l1`、`test/src/l3`、`test/fixtures/web-hello`、`test/e2e` | 状态、协议、通知与真实 DSH 生命周期覆盖 |
+| `test/src/common/l1`、`test/src/common/l3`、`test/fixtures/common/web-hello`、`test/src/plugins/notify-web/e2e` | 状态、协议、通知与真实 DSH 生命周期覆盖 |
 
 构建由现有 dev.mjs 入口生成 lib，不手改或提交 lib/dist。日常安装按用户已授权范围执行，保留现有配置，不自动重启日常 DSH。
 

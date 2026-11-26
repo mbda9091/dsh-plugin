@@ -225,7 +225,7 @@ Desktop 部分为历史兼容设计，不属于当前 Web 交付的必要工作�
 
 ## 10. 实现依据
 
-仓库现状参考 [Desktop 通知入口](../../desktop-notify/src/index.ts)、[Web 通知入口](../../notify-web/src/client/index.ts)、[共享文案](../../packages/notify-core/src/index.ts)、[测试计划](../testing-plan.md) 与 [仓库约定](../../AGENTS.md)。
+仓库现状参考 [Desktop 通知入口](../../archive-plugins/desktop-notify/src/index.ts)、[Web 通知入口](../../plugins/notify-web/src/client/index.ts)、[共享文案](../../plugins/common/notify-core/src/index.ts)、[测试计划](../testing-plan.md) 与 [仓库约定](../../AGENTS.md)。
 
 通道选择依据本机 DSH `0.2.1-rc.2` 打包的以下实现与说明，升级运行时后需要重新核对：
 
@@ -248,13 +248,13 @@ Desktop 部分为历史兼容设计，不属于当前 Web 交付的必要工作�
 | `packages/notify-host/package.json` | 私有构建期 workspace 包；只做类型和声明，无运行时入口 |
 | `packages/notify-core/src/index.ts` | 两端共用文案、locale、`approvalContent`、`turnEndContent`、`clip` |
 | `desktop-notify/src/index.ts` | 只保留 Windows Adapter：订阅共享源，把 `show` 格式化后交给 PowerShell |
-| `notify-web/src/index.ts` | Web Host：共享源、`GET /api/notify-web/events`、SSE 缓存/恢复/心跳/有界队列 |
-| `notify-web/src/client/index.ts` | 浏览器 Adapter：SSE 消费、locale、权限、去重、撤回、点击、Web Locks 多标签页 |
-| `notify-web/package.json` | Host 声明 `agents`、`connection`；Client 只注入 `locale`、`uiWorkspace` |
+| `plugins/notify-web/src/index.ts` | Web Host：共享源、`GET /api/notify-web/events`、SSE 缓存/恢复/心跳/有界队列 |
+| `plugins/notify-web/src/client/index.ts` | 浏览器 Adapter：SSE 消费、locale、权限、去重、撤回、点击、Web Locks 多标签页 |
+| `plugins/notify-web/package.json` | Host 声明 `agents`、`connection`；Client 只注入 `locale`、`uiWorkspace` |
 | `scripts/src/commands/build.ts` | 先构建 `packages/*`，再用 esbuild 内联 Host/Client |
-| `test/src/l3/notify-host.test.ts` | 共享触发行为 |
-| `test/src/l3/notify-web-host.test.ts` | 真实 Fetch route 的 SSE 协议 |
-| `test/src/l3/notify-web-client.test.ts` | 用 VM 驱动 SSE 帧、Notification 和点击 |
+| `test/src/plugins/notify-web/l3/notify-host.test.ts` | 共享触发行为 |
+| `test/src/plugins/notify-web/l3/notify-web-host.test.ts` | 真实 Fetch route 的 SSE 协议 |
+| `test/src/plugins/notify-web/l3/notify-web-client.test.ts` | 用 VM 驱动 SSE 帧、Notification 和点击 |
 | `scripts/src/commands/l4.ts` | 真实 web profile 的认证 SSE 冒烟检查 |
 
 ### 11.2 Host 通知源 Interface
@@ -393,7 +393,7 @@ Desktop 仍从自己的 loader 行读取四个共用字段和 Windows 专属字�
 ### 11.7 初次实现验证（2026-10-25）
 
 - `node scripts/bootstrap.mjs build --check`：通过。
-- `node scripts/bootstrap.mjs build`：通过；`notify-web/lib/index.js` 与 `client.js`、`desktop-notify/lib/index.js` 均无运行时 `@mbda9091/notify-*` 裸导入。
+- `node scripts/bootstrap.mjs build`：通过；`plugins/notify-web/lib/index.js` 与 `client.js`、`desktop-notify/lib/index.js` 均无运行时 `@mbda9091/notify-*` 裸导入。
 - `node scripts/bootstrap.mjs test`：189 个测试通过。
 - `node scripts/bootstrap.mjs l4`（含 tarball 阶段）与 `l4 --skip-tarball`：均通过；真实 web profile 的 L4 额外验证了未认证 SSE 返回 401/403、认证请求返回 200、`content-type: text/event-stream` 且首帧为 `event: sync`。
 - 当时尚未完成：真实浏览器中由用户手势授权、操作系统通知真正弹出、点击聚焦标签页的视觉验收。模拟 Notification 不能替代这一项；后续原生验收结果见 §11.11。
@@ -420,7 +420,7 @@ Desktop 仍从自己的 loader 行读取四个共用字段和 Windows 专属字�
 | 普通重连重新弹出用户已关闭的审批 | 首次接管恢复与普通重连去重分开 | 关闭提示后重连不再弹出；页面重载、pagehide/pageshow、epoch 重置仍恢复待审批 |
 | SSE 正常结束后立即密集重连 | EOF 与异常统一等待，短连接指数退避，稳定连接重置退避 | 连续 EOF 必须等计时器触发才发请求；延迟递增及 30s 上限；稳定 30s 后回到基础等待；卸载取消等待 |
 
-回归位于 `test/src/l3/notify-web-client.test.ts` 与 `test/src/l3/notify-web-host.test.ts`，新增 7 项。Client 使用可控重试计时器，Host 使用可控时钟，不依赖真实等待两分钟来验证过期。
+回归位于 `test/src/plugins/notify-web/l3/notify-web-client.test.ts` 与 `test/src/plugins/notify-web/l3/notify-web-host.test.ts`，新增 7 项。Client 使用可控重试计时器，Host 使用可控时钟，不依赖真实等待两分钟来验证过期。
 
 重连修复完成时的验证（后续 L4 排障结果见 §11.10）：
 
@@ -528,7 +528,7 @@ L5 的五项结果分别为 `no-custom-plugins`、`slot-interaction-theme-locale
 当时的日常 `web` profile 保留插件管理器建立的 `@mbda9091/notify-web` 链接安装与 bundle 启用记录。通知参数由当时的 `profiles/web/cordis.patch.yml` 管理，通过 `start.ps1` 的 `--patch` 加载；本次没有手改用户目录的 profile 配置或安装记录。该文件现已迁为 example 与本机 patch，当前用法见 [Web 配置说明](../../profiles/web/README.md)。
 
 - 仓库 patch 用 `id: notify-web` 覆盖已安装插件的行，不重复 `insert`。显式配置审批/完成/错误通知为开启，审批延迟 300ms，心跳 15000ms，补发窗口 120000ms，缓存与单连接队列上限各 256。
-- HMR `root` 新增 `<repo>\notify-web\lib`，保留原有路径及 Windows 排除规则。共享库先构建并内联进插件；Client 代码更新后仍需刷新浏览器。
+- HMR `root` 新增 `<repo>\plugins\notify-web\lib`，保留原有路径及 Windows 排除规则。共享库先构建并内联进插件；Client 代码更新后仍需刷新浏览器。
 - 插件源码未改；`node scripts/bootstrap.mjs build` 通过，包含元数据门禁、TypeScript 编译与 bundle 生成。
 
 本次先检查日常 profile 与仓库 patch 的实际合成结果：`notify-web` 只有一行且未禁用，八个参数和 HMR 新路径均匹配，无配置警告。随后因已有日常 Web 服务运行，保留原进程，在独立临时 profile 中安装同一个仓库插件，并实际调用：

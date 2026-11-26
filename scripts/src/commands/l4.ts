@@ -152,9 +152,9 @@ interface L4Context extends WebHarness {
 async function checkPrerequisites(context: L4Context): Promise<string> {
   const required = [
     ...selectL4Plugins().links.map(plugin => join(plugin.dir, 'lib', 'index.js')),
-    join(repoRoot, 'notify-web', 'lib', 'client.js'),
-    join(repoRoot, 'test', 'fixtures', 'web-hello', 'client.js'),
-    join(repoRoot, 'test', 'fixtures', 'target-mismatch', 'index.js'),
+    join(repoRoot, 'plugins', 'notify-web', 'lib', 'client.js'),
+    join(repoRoot, 'test', 'fixtures', 'common', 'web-hello', 'client.js'),
+    join(repoRoot, 'test', 'fixtures', 'common', 'target-mismatch', 'index.js'),
   ]
   for (const path of required) {
     if (!existsSync(path)) throw new Error(`missing ${path}; run node scripts/dev.mjs build first`)
@@ -167,7 +167,7 @@ async function checkPrerequisites(context: L4Context): Promise<string> {
 async function installLinks(context: L4Context): Promise<string> {
   const plugins = selectL4Plugins().links
   const targets = [
-    join(repoRoot, 'test', 'fixtures', 'web-hello'),
+    join(repoRoot, 'test', 'fixtures', 'common', 'web-hello'),
     ...plugins.map(plugin => plugin.dir),
   ]
   for (const target of targets) {
@@ -201,7 +201,7 @@ async function installMismatch(context: L4Context): Promise<string> {
   await runDsh(
     context,
     'install-mismatch',
-    ['plugin', '--profile', WEB_PROFILE, 'add', join(repoRoot, 'test', 'fixtures', 'target-mismatch')],
+    ['plugin', '--profile', WEB_PROFILE, 'add', join(repoRoot, 'test', 'fixtures', 'common', 'target-mismatch')],
     context.home,
     context.options.timeoutMs,
   )

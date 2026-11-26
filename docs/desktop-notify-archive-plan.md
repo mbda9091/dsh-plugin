@@ -12,7 +12,7 @@
 
 ## 1. 结论摘要
 
-按用户明确决定，desktop-notify 停止跟随 DSH 升级。源码及专属测试冻结于升级前 DSH `0.2.2-rc.1` 基线，保存在 [archive/desktop-notify](../archive/desktop-notify/README.md)。活跃插件为 app-restart、notify-web、role-agent。
+按用户明确决定，desktop-notify 停止跟随 DSH 升级。源码及专属测试冻结于升级前 DSH `0.2.2-rc.1` 基线，保存在 [archive/desktop-notify](../archive-plugins/desktop-notify/README.md)。活跃插件为 app-restart、notify-web、role-agent。
 
 ## 2. 范围
 

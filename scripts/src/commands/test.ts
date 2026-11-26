@@ -89,7 +89,7 @@ function parseKinds(values: readonly string[]): TestKind[] {
 }
 
 /** Depth-first, code-unit ordered list of compiled `*.test.js` files. */
-function collectTests(buildDir: string, kinds: readonly TestKind[]): string[] {
+export function collectTests(buildDir: string, kinds: readonly TestKind[]): string[] {
   if (!existsSync(buildDir)) return []
   const found: string[] = []
 
@@ -102,8 +102,9 @@ function collectTests(buildDir: string, kinds: readonly TestKind[]): string[] {
       }
       if (!entry.name.endsWith('.test.js')) continue
       const relativePath = relative(buildDir, path)
-      const [first] = relativePath.split(sep)
-      if (first !== undefined && (kinds as readonly string[]).includes(first)) found.push(path)
+      const parts = relativePath.split(sep)
+      const kind = parts[0] === 'common' ? parts[1] : parts[0] === 'plugins' ? parts[2] : undefined
+      if (kind !== undefined && (kinds as readonly string[]).includes(kind)) found.push(path)
     }
   }
 

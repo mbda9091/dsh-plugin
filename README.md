@@ -11,10 +11,12 @@
 
 | 插件 | 用途 | 适用形态 | 平台 |
 | --- | --- | --- | --- |
-| [notify-web](notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS、Linux |
-| [role-agent](role-agent/README.md) | 专用角色对话、可追溯记忆与成长 | 桌面、Web | Windows、macOS、Linux |
+| [notify-web](plugins/notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS、Linux |
+| [role-agent](plugins/role-agent/README.md) | 专用角色对话、可追溯记忆与成长 | 桌面、Web | Windows、macOS、Linux |
 
-`desktop-notify` 和 `app-restart` 已于 2026-11-24 [归档并停止维护](archive/README.md)，不再参与构建、测试或安装打包。
+源码目录按归属组织：`plugins/` 是活跃插件，`archive-plugins/` 是停更插件，`plugins/common/` 是共享库。测试先看 `test/src/common/`（通用工具链）或 `test/src/plugins/<插件 id>/`（插件专属），目录内再按 L1/L2/L3、e2e 或 acceptance 区分。[目录与迁移说明](docs/repository-layout-plan.md)。
+
+`desktop-notify` 和 `app-restart` 已于 2026-11-24 [归档并停止维护](archive-plugins/README.md)，不再参与构建、测试或安装打包。
 
 完整场景声明见 [CATALOG.md](CATALOG.md)。平台支持按各插件的 `dsh.targets` 判断。2026-11-06 宿主升级轮次的 macOS 完整 CI 通过记录见[历史验收](docs/testing-plan.md#1910-dsh-022-rc1-整体适配2026-11-06)，不代表后续入口重构已全量验收。入口拆分轮次已按用户确认的 macOS 范围完成，验收基线 `4049f6f` 的完整 CI 通过；Windows/Linux 与真实 DSH 沙箱暂缓，详见[分离方案记录](docs/development-delivery-separation-plan.md)。真实 Desktop 和个人日常 profile 不作为本轮已验收结果。
 
@@ -46,7 +48,7 @@ node scripts/dev.mjs build
 构建完成后，打开目标 DSH 的 **Plugins（插件）** 页面，按适用场景安装对应插件目录的绝对路径。例如，在仓库根目录执行以下命令取得 Web 通知插件的路径：
 
 ```sh
-node -p "require('node:path').resolve('notify-web')"
+node -p "require('node:path').resolve('plugins/notify-web')"
 ```
 
 把输出填入 Web 插件安装页面。`notify-web` 仅适用于 Web；`role-agent` 同时支持桌面和 Web，具体以插件声明为准。

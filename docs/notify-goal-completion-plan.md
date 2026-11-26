@@ -54,12 +54,12 @@ sequenceDiagram
 
 | 修复前事实 | 依据 |
 |---|---|
-| 根回合 completed / max-tokens 立即通知 | `packages/notify-host/src/index.ts:211` |
+| 根回合 completed / max-tokens 立即通知 | `plugins/common/notify-host/src/index.ts:211` |
 | 等待子结果时，工具要求主 agent 结束回合 | `node_modules/@deepseek-ai/dsh-tool-subagent/lib/index.js:507` |
 | goal 续跑会等待子 agent | `node_modules/@deepseek-ai/dsh-goal-round-driver/lib/index.js:128` |
-| Web 使用共享通知源 | `notify-web/src/index.ts:169` |
-| 输出上限目前显示完成文案 | `packages/notify-core/src/index.ts:120` |
-| 原测试缺少 goal / 等待场景 | `test/src/l3/notify-host.test.ts:184` |
+| Web 使用共享通知源 | `plugins/notify-web/src/index.ts:169` |
+| 输出上限目前显示完成文案 | `plugins/common/notify-core/src/index.ts:120` |
+| 原测试缺少 goal / 等待场景 | `test/src/plugins/notify-web/l3/notify-host.test.ts:184` |
 
 历史：[通知实现与验收](archive/notification-host-design.md)。后续 `dcfff6c` 调整提问通知，`5e57cda` 调整页面关闭后的投递；本轮独立修复完成语义。
 
@@ -145,9 +145,9 @@ flowchart LR
 
 | 已改位置 | 内容 |
 |---|---|
-| `packages/notify-host/src/index.ts` + `completion.ts` | 候选、goal / 子工作检查、失效与清理；仅 Web 启用 settled 模式 |
+| `plugins/common/notify-host/src/index.ts` + `completion.ts` | 候选、goal / 子工作检查、失效与清理；仅 Web 启用 settled 模式 |
 | notify-host `package.json` + `pnpm-lock.yaml` | goal / subagent 类型开发依赖，精确 0.2.2-rc.1 |
-| `packages/notify-core/src/index.ts` + `notify-web/src/client/index.ts` | Web 显式启用输出上限新文案；字典由 Client 注册，meta locale 无需重复 |
+| `plugins/common/notify-core/src/index.ts` + `plugins/notify-web/src/client/index.ts` | Web 显式启用输出上限新文案；字典由 Client 注册，meta locale 无需重复 |
 | notify-host / core / notify-web 测试 + Web fixture / L5 清单 | 判定、并发、生命周期与真实宿主调度、SSE 回归 |
 | notify-host / notify-core / notify-web README | 新完成条件与停止语义 |
 

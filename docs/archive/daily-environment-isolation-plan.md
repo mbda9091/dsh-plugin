@@ -62,7 +62,7 @@
 | 日常宿主 | 本机 `daily` 绑定系统全局普通 Node DSH，home 为原用户日常目录，profile 为 `web` | 本体来源正确，但并不证明插件和启动依赖已隔离 | 本机 `scripts/config/local.json` 只读核查；[目标校验](../../scripts/src/core/formal-target.ts) |
 | 日常快捷入口 | PowerShell `dshweb` 调用 `<repo>/scripts/bootstrap.mjs web` | 每次先编译脚本层；源码错误、仓库依赖缺失或仓库不可用会阻断启动 | 本机 shell 函数；[bootstrap.mjs](../../scripts/bootstrap.mjs) |
 | 日常管理配置与状态 | 读取仓库 `local.json`，管理文件在 `.local/dsh-daily/<name>`，pnpm 对照仓库根版本 | 日常启动、状态和恢复仍受开发仓库变化影响 | `scripts/src/commands/daily-web.ts`（历史文件，见 `d62a0d1`；当前已删除）、[工具校验](../../scripts/src/core/toolchain.ts) |
-| 日常插件 | `@mbda9091/notify-web` 的 spec 是 `link:<repo>/notify-web`，实际也是源码 junction，bundle 已启用 | 构建改变日常随后加载的代码；删除源码可使插件失效 | `status --target daily` 输出 `link (dev)`；profile manifest 与 junction 只读核查 |
+| 日常插件 | `@mbda9091/notify-web` 的 spec 是 `link:<repo>/plugins/notify-web`，实际也是源码 junction，bundle 已启用 | 构建改变日常随后加载的代码；删除源码可使插件失效 | `status --target daily` 输出 `link (dev)`；profile manifest 与 junction 只读核查 |
 | 固定包安装来源 | 当前正式安装从 `dist/consumption/run-*/inputs` 的固定副本安装 | 已安装文件可独立，但仓库清理后再次解析/维护依赖可能找不到 tarball；必须保留外部来源 | [当前 M5/M6 协议](../configuration-v2.md) |
 | 开发/测试隔离 | 开发 `.local/dsh-dev/home`；测试 `.tmp` 新目录；清理 DSH 变量并检查路径交叠 | 可复用，当前无需重做生命周期和测试框架 | [命令上下文](../../scripts/src/core/command-context.ts)、[测试隔离](../../scripts/src/core/test-isolation.ts) |
 | 日常运行记录 | `web status` 返回进程身份无法验证，磁盘记录标记 `running` | 无法凭记录确认实例仍存活或已停止；可能有残留记录，原因未确认 | 本轮命令输出，未删除记录、未发送停止信号 |
@@ -295,7 +295,7 @@ macOS/桌面为独立后续范围，不作为本轮 Windows Web 的隐含欠项�
 #### 验证结果与证据
 
 - 对象：`f27f0e4` 加未提交工作区；Windows 本机配置与已安装目录。只读配置内容及输出未复制进公共文档。
-- `node scripts/bootstrap.mjs status --target daily`：退出 0，报告 `@mbda9091/notify-web` 为 `link (dev)`、`bundle=on`；manifest 与 junction 指向 `<repo>/notify-web` 相符。
+- `node scripts/bootstrap.mjs status --target daily`：退出 0，报告 `@mbda9091/notify-web` 为 `link (dev)`、`bundle=on`；manifest 与 junction 指向 `<repo>/plugins/notify-web` 相符。
 - `node scripts/bootstrap.mjs web status`：退出 1，返回 `Web process identity cannot be verified`；未向 PID 发信号，未移除 runtime 文件。
 - shell 入口核查：`dshweb` 仍调用仓库 bootstrap；bootstrap 每次运行 TypeScript 编译；日常配置选择的是系统全局 DSH，而非 workspace DSH。
 - 证据位置：本次聊天工具输出及本机未入库配置；没有生成独立自动化报告。这里保存必要摘要，不将其包装为持久功能验收记录。

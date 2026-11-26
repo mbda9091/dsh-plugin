@@ -30,7 +30,7 @@ export function inspectTarget(context: CommandContext) {
   const directory = join(target.home, 'profiles', target.profile)
   // A redirected profile, manifest or node_modules container can write outside the selected home.
   for (const path of [directory, join(directory, 'package.json'), join(directory, 'pnpm-lock.yaml'), join(directory, 'pnpm-workspace.yaml'), join(directory, 'node_modules'), join(directory, 'node_modules/.modules.yaml')]) safeConfigPath(target.home, path)
-  for (const protectedPath of ['.local', '.tmp', 'dist', 'node_modules', 'scripts', 'packages', 'profiles', 'test', 'docs']) assertSeparatePaths(target.home, join(context.root, protectedPath))
+  for (const protectedPath of ['.local', '.tmp', 'dist', 'node_modules', 'scripts', 'plugins', 'archive-plugins', 'profiles', 'test', 'docs']) assertSeparatePaths(target.home, join(context.root, protectedPath))
   for (const plugin of discoverPlugins(context.root)) assertSeparatePaths(target.home, plugin.dir)
   const entry = runner.build([]).find(arg => isAbsolute(arg)) ?? runner.command
   const identity: TargetIdentity = { cli: realpathSync(target.dshCli), engine: physicalPath(runner.command), entry: physicalPath(entry), home: physicalPath(target.home), profile: physicalPath(directory) }

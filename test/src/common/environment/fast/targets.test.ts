@@ -1,0 +1,107 @@
+import assert from 'node:assert/strict'
+import { existsSync, mkdirSync, readFileSync, renameSync, symlinkSync, writeFileSync } from 'node:fs'
+import { delimiter, dirname, join } from 'node:path'
+import { environmentCase, environmentTest as it, snapshot } from '../../harness/environment.js'
+import { prepareTarget, targetPackages, fakeAcceptance, installOptions, deliveryReport } from '../../harness/targets.js'
+import { discoverTargets, inspectTarget } from "../../../../../scripts/.build/core/formal-target.js"
+import { loadCommandContext } from "../../../../../scripts/.build/core/command-context.js"
+import { runArtifactInstall, deliveryDiagnostics } from "../../../../../scripts/.build/commands/install-artifacts.js"
+import { runStatus } from "../../../../../scripts/.build/commands/status.js"
+
+it('TGT-01 discovery rejects development aliases; binding and path replacement are rechecked', () => environmentCase('TGT-01', f => {
+  const t = prepareTarget(f), bin = join(f.root, 'node_modules/.bin'); mkdirSync(bin, { recursive: true })
+  const alias = join(bin, process.platform === 'win32' ? 'dsh.cmd' : 'dsh')
+  if (process.platform === 'win32') writeFileSync(alias, `@echo off\n"%_prog%" "${t.entry}" %*\n`)
+  else symlinkSync(t.entry, alias, 'file')
+  const external = join(t.host, process.platform === 'win32' ? 'dsh.cmd' : 'dsh')
+  if (process.platform === 'win32') writeFileSync(external, '@echo off\n"%_prog%" "%dp0%\\cli.cjs" %*\n')
+  else writeFileSync(external, '#!/usr/bin/env node\n')
+  const env = { ...t.env, PATH: [bin, t.host].join(delimiter) }
+  const found = discoverTargets(f.root, env)
+  assert.ok(found.candidates.some(c => c.path === external)); assert.ok(!found.candidates.some(c => c.path === alias))
+  assert.ok(found.rejected.some(c => c.path === alias))
+  const before = readFileSync(f.paths.local)
+  inspectTarget(t.context())
+  for (const home of ['plugins/common/forbidden-home', 'archive-plugins/forbidden-home']) {
+    const context = t.context()
+    assert.throws(() => inspectTarget({ ...context, target: { ...context.target!, home: join(f.root, home) } }), /overlap/)
+  }
+  renameSync(t.host, t.host + '-original'); symlinkSync(dirname(t.entry), t.host, process.platform === 'win32' ? 'junction' : 'dir')
+  assert.throws(() => inspectTarget(t.context()), /workspace development/)
+  assert.equal(existsSync(t.home), false)
+  assert.deepEqual(readFileSync(f.paths.local), before)
+
+}))
+
+it('TGT-02 invalid selection platform version coverage and all fail before target writes', () => environmentCase('TGT-02', async f => {
+  const t = prepareTarget(f), set = targetPackages(f.root); fakeAcceptance(set)
+  for (const flags of [{}, { home: t.home }, { target: 'missing' }, { target: 'missing', ...t.fields }]) assert.throws(() => loadCommandContext(flags, f.root, t.env, 'target'))
+  const options = installOptions(set.path)
+  for (const change of [{ all: true }, { only: '@mbda9091/missing' }, { only: '@mbda9091/alpha,@mbda9091/alpha' }]) await assert.rejects(runArtifactInstall({ ...options, ...change }, t.context()))
+  await assert.rejects(runArtifactInstall(options, { ...t.context(), target: { ...t.context().target!, platform: t.fields.platform === 'windows' ? 'mac' : 'windows' } }), /platform/)
+  await assert.rejects(runArtifactInstall(options, { ...t.context(), target: { ...t.context().target!, surface: 'desktop' } }), /surface|compatible/)
+  writeFileSync(t.mode, 'version'); await assert.rejects(runArtifactInstall(options, t.context()), /verification/)
+  assert.equal(existsSync(t.trace), false); assert.equal(existsSync(t.home), false)
+  const profile = join(t.home, 'profiles/web'); mkdirSync(dirname(profile), { recursive: true }); symlinkSync(f.personal, profile, process.platform === 'win32' ? 'junction' : 'dir')
+  assert.throws(() => inspectTarget(t.context()), /link/)
+}))
+
+it('TGT-03 previews do not write targets and execution rechecks config bytes and explicit subsets', () => environmentCase('TGT-03', async f => {
+  const t = prepareTarget(f), set = targetPackages(f.root); fakeAcceptance(set)
+  const before = readFileSync(f.paths.local), options = { ...installOptions(set.path), only: '@mbda9091/alpha' }
+  assert.equal(await runArtifactInstall({ ...options, dryRun: true }, t.context()), 0)
+  assert.deepEqual(readFileSync(f.paths.local), before); assert.equal(existsSync(t.home), false)
+  let report = ''
+  assert.equal(await runArtifactInstall(options, t.context(), p => { report = p }), 0)
+  assert.deepEqual(deliveryReport(report).packages.map(p => p.status), ['installed', 'skipped', 'skipped'])
+  const installed = snapshot(t.home)
+  writeFileSync(join(dirname(set.path), set.manifest.packages[0]!.path), 'changed after preview')
+  await assert.rejects(runArtifactInstall(options, t.context()), /hash changed/)
+  assert.deepEqual(snapshot(t.home), installed)
+  const next = targetPackages(f.root); fakeAcceptance(next)
+  assert.equal(await runArtifactInstall(installOptions(next.path), t.context(), p => { report = p; writeFileSync(f.paths.local, 'broken legacy config') }), 0)
+  assert.equal(deliveryReport(report).status, 'installed')
+}))
+
+it('TGT-05 link overwrite reparses without remove and status detects residual source junctions', () => environmentCase('TGT-05', async f => {
+  const t = prepareTarget(f), source = join(f.root, 'alpha'); mkdirSync(source); writeFileSync(join(source, 'sentinel'), 'source stays')
+  const set = targetPackages(f.root, ['alpha']); fakeAcceptance(set)
+  const profile = join(t.home, 'profiles/web'), installed = join(profile, 'node_modules/@mbda9091/alpha')
+  mkdirSync(dirname(installed), { recursive: true }); symlinkSync(source, installed, process.platform === 'win32' ? 'junction' : 'dir')
+  writeFileSync(join(profile, 'package.json'), JSON.stringify({ dependencies: { '@mbda9091/alpha': 'file:old.tgz' }, dsh: { profile: { bundles: ['@mbda9091/alpha'] } } }))
+  assert.equal(runStatus({ manifest: set.path }, t.context()), 1)
+  const before = snapshot(source)
+  const stores = (env: NodeJS.ProcessEnv) => Object.fromEntries(Object.entries(env).filter(([key]) => /^(npm|pnpm)_config_store_dir$/i.test(key)))
+  for (const explicit of [true, false]) {
+    // Existing metadata cannot override the caller's system settings or create a store override.
+    writeFileSync(join(profile, 'node_modules/.modules.yaml'), explicit ? JSON.stringify({ storeDir: join(f.root, 'legacy-store/v11') }) : '[invalid yaml')
+    writeFileSync(t.storeTrace, '')
+    const context = t.context()
+    if (!explicit) for (const key of Object.keys(stores(context.env))) delete context.env[key]
+    let report = ''
+    assert.equal(await runArtifactInstall(installOptions(set.path), context, p => { report = p }), 0)
+    assert.equal(deliveryReport(report).packageConfiguration, 'system')
+    assert.equal('store' in deliveryReport(report), false)
+    const recorded = readFileSync(t.storeTrace, 'utf8').trim().split('\n').map(line => JSON.parse(line))
+    assert.ok(recorded.length >= 3, 'version, add and update must receive system settings')
+    for (const env of recorded) assert.deepEqual(env, stores(context.env))
+  }
+  assert.deepEqual(snapshot(source), before); assert.equal(runStatus({ manifest: set.path }, t.context()), 0)
+  const calls = readFileSync(t.trace, 'utf8'); assert.doesNotMatch(calls, /remove/); assert.match(calls, /update/)
+}))
+
+it('TGT-06 partial failure warnings loading failure and restart remain separate from file delivery', () => environmentCase('TGT-06', async f => {
+  const t = prepareTarget(f), set = targetPackages(f.root); fakeAcceptance(set)
+  let report = ''; writeFileSync(t.mode, 'second-fails')
+  assert.equal(await runArtifactInstall(installOptions(set.path), t.context(), p => { report = p }), 1)
+  assert.deepEqual(deliveryReport(report).packages.map(p => p.status), ['installed', 'failed', 'not-attempted'])
+  assert.doesNotMatch(readFileSync(t.trace, 'utf8'), /remove/)
+  for (const [mode, code, loaded] of [['warning', 1, 'unconfirmed'], ['restart', 0, 'restart-required'], ['load-fail', 1, 'failed']] as const) {
+    writeFileSync(t.mode, mode)
+    assert.equal(await runArtifactInstall({ ...installOptions(set.path), only: '@mbda9091/alpha' }, t.context(), p => { report = p }), code)
+    const p = deliveryReport(report).packages[0]!
+    assert.equal(p.status, 'installed'); assert.equal(p.loaded, loaded); assert.equal(p.capability, 'unverified')
+    if (mode === 'warning') assert.equal(p.warnings.length, 1)
+  }
+  assert.equal(deliveryDiagnostics('warnings: []\napplication: applied\nenabled').loaded, 'unconfirmed')
+}))

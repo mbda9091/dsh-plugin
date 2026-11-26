@@ -60,7 +60,7 @@
 | `pack` / `stable-install` | 固定 tarball 批次、哈希、目标筛选、逐包报告及安装校验 | 可复用安装底层，但当前没有默认配置补入功能 | `commands/pack.ts`、`commands/install-artifacts.ts` |
 | bundle patch | 注册插件行，部分包含默认 config | 不能直接复制为 profile patch，否则可能重复 insert | 各插件 `cordis.patch.yml` |
 | 用户 patch | profile patch 晚于 bundle，单行 config 整体替换 | 直接覆盖或字段补齐可能改变既有语义 | `docs/dsh-concepts.md`、DSH 当前实现 |
-| 测试与 CI | 既有 L1–L5、环境测试、固定产物测试 | 删除日常功能时需要调整专属用例，其他覆盖不得一起移除 | `commands/ci.ts`、`test/src/environment/` |
+| 测试与 CI | 既有 L1–L5、环境测试、固定产物测试 | 删除日常功能时需要调整专属用例，其他覆盖不得一起移除 | `commands/ci.ts`、`test/src/common/environment/` |
 
 - 已有可复用能力：平台过滤、普通 Node/DSH 解析、目标身份检查、系统 pnpm 配置、tarball 内容校验和安装报告。
 - 已确认约束：profile 名必须显式提供；home 与宿主由当前环境解析或显式覆盖，不再要求全量手填；Desktop 的运行状态和实际效果不能通过 Web 启动方式代验。

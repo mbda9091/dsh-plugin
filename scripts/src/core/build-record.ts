@@ -21,7 +21,7 @@ function outputs(root: string): Record<string, string> {
     else files[relative(root, path).replaceAll('\\', '/')] = digest(readFileSync(path))
   }
   for (const plugin of discoverPlugins(root)) visit(join(plugin.dir, 'lib'))
-  const libraries = join(root, 'packages')
+  const libraries = join(root, 'plugins', 'common')
   if (existsSync(libraries)) for (const name of readdirSync(libraries).sort()) visit(join(libraries, name, 'lib'))
   return files
 }

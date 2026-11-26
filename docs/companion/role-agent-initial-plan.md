@@ -2,7 +2,7 @@
 
 > 使命：在 DSH 对话中验证最小角色成长循环，比较实际收益与成本，再决定是否扩展。
 > 更新：2026-11-16。状态：实施中（M3 真实工程验收与短场景已运行，反馈识别修补已实施，长期成长收益／部分费用未闭合；M4 其余建设和持续试用未开始；M5 已实现并完成隔离工具／长材料验证）；完成：否；未归档。
-> 实现 commit：未提交；实现位于 role-agent/；已有真实语义／宿主／短轨迹基线，详细通过与未决项见 [M3 验收](role-agent-m3-acceptance.md)。
+> 实现 commit：未提交；实现位于 plugins/role-agent/；已有真实语义／宿主／短轨迹基线，详细通过与未决项见 [M3 验收](role-agent-m3-acceptance.md)。
 > 目标依据：[总体设计](role-agent-design.md) G1–G5；研究依据：[调研](role-agent-research.md)。
 
 ## 1. 本轮结论与定位
@@ -402,7 +402,7 @@ M1.5 不能只画一套符合想象的插件架构。先核对宿主契约，再
 | 参考层 | 优先入口 | 要回答的问题 |
 |---|---|---|
 | DSH 原生能力 | 已安装 persona、system-prompt、preset registry、session/projection、storageDomain、tools 和 llm 包 | 哪些能力已经由宿主拥有？如何注册、隔离、恢复和释放？已有模型路由能否安全复用？ |
-| 仓库真实插件 | [notify-host](../../packages/notify-host/src/index.ts)、[notify-web](../../notify-web/src/index.ts) | 实际如何消费已提交事件、管理 effect 和 Host 资源？只借生命周期实践，不套用通知业务为角色流程 |
+| 仓库真实插件 | [notify-host](../../plugins/common/notify-host/src/index.ts)、[notify-web](../../plugins/notify-web/src/index.ts) | 实际如何消费已提交事件、管理 effect 和 Host 资源？只借生命周期实践，不套用通知业务为角色流程 |
 | DSH 记忆适配器 | [Hindsight DSH 入口](https://github.com/vectorize-io/hindsight/blob/main/hindsight-integrations/coding-agents/src/dsh.ts)、[ReMe DSH 目录](https://github.com/agentscope-ai/ReMe/tree/main/integrations/dsh)、[MemOS Local DSH 目录](https://github.com/MemTensor/MemOS/tree/main/apps/memos-local-plugin/adapters/deepseek-harness) | 如何采集、查询、组装回忆、处理分叉和后台工作？哪些默认行为偏编码或与 M1 上下文规则冲突？ |
 | Agent 基础设施 | [LangMem](https://github.com/langchain-ai/langmem)、[Letta](https://github.com/letta-ai/letta)等相关记忆／后台整理机制 | 证据包、有限更新、后台任务和上下文维护是否已有可复用原语？是可独立调用的能力，还是需要引入另一套 Agent 运行时？ |
 
@@ -574,7 +574,7 @@ M2 已同步职责、候选优先级、Hindsight 接入映射与配置前置、�
 
 用户要求实现 M3，并明确“没有现成服务，先完成实现与隔离契约测试”。本次实现范围已完成；未部署服务、读取日常配置或调用收费模型，不把该范围等同于 M3 全部角色行为出口。
 
-实现为 [`role-agent`](../../role-agent/README.md)，包 `@mbda9091/role-agent@0.1.0`：Host＋专属 `role-lan` preset，preset 内显式装配 DSH native 工具执行器及角色薄子入口；局部贡献随 preset 生效／退出，补齐已创建空白会话的模式切换。这将 M1.5 原空插件列表草案落实为可实际执行工具的最小组合。不改变默认模式，普通会话不获得人格、状态或四个角色工具。存储域名实际为 `role_agent`，符合宿主标识规则。
+实现为 [`role-agent`](../../plugins/role-agent/README.md)，包 `@mbda9091/role-agent@0.1.0`：Host＋专属 `role-lan` preset，preset 内显式装配 DSH native 工具执行器及角色薄子入口；局部贡献随 preset 生效／退出，补齐已创建空白会话的模式切换。这将 M1.5 原空插件列表草案落实为可实际执行工具的最小组合。不改变默认模式，普通会话不获得人格、状态或四个角色工具。存储域名实际为 `role_agent`，符合宿主标识规则。
 
 | 职责 | 本次实现 |
 |---|---|
@@ -584,7 +584,7 @@ M2 已同步职责、候选优先级、Hindsight 接入映射与配置前置、�
 | P4 | schema／来源／方法阶段检查，单角色 aggregate 内原子提交 revision、已处理范围与回执；更正先写持久屏障，清除受影响认识并过滤后端旧结果，旧提案因版本冲突不能提交 |
 | 生命周期 | 双重作用域清理、卸载取消、按持久游标恢复；写入／复盘尝试上限跨重启保留；未配置记忆服务明确不可用，不能静默回退关键词 |
 
-隔离证据：新增 [13 项引擎／后端协议测试](../../test/src/l3/role-agent.test.ts)，使用真实 Cordis、DSH Session／storageDomain／JSON 后端和模拟后端协议，覆盖幂等、路由、无更新、持久重开、失效／旧任务竞争、来源伪造、方法越级、重试上限、响应预算与错误脱敏。全量 L1–L3 当前 240 项：239 passed，1 平台条件 skipped，不把 skipped 计为通过。
+隔离证据：新增 [13 项引擎／后端协议测试](../../test/src/plugins/role-agent/l3/role-agent.test.ts)，使用真实 Cordis、DSH Session／storageDomain／JSON 后端和模拟后端协议，覆盖幂等、路由、无更新、持久重开、失效／旧任务竞争、来源伪造、方法越级、重试上限、响应预算与错误脱敏。全量 L1–L3 当前 240 项：239 passed，1 平台条件 skipped，不把 skipped 计为通过。
 
 真实 DSH Web L4 已执行：新建普通／角色／subagent，验证 scoped 人格、状态、工具、普通模式不变及空白会话标准→角色→标准切换，实际工具执行的未配置错误；用本地合成模型驱动两轮请求，确认 runtime-context 只新增一次、真实消息可落盘。最近独立运行报告为 `.tmp/l4/run-Ej1hqB/report.json`；这是合成请求／宿主协议证据，不是角色模型效果。新增 Host-only 能力适配器 `role-agent-v1`，固定 tarball 通过仓库 `verify-artifacts` 的 L4＋适用 L5 记录独立报告；最终包与结果以 `dist/current.json`、`dist/verification/<batch>/web-linux.json` 为准，不用链接安装代替固定包验收。
 
@@ -596,7 +596,7 @@ M2 已同步职责、候选优先级、Hindsight 接入映射与配置前置、�
 
 ### 9.11 Hindsight 部署方案确认（2026-11-15）
 
-用户确认 Hindsight 生成式 LLM 走 DeepSeek provider，其他模块本地部署。本轮提供[独立 Compose 与部署说明](../../role-agent/deploy/hindsight/README.md)，固定 Hindsight／PostgreSQL 镜像 digest 和本地多语检索模型 revision，明确本地 API key 与 DeepSeek key 分离；embedding／重排使用 CPU，自动 observations／consolidation 继续关闭。DSH 对话与 P3/P4 的路由、来源和成长提交职责不变，不将记忆抽取迁入角色插件。
+用户确认 Hindsight 生成式 LLM 走 DeepSeek provider，其他模块本地部署。本轮提供[独立 Compose 与部署说明](../../plugins/role-agent/deploy/hindsight/README.md)，固定 Hindsight／PostgreSQL 镜像 digest 和本地多语检索模型 revision，明确本地 API key 与 DeepSeek key 分离；embedding／重排使用 CPU，自动 observations／consolidation 继续关闭。DSH 对话与 P3/P4 的路由、来源和成长提交职责不变，不将记忆抽取迁入角色插件。
 
 受影响为 P2、M2 §5.3/§6 成本及 M3 真实接入前置；总体设计不变。当前交付配置与静态验证，没有启动服务、下载模型权重或调用收费 API，不增加真实语义、模型行为、备份恢复或费用通过记录。实际运行仍需本地填写凭据，再按原出口验收。
 

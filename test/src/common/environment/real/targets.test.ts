@@ -1,0 +1,91 @@
+import assert from 'node:assert/strict'
+import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { environmentTest as it, snapshot } from '../../harness/environment.js'
+import type { fixture } from '../../harness/environment.js'
+import { targetPackages, installOptions, deliveryReport } from '../../harness/targets.js'
+import { prepareIsolation } from '../../harness/isolation.js'
+import { sharedEnvironmentCase, environmentTargetHost } from '../../harness/environment-host.js'
+import { loadCommandContext } from "../../../../../scripts/.build/core/command-context.js"
+import { inspectTarget } from "../../../../../scripts/.build/core/formal-target.js"
+import { runArtifactInstall } from "../../../../../scripts/.build/commands/install-artifacts.js"
+import { runVerifyArtifacts } from "../../../../../scripts/.build/commands/verify-artifacts.js"
+import { ensurePnpmShim, initProfile, runDsh, serveAndCheck } from "../../../../../scripts/.build/core/web-harness.js"
+import type { WebHarness } from "../../../../../scripts/.build/core/web-harness.js"
+import { readPackage } from "../../../../../scripts/.build/core/artifact-package.js"
+import { checkFixtureCapabilities } from '../../harness/fixture-capability.js'
+
+async function prepare(f: ReturnType<typeof fixture>, names: string[], id: string) {
+  prepareIsolation(f, true)
+  const home = join(f.root, '.formal-home')
+  // These cases verify target delivery, not a cold package cache. Keep the
+  // caller's registry/proxy/credentials/store, as real installation does.
+  // TOOL-04 separately verifies a clean checkout and initially empty store.
+  const env: NodeJS.ProcessEnv = { ...process.env, CI: 'true' }
+  for (const key of Object.keys(env)) if (/^(DSH_|NODE_OPTIONS$|NODE_PATH$)/i.test(key)) delete env[key]
+  const { host, entry: cli } = await environmentTargetHost(id, f.root, home, env)
+  assert.notEqual(cli, realpathSync(join(f.root, 'node_modules/@deepseek-ai/dsh/lib/bin.js')))
+  const fields = { dshCli: cli, home, profile: 'web', surface: 'web', platform: process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'mac' : 'linux' }
+  env.DSH_PNPM = process.env.DSH_ENV_TEST_PNPM
+  const context = loadCommandContext(fields, f.root, env, 'target')
+  const runner = inspectTarget(context).runner, runDir = join(f.root, '.formal-run'); mkdirSync(runDir)
+  const harness: WebHarness = { settings: context, runner, home, runDir, logDir: runDir, options: { timeoutMs: 120000 } }
+  ensurePnpmShim(harness); await initProfile(harness, 'initialize-target', home)
+  const other = join(home, 'profiles/other'); mkdirSync(other, { recursive: true })
+  writeFileSync(join(other, 'package.json'), '{"sentinel":true}')
+  for (const file of ['session.sentinel', 'credentials.sentinel']) writeFileSync(join(home, file), 'simulated data only')
+  const set = targetPackages(f.root, names)
+  assert.equal(await runVerifyArtifacts({ manifest: set.path, keep: false }, loadCommandContext({}, f.root, env, 'test'), checkFixtureCapabilities), 0)
+  return { context, harness, set, host, home, other, env }
+}
+function assertUnchangedOutsideProfile(before: Record<string, string>, after: Record<string, string>) {
+  const filter = (s: Record<string, string>) => Object.fromEntries(Object.entries(s).filter(([key]) => !key.startsWith('./profiles/web/')))
+  assert.deepEqual(filter(after), filter(before))
+}
+
+it('TGT-04 independent real Node host receives accepted bytes with only selected profile and declared caches changed', { timeout: 600000 }, t => sharedEnvironmentCase('TGT-04', t.signal, async f => {
+  const t = await prepare(f, ['alpha'], 'TGT-04'), homeBefore = snapshot(t.home), hostBefore = snapshot(t.host), developmentBefore = snapshot(join(f.root, '.local/dsh-dev'))
+  let report = ''
+  assert.equal(await runArtifactInstall({ ...installOptions(t.set.path), dryRun: true }, t.context), 0)
+  assert.deepEqual(snapshot(t.home), homeBefore)
+  assert.equal(await runArtifactInstall(installOptions(t.set.path), t.context, p => { report = p }), 0)
+  const delivery = deliveryReport(report)
+  assert.equal(delivery.packages[0]!.sha256, t.set.manifest.packages[0]!.sha256)
+  assert.equal(delivery.packages[0]!.row, 'configured'); assert.equal(delivery.packages[0]!.loaded, 'unconfirmed')
+  assertUnchangedOutsideProfile(homeBefore, snapshot(t.home)); assert.deepEqual(snapshot(t.host), hostBefore)
+  assert.deepEqual(snapshot(join(f.root, '.local/dsh-dev')), developmentBefore)
+  await serveAndCheck(t.harness, 'manual-test-start', async (_url, stderr) => { assert.doesNotMatch(stderr, /did not activate|@mbda9091\//); return 'isolated target HTTP ready, no activation failure' })
+  writeFileSync(join(process.env.DSH_ENV_TEST_RUN!, 'TGT-04-details.json'), JSON.stringify({ delivery, separateCli: t.harness.runner.source, selectedProfileOnly: true, hostUnchanged: true, developmentUnchanged: true, explicitTestStart: true }, null, 2))
+}))
+
+it('TGT-05-real real add overwrites link and old tarball and update removes residual source resolution', { timeout: 600000 }, t => sharedEnvironmentCase('TGT-05-real', t.signal, async f => {
+  const t = await prepare(f, ['alpha'], 'TGT-05-real'), source = join(f.root, '.old-source')
+  const bytes = readFileSync(join(t.set.path, '..', t.set.manifest.packages[0]!.path)), pkg = readPackage(bytes)
+  for (const [file, content] of pkg.files) { const path = join(source, file); mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, content) }
+  const before = snapshot(source)
+  await runDsh(t.harness, 'install-old-link', ['plugin', '--profile', 'web', 'add', source], t.home)
+  assert.equal(realpathSync(join(t.home, 'profiles/web/node_modules/@mbda9091/alpha')), realpathSync(source))
+  let report = ''
+  assert.equal(await runArtifactInstall(installOptions(t.set.path), t.context, p => { report = p }), 0)
+  assert.notEqual(deliveryReport(report).packages[0]!.actual, realpathSync(source)); assert.deepEqual(snapshot(source), before)
+  // Repeat against an existing tarball spec, retaining the exact accepted bytes.
+  assert.equal(await runArtifactInstall(installOptions(t.set.path), t.context, p => { report = p }), 0)
+  assert.deepEqual(snapshot(source), before)
+  writeFileSync(join(process.env.DSH_ENV_TEST_RUN!, 'TGT-05-real-details.json'), JSON.stringify(deliveryReport(report), null, 2))
+}))
+
+it('TGT-06-real real first package survives an injected second-consumer failure with no rollback or restart', { timeout: 600000 }, t => sharedEnvironmentCase('TGT-06-real', t.signal, async f => {
+  const t = await prepare(f, ['alpha', 'beta', 'gamma'], 'TGT-06-real')
+  // Deterministic failure at the real CLI boundary; no production test bypass.
+  const hook = join(f.root, '.fail-second.cjs')
+  writeFileSync(hook, "if(process.argv.includes('add')&&process.argv.some(x=>x.endsWith('local-beta-1.0.0.tgz'))){console.error('injected second consumer failure');process.exit(17)}")
+  const context = { ...t.context, env: { ...t.context.env, NODE_OPTIONS: `--require ${JSON.stringify(hook)}` } }
+  let report = ''
+  assert.equal(await runArtifactInstall(installOptions(t.set.path), context, p => { report = p }), 1)
+  const delivery = deliveryReport(report)
+  assert.deepEqual(delivery.packages.map(p => p.status), ['installed', 'failed', 'not-attempted'])
+  assert.equal(delivery.packages[0]!.bundle, 'registered'); assert.equal(delivery.packages[0]!.loaded, 'unconfirmed')
+  assert.ok(existsSync(delivery.packages[0]!.actual!))
+  assert.ok(delivery.packages.every(p => p.capability === 'unverified'))
+  writeFileSync(join(process.env.DSH_ENV_TEST_RUN!, 'TGT-06-real-details.json'), JSON.stringify(delivery, null, 2))
+}))

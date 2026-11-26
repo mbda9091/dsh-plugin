@@ -8,5 +8,5 @@
     "declarationMap": false
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["src/environment/**/*.ts", "src/harness/environment.ts"]
+  "exclude": ["src/common/environment/**/*.ts", "src/common/harness/environment.ts", "src/plugins/*/e2e/**/*.ts"]
 }

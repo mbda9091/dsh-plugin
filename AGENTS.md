@@ -3,7 +3,7 @@
 开发测试入口为 `node scripts/dev.mjs`，外部安装/查看入口为 `node scripts/install.mjs install|status --profile NAME`，无参数显示各自帮助。install 从当前 Node 环境解析外部 DSH，home 为显式参数 / DSH_HOME / ~/.dsh，profile 必填、固定 Web、platform 默认当前系统。保留缓存复用和必要时构建打包；目标 DSH 精确匹配根声明。日常启动及旧 @local 包由用户自行管理。
 
 
-本文件是本仓库的工作约定，供在本仓库中工作的 agent 与开发者阅读。**所有自定义 DeepSeek Harness (dsh) 插件都在这里实现，每个插件单独一个顶层目录。**
+本文件是本仓库的工作约定，供在本仓库中工作的 agent 与开发者阅读。**所有自定义 DeepSeek Harness (dsh) 插件都在这里实现，每个活跃插件单独放在 `plugins/<插件 id>/`。**
 
 > 概念与机制（bundle / patch / profile 的定义、安装与配置流程）见 [docs/dsh-concepts.md](docs/dsh-concepts.md)。本文件只讲规则，那份文档解释"为什么"。
 
@@ -55,49 +55,34 @@ $dsh = Join-Path $env:LOCALAPPDATA 'Programs\DeepSeek Harness\resources\runtime\
 
 ## 3. 目录约定
 
-```
+```text
 dsh-plugin/
-├── AGENTS.md
-├── .gitignore
-├── .gitattributes
-├── docs/                     # 概念文档（dsh-concepts.md、plugin-targets.md），非规则
-├── CATALOG.md                # 由 scripts/src/commands/catalog.ts 生成的插件场景目录
-├── package.json              # workspace root：私有、无运行时依赖
-├── pnpm-workspace.yaml
-├── tsconfig.base.json        # 共享编译选项
-├── scripts/
-│   ├── dev.mjs / install.mjs # 两个薄入口，共用 launch.mjs 编译 TS；bootstrap.mjs 仅迁移提示
-│   ├── tsconfig.json         # scripts/src → scripts/.build（产物不入库）
-│   ├── src/                  # TS 脚本层：cli.ts + core/ + commands/（含安装、Web、CI）
-│   └── config/               # 历史 schema/fixture；运行命令不读取 local.json
-├── profiles/web/             # Web patch 模板与本机 patch（不是插件）
-├── packages/                 # 非插件的 workspace 私有共享库（不进 CATALOG）
-│   ├── notify-core/          # 通知内容/locale；构建期内联进插件
-│   └── notify-host/          # 通知触发逻辑；构建期内联进 notify-web
-├── archive/                  # 停止维护的插件源码和专属测试，不参与 workspace/构建/安装
-├── test/                     # L1–L5 测试：src/（node:test）、fixtures/、e2e/（Playwright）；不是插件，不进 CATALOG
-├── my-first-plugin/          # 一个插件一个目录；目录名 = 插件 id
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── build.json            # 可选：声明 esbuild 的 host/client bundle
-│   ├── src/index.ts          # Host 入口（Cordis 插件，TypeScript）
-│   ├── src/client.ts         # 可选：纯逻辑、无 import 的 Web UI 入口（tsc → lib/client.js）
-│   ├── src/client/index.ts   # 可选：可 import 共享库的 Web UI 入口（esbuild → lib/client.js）
-│   ├── client.js             # 可选：需要 React/JSX 的 Web UI 入口（手写 JS）
-│   ├── lib/                  # 构建产物，不入库（build 生成，安装/打包前必须有）
-│   ├── cordis.patch.yml      # bundle patch：把行插入 profile
-│   ├── locale/en.json
-│   ├── locale/zh.json
-│   ├── icon.svg
-│   └── README.md
-└── another-plugin/
-    └── ...
+├── AGENTS.md / README.md / CONTEXT.md / CATALOG.md
+├── package.json / pnpm-workspace.yaml / pnpm-lock.yaml
+├── plugins/                         # 活跃插件；一个目录一个独立 bundle
+│   ├── common/                      # 私有共享库，非插件；含 notify-core、notify-host
+│   ├── notify-web/                  # package.json、src/、locale/、patch、README
+│   └── role-agent/
+├── archive-plugins/                 # 停更插件及专属历史测试，不参与 workspace/构建/安装
+│   ├── app-restart/
+│   └── desktop-notify/
+├── scripts/                         # dev.mjs / install.mjs / git-hooks.mjs 薄入口
+│   ├── src/                         # commands/ 命令；core/ 公共能力
+│   └── config/                      # 历史 schema/fixture，运行不读取 local.json
+├── profiles/web/                    # 受管开发 Web patch 模板
+├── test/
+│   ├── src/common/                  # l1、l2、l3、environment、harness
+│   ├── src/plugins/notify-web/      # l1、l3、e2e
+│   ├── src/plugins/role-agent/      # l3、acceptance
+│   └── fixtures/                    # common/、plugins/role-agent/contract
+└── docs/                            # 使用指南与方案；docs/archive 为文档归档
 ```
+
 
 规则：
 
-1. **顶层目录即插件**，目录名用 `kebab-case`。目录名、包名后缀、loader 行 `id` 三者保持一致，例如目录 `todo-badge` ↔ 包名 `@mbda9091/todo-badge` ↔ 行 `id: todo-badge`。
-2. 仓库根目录只放仓库级文件（`AGENTS.md`、`.gitignore`、`.gitattributes`、workspace 配置、`scripts/`）、`packages/` 下的非插件共享库、`archive/` 下的停更快照和活跃插件目录。归档插件移入 `archive/<插件 id>/`，专属测试一并移出 `test/src/`；不参与 workspace、构建、CATALOG、测试或安装打包，不再跟随宿主升级。
+1. **`plugins/` 的直接子目录（common 除外）即活跃插件**，目录名用 `kebab-case`。目录名、包名后缀、loader 行 `id` 三者保持一致，例如目录 `plugins/todo-badge` ↔ 包名 `@mbda9091/todo-badge` ↔ 行 `id: todo-badge`。
+2. 仓库根目录只放仓库级文件（`AGENTS.md`、`.gitignore`、`.gitattributes`、workspace 配置、`scripts/`）、`plugins/common/` 下的非插件共享库、`archive-plugins/` 下的停更快照和 `plugins/` 下的活跃插件目录。归档插件移入 `archive-plugins/<插件 id>/`，专属测试一并移出 `test/src/`；不参与 workspace、构建、CATALOG、测试或安装打包，不再跟随宿主升级。
 3. **插件必须自包含**：不能从自己目录之外相对导入（安装时插件目录会被单独链接/复制到 profile，跨目录导入会失效）。需要共用代码时，把它复制/内联进各插件，或后续单独引入共享包方案（见 §8）。
 4. 删除插件 = 删除目录，并在插件管理器里移除对应 bundle；profile 里的依赖记录由插件管理器负责回收，别手工改。
 5. **仓库只存源码**：`lib/`（`tsc` 产物）和 `dist/`（`pnpm pack` 产物）都不入库，由 `node scripts/dev.mjs build`、`node scripts/dev.mjs pack` 生成。出问题按 构建 → 打包 → 安装 的顺序定位，不要用"提交产物"来保留上一次能跑的状态。
@@ -275,7 +260,7 @@ export function apply(ctx: Context, config: Config = {}): void {
 
 ```json
 {
-  "extends": "../tsconfig.base.json",
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": { "rootDir": "src", "outDir": "lib", "types": ["node"] },
   "include": ["src/**/*.ts"]
 }
@@ -377,7 +362,7 @@ window.__ModuleLoader__.load({
 
 ### 7.1 安装
 
-首选：Web UI 左侧 **Plugins（插件）** 页面，安装时填**插件目录的绝对路径**（如 `<repo>\my-plugin`）。插件管理器会：
+首选：Web UI 左侧 **Plugins（插件）** 页面，安装时填**插件目录的绝对路径**（如 `<repo>\plugins\my-plugin`）。插件管理器会：
 
 1. 用 pnpm 把该目录作为依赖装进 profile；
 2. 读取 `package.json` 的 `dsh.bundle.patch` 并把它加入 profile 的 bundle 列表；
@@ -388,7 +373,7 @@ window.__ModuleLoader__.load({
 备选（桌面版必须先**完全退出**，否则 profile 的 `package.json` 被占用）：
 
 ```powershell
-& $dsh plugin --profile desktop add (Join-Path $PWD 'my-plugin')
+& $dsh plugin --profile desktop add (Join-Path $PWD 'plugins/my-plugin')
 ```
 
 这条命令是 pnpm 的透传：安装完成后，`dsh-plugin-manager` 会把新安装且声明了 `dsh.bundle` 的依赖自动加入 profile 的 bundle 列表；没有 `dsh.bundle` 的包只会作为普通依赖安装并给出警告。
@@ -464,21 +449,21 @@ node scripts/install.mjs status --profile my-web
   - `node scripts/dev.mjs test` 先构建，再编译并运行 L1–L3；`node scripts/dev.mjs l4` 跑真实 `dsh web` 的 L4 harness（慢、需要本机 DSH）
   - 普通终端且 `node` 在 PATH 上时，也可以用根 `package.json` 的 `pnpm build` / `pnpm check` / `pnpm catalog` / `pnpm status` / `pnpm test`；**DSH 沙箱内不要用 `pnpm run`**（它会用管道 spawn 子进程，被沙箱拒绝后会卡住），直接用 `node scripts/dev.mjs <cmd>`。
   - 脚本层自身也会先被编译到 `scripts/.build/`（不入库）；`scripts/dev.mjs` / `scripts/install.mjs` 为薄入口，`scripts/launch.mjs` 共享编译启动逻辑，旧 bootstrap 只报迁移说明
-- **workspace 共享库**：`packages/*` 下的私有包（如 `@mbda9091/notify-core`、`@mbda9091/notify-host`）不是插件，没有 `dsh.bundle`/`dsh.targets`，不进 CATALOG。`build` 会先按依赖顺序用 `tsc` 构建它们，再构建插件。插件通过根 `devDependencies` 或 workspace 链接在构建期引用它们；**不要**把它们写成插件的 `dependencies`（link 安装不会装，tarball 会要求分发）。
+- **workspace 共享库**：`plugins/common/*` 下的私有包（如 `@mbda9091/notify-core`、`@mbda9091/notify-host`）不是插件，没有 `dsh.bundle`/`dsh.targets`，不进 CATALOG。`build` 会先按依赖顺序用 `tsc` 构建它们，再构建插件。插件通过根 `devDependencies` 或 workspace 链接在构建期引用它们；**不要**把它们写成插件的 `dependencies`（link 安装不会装，tarball 会要求分发）。
 - **`build.json` 与 esbuild**：需要 import 共享库或多文件的插件，在包根放 `build.json` 声明 `host`/`client` 入口；`tsc` 只产出声明和做类型检查，`build` 用平台自带的 esbuild 可执行文件（`spawnSync` + `stdio: 'inherit'`）生成 `lib/index.js`（ESM）和 `lib/client.js`（IIFE）。esbuild 不做类型检查；`--check` 仍跑两个 tsconfig。原生 esbuild 的 JS wrapper 会启动管道式子进程，在 DSH 沙箱里会 `EPERM`，所以直接调用 `@esbuild/<platform>/esbuild(.exe)`。
 - **共享库必须被内联**：`@mbda9091/notify-core`、`@mbda9091/notify-host` 这类构建期库由 esbuild bundle 进插件产物，profile 不需要安装；`files` 里不要列它们，也不要让运行时 `import '@mbda9091/notify-*'` 残留。
 - **脚本层约定**（`scripts/src/`）：
   - 业务逻辑只写 TypeScript，入口 mjs 只负责启动，launch.mjs 只负责编译和加载；不要引入 `tsx`/`ts-node`。
   - 子进程必须 `stdio: 'inherit'`：DSH 沙箱会拒绝管道式子进程 stdio（`EPERM`）；需要捕获输出时写临时文件再读，不要用 pipe。
   - 不要在 `scripts/` 下建 `lib/` 目录：`.gitignore` 的 `lib/` 规则会把它连同源码一起忽略；共享代码放 `scripts/src/core/`。
-  - 发现插件必须走 `dsh.bundle` 清单判断，不能只看"顶层目录有 `tsconfig.json`"，否则 `scripts/` 自己会被当成插件编译。
-  - 测试源码在 `test/src/`，由 `test/tsconfig.json` 编译到 `test/.build`；测试 import 插件**已构建**的入口（`@mbda9091/*` → `lib/index.js`），所以要先构建。不要手改 `test/.build/`。
+  - 发现插件必须走 `dsh.bundle` 清单判断，不能只看"目录有 `tsconfig.json`"，否则 `scripts/` 自己会被当成插件编译。
+  - 测试源码在 `test/src/common/` 和 `test/src/plugins/<id>/`，先按归属再按 L1–L3 分层；共用 harness 在 common/harness，浏览器/验收脚本在对应插件 e2e/acceptance。由 `test/tsconfig.json` 编译到 `test/.build`；测试 import 插件**已构建**的入口（`@mbda9091/*` → `lib/index.js`），所以要先构建。不要手改 `test/.build/`。
   - 仓库 `.ps1` 兼容入口已移除；所有业务与参数解析都在 TypeScript。不要新增 shell 转发层或另一套工具定位。
 - **新增插件**：复制一个现有插件的 `tsconfig.json`、`package.json` 的 `scripts`/`devDependencies` 起步；写好 `dsh.targets` 后运行 `node scripts/dev.mjs catalog` 更新 `CATALOG.md`；`build` 按 `dsh.bundle` 清单发现插件（不只看 `tsconfig.json`），新目录只要声明了 bundle 就会被构建。
 - **确需运行时依赖时**：优先打包进 `lib/`；否则要保证依赖能从插件真实路径解析（链接安装可能保留符号链接，裸 `import '@scope/pkg'` 会从 profile 目录解析而找不到）。
 - **安装**：只有 `devDependencies` 变化时才需要 `pnpm install`。DSH 沙箱会拒绝 pnpm 替换/清理包目录（`EPERM`），这一步需要一次沙箱外批准，或在 DSH 外的普通终端执行。这是沙箱的设计边界，不要为了绕过它去手工删 ACL。
 - **不要**提交 `node_modules`、`.pnpm-store`、`lib/`、`dist/`；**不要**手改 `lib/`。
-- 跨插件共享代码放 `packages/*` 私有 workspace 库（如 `@mbda9091/notify-core`、`@mbda9091/notify-host`），由 esbuild 在构建期内联进各插件；不要用跨插件的运行时 import。
+- 跨插件共享代码放 `plugins/common/*` 私有 workspace 库（如 `@mbda9091/notify-core`、`@mbda9091/notify-host`），由 esbuild 在构建期内联进各插件；不要用跨插件的运行时 import。
 
 ## 9. Git 约定
 
@@ -500,7 +485,7 @@ node scripts/install.mjs status --profile my-web
 
 ## 11. 新插件检查清单
 
-- [ ] 顶层目录名 = 包名后缀 = loader 行 `id`
+- [ ] plugins 下目录名 = 包名后缀 = loader 行 `id`
 - [ ] `package.json` 字段完整，`files` 覆盖所有运行时文件（含 `lib/**`），`dsh.targets` 已声明 `surfaces` / `platforms`
 - [ ] `cordis.patch.yml` 能插入正确的行，`config` 与 `Config` 一致
 - [ ] `locale/en.json`、`locale/zh.json` 有真实的 `meta.title` / `meta.description`，且描述以场景前缀开头

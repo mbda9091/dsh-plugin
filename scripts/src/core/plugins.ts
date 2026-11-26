@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { isRecord, readJson, stringArray } from './json.js'
 
-/** A top-level bundle package: a directory whose package.json declares dsh.bundle. */
+/** An active bundle package under plugins/, declaring dsh.bundle. */
 export interface Plugin {
   readonly dirName: string
   readonly dir: string
@@ -14,19 +14,20 @@ export interface Plugin {
   readonly platforms: string[]
 }
 
-const SKIP_DIRS = new Set(['node_modules', 'dist'])
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'common'])
 
 /**
- * Discovers plugin packages by their dsh.bundle manifest: top-level
- * directories only, skipping dot-directories, node_modules and dist.
+ * Only plugins/ participates. Archived packages and repository tools never do.
  */
 export function discoverPlugins(repo: string): Plugin[] {
   const plugins: Plugin[] = []
-  for (const entry of readdirSync(repo, { withFileTypes: true })) {
+  const base = join(repo, 'plugins')
+  if (!existsSync(base)) return plugins
+  for (const entry of readdirSync(base, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue
     if (entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) continue
 
-    const dir = join(repo, entry.name)
+    const dir = join(base, entry.name)
     const manifestPath = join(dir, 'package.json')
     if (!existsSync(manifestPath)) continue
 

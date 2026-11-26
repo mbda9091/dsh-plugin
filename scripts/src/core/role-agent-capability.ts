@@ -7,7 +7,7 @@ import { writeFileSync, readFileSync } from 'node:fs'
 
 /** Actual DSH scope/capability proof, only installed in the disposable harness. */
 export async function checkRoleAgentCapability(context: WebHarness): Promise<readonly string[]> {
-  await runDsh(context, 'install-role-contract', ['plugin', '--profile', 'web', 'add', join(repoRoot, 'test/fixtures/role-agent-contract')], context.home)
+  await runDsh(context, 'install-role-contract', ['plugin', '--profile', 'web', 'add', join(repoRoot, 'test/fixtures/plugins/role-agent/contract')], context.home)
   const required = ['dedicated-preset', 'scoped-persona', 'scoped-context', 'four-role-tools', 'ordinary-mode-unchanged', 'subagent-excluded', 'durable-binding', 'synthetic-model-only', 'real-tool-execution-unavailable-not-empty', 'runtime-context-deduplicated', 'durable-conversation-log', 'blank-mode-switch-in-and-out']
   required.push('standard-tool-parity','standard-schema-parity','no-delegation-tools','native-files-search-shell','native-web-provider-contract','native-jobs-schedule','native-skill-todo-goal-present-question','native-plan-isolation')
   const previousPatch = context.webPatch

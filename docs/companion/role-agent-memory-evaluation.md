@@ -157,7 +157,7 @@ Host storageDomain 继续保存角色 aggregate、绑定、失效屏障、采集
 
 ### 5.3 Hindsight 优先验证的具体配置与出口
 
-用户已确认部署方案：**Hindsight 生成式 LLM 使用 `deepseek` provider，其他记忆服务模块本地运行**。可执行配置见[部署附件](../../role-agent/deploy/hindsight/README.md)：Hindsight 1.2.1 与 PostgreSQL/pgvector 固定镜像 digest；本地 CPU 多语 embedding／重排固定模型 revision；DeepSeek 初始模型显式为 `deepseek-flash`，可配置，关闭 thinking。模型与镜像身份已经核对，本机 Linux/WSL 已通过真实服务基础 smoke；完整语义、角色联调与恢复验收尚未完成。DSH 对话／P3 route 不随该决定自动变化。
+用户已确认部署方案：**Hindsight 生成式 LLM 使用 `deepseek` provider，其他记忆服务模块本地运行**。可执行配置见[部署附件](../../plugins/role-agent/deploy/hindsight/README.md)：Hindsight 1.2.1 与 PostgreSQL/pgvector 固定镜像 digest；本地 CPU 多语 embedding／重排固定模型 revision；DeepSeek 初始模型显式为 `deepseek-flash`，可配置，关闭 thinking。模型与镜像身份已经核对，本机 Linux/WSL 已通过真实服务基础 smoke；完整语义、角色联调与恢复验收尚未完成。DSH 对话／P3 route 不随该决定自动变化。
 
 这是待执行接入计划，不是已经部署运行的服务：
 

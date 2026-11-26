@@ -64,7 +64,7 @@ v0.5 的 M2 已新增历史清理及专用 push；v0.6 删除专用入口，改�
 
 ### 4.2 宿主准备与复用
 
-M1 将归属、指纹、安装、文件检查和使用锁放在 `scripts/src/core/environment-host.ts`；`test/src/harness/environment-host.ts` 管理惰性获取、用例串行及 `after` 收尾。TGT 的 `prepare()` 只获取宿主入口并创建自己的 profile，生产安装器不参与测试宿主选择。
+M1 将归属、指纹、安装、文件检查和使用锁放在 `scripts/src/core/environment-host.ts`；`test/src/common/harness/environment-host.ts` 管理惰性获取、用例串行及 `after` 收尾。TGT 的 `prepare()` 只获取宿主入口并创建自己的 profile，生产安装器不参与测试宿主选择。
 
 准备输入包含：根声明 DSH 精确版本、根 lockfile 和 pnpm-workspace 配置哈希、所选 Node 实路径/版本/ABI、pnpm 脚本身份/版本、OS/架构，以及 helper 的准备格式版本。所选 pnpm 的公开 `config list --json` 在内存中读取实际生效的安装配置并摘要，包含已配置 hook 文件字节；认证、网络传输和 store 路径不参与内容失效，原始配置及凭据不写日志。插件源码变化不触发宿主重装。
 
@@ -108,8 +108,8 @@ M1 保留了成功清理、失败或 keep 留存的原行为。M2 在此基础�
 | 文件或模块 | M1 实际改动 |
 |---|---|
 | `scripts/src/core/environment-host.ts`（已新增） | 受管宿主准备、归属、指纹、内容摘要、锁、失败证据与复用 |
-| `test/src/harness/environment-host.ts`（已新增） | 惰性共享、用例实际异步工作串行、组结束等待与报告保存 |
-| `test/src/environment/real/targets.test.ts` | 三项获取同一共享宿主；各建 profile，保留真实行为断言 |
+| `test/src/common/harness/environment-host.ts`（已新增） | 惰性共享、用例实际异步工作串行、组结束等待与报告保存 |
+| `test/src/common/environment/real/targets.test.ts` | 三项获取同一共享宿主；各建 profile，保留真实行为断言 |
 | `scripts/src/commands/test-env.ts`、环境 harness | 提供本轮宿主使用上下文，finally 释放锁，记录准备/复用与安装次数 |
 | 必要 L1/L3 与环境回归 | 复用失效、准备失败、锁竞争、用例隔离和既有收尾保护 |
 | `AGENTS.md`、环境输入、测试指南、文档导航 | 说明测试宿主共用、有效性判断和跨次复用；不引入清理策略 |
@@ -259,7 +259,7 @@ M2 清理阶段和 A6、A10 按明确范围调整暂缓，不标通过，不阻�
 实现 commit：未提交。对象为 `63206f698c646e7f0672f896a06253acce3ed864` 加本轮工作区改动；没有提交、推送或操作用户日常 profile。
 
 - 新增 `scripts/src/core/environment-host.ts`：单一受管 host、归属记录、输入指纹、完整树摘要、真实版本检查、独占锁、受管失效重建和带安装次数的失败证据。
-- 新增 `test/src/harness/environment-host.ts`，三个真实 TGT 接入惰性共享；每项保留独立 home，组结束保存并验证 `shared-host.json`。
+- 新增 `test/src/common/harness/environment-host.ts`，三个真实 TGT 接入惰性共享；每项保留独立 home，组结束保存并验证 `shared-host.json`。
 - `environmentHostCases` 串行跟踪实际异步任务；TGT 接收 TestContext.signal，超时后不把未完成的后台任务误当作已经退出。环境 TestFn 类型签名同步修正。
 - run 报告先保留原始宿主证据再校验成功条件；锁初始化或释放失败不能报告 passed/released。独占文件写入、关闭和回收失败均有真实错误记录。
 - 新增 20 项 L1 回归，更新仓库约定、环境指南与测试导航。没有新增清理入口、留存策略、配置或历史迁移。
@@ -274,7 +274,7 @@ M2 清理阶段和 A6、A10 按明确范围调整暂缓，不标通过，不阻�
 |---|---|---|
 | 首轮真实 TGT 三项 | 3 项通过；共享宿主 `prepared`，installCount=1；三个 home 不同，成功后已删除；宿主未变、锁已释放 | `.tmp/environment-tests/run-wAwlYk/report.json`、`shared-host.json`、`shared-host/install-0.out` |
 | 修正后的真实 TGT 复用验证 | 3 项通过；`reused`，installCount=0；与首轮 host 和 fingerprint 相同，宿主仍在且锁已释放 | `.tmp/environment-tests/run-M90AAp/report.json`、`shared-host.json`；总日志 `.tmp/environment-host-second-escalated.log` |
-| 新增定向 L1 | 20 通过、0 失败、0 跳过；覆盖复用、插件修改、根锁/配置/版本/pnpm 变化、损坏、失败安装次数、真实锁竞争、真实超时后等待、ENOSPC、解锁失败及主报告保留失败证据 | `.tmp/environment-host-unit.log`；源码 `test/src/l1/environment-host.test.ts` |
+| 新增定向 L1 | 20 通过、0 失败、0 跳过；覆盖复用、插件修改、根锁/配置/版本/pnpm 变化、损坏、失败安装次数、真实锁竞争、真实超时后等待、ENOSPC、解锁失败及主报告保留失败证据 | `.tmp/environment-host-unit.log`；源码 `test/src/common/l1/environment-host.test.ts` |
 | 原有环境 fast | 28 项通过；未产生共享宿主使用记录，证明非 TGT 选择不触发准备 | `.tmp/environment-tests/run-KWt4Ug/report.json` |
 | `node scripts/dev.mjs build --check` | 通过，含 targets、catalog、真实类型检查；最终修改后已复跑 | 本轮命令输出；本轮无插件构建产物变更入库 |
 | L1–L3 | 沙箱外 285 通过、0 失败、1 项既有平台跳过，共 286；当时包含 17 项新增回归，后补 3 项已经在上述 20 项定向运行中通过 | `.tmp/environment-host-test-escalated.log` |

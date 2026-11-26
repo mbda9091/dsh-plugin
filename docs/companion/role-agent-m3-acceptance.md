@@ -14,7 +14,7 @@
 |---|---|
 | 宿主 | Node 24、DSH `0.2.2-rc.1`、Cordis `4.1.0`；workspace 普通 Node Web；一次性 profile/home |
 | 记忆 | Hindsight `1.2.1`，镜像 digest `d2bc230a714e933affd63753e181a0579328fdcbbc021800a76e0bc7b6e76b31`；独立 PG18/pgvector |
-| 本地语义 | 多语 MiniLM-L12，384 维；多语 mMiniLM 交叉重排；模型 HF revision 见[部署配置](../../role-agent/deploy/hindsight/README.md)，离线只读权重，CPU 运行 |
+| 本地语义 | 多语 MiniLM-L12，384 维；多语 mMiniLM 交叉重排；模型 HF revision 见[部署配置](../../plugins/role-agent/deploy/hindsight/README.md)，离线只读权重，CPU 运行 |
 | 生成模型 | Hindsight 使用 `deepseek`；DSH 使用官方 `deepseek-official`；均为 `deepseek-flash`，关闭 thinking。供应商别名不是权重锁定 |
 | 关闭的机制 | Hindsight 自动 observations/consolidation，不用 Hindsight reflect 更新人格；P3/P4 由插件负责 |
 | 预算 | recall topK=5／facts 2000 token／最终字符预算8000；真实对话每次生成上限1200；P3 上限2500；测试每2完整轮复盘，常规默认8轮 |
@@ -27,7 +27,7 @@
 
 ## 2. 检索、来源和后端恢复
 
-冻结数据见 [semantic-cases.json](../../test/acceptance/role-agent/semantic-cases.json)。索引只写预先定义的经历，不把查询或人工同义词补进索引。40 项两次真实运行均通过；摘要固定采用 `memory-Zn5VfW`。
+冻结数据见 [semantic-cases.json](../../test/src/plugins/role-agent/acceptance/semantic-cases.json)。索引只写预先定义的经历，不把查询或人工同义词补进索引。40 项两次真实运行均通过；摘要固定采用 `memory-Zn5VfW`。
 
 | 分组 | 结果 | 检查含义 |
 |---|---|---|
@@ -114,4 +114,4 @@ L1–L3 同时覆盖持久重试上限、后端错误与空结果区分、flush�
 
 A 编号对账：A1/A4/A5/A7–A12/A14 有上述有限场景／工程证据；A2/A3/A6/A13 仅短轨迹或部分反例观测，**关系长期演化、重大失约与补救、兴趣持续和超越风格适配的稳定收益尚未通过产品验收**。桌面／macOS／Windows、管理界面视觉／完整交互、物理遗忘和服务升级兼容未实测。
 
-复跑命令和清理规则见[验收入口](../../test/acceptance/role-agent/README.md)。M4 仍未开始；它接收本次固定工程基线及这些未决假设，而不是接收“角色已被证明真实”的结论。
+复跑命令和清理规则见[验收入口](../../test/src/plugins/role-agent/acceptance/README.md)。M4 仍未开始；它接收本次固定工程基线及这些未决假设，而不是接收“角色已被证明真实”的结论。

@@ -10,7 +10,7 @@
 
 ## 1. 结论摘要
 
-按用户“这个也归档”的明确决定，app-restart 停止更新。源码及专属 L1/L3 测试保存在 [archive/app-restart](../archive/app-restart/README.md)，版本冻结为 `1.0.1`。
+按用户“这个也归档”的明确决定，app-restart 停止更新。源码及专属 L1/L3 测试保存在 [archive/app-restart](../archive-plugins/app-restart/README.md)，版本冻结为 `1.0.1`。
 
 ## 2. 范围
 

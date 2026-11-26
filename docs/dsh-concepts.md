@@ -220,7 +220,7 @@ dsh 的安装入口（`parseInstallSpec`）把 spec 分成四类：
 
 | 形态 | 例子 | 备注 |
 |---|---|---|
-| 本地目录 | `<repo>\notify-web` | 必须绝对路径，相对路径直接报错 |
+| 本地目录 | `<repo>\plugins\notify-web` | 必须绝对路径，相对路径直接报错 |
 | 本地 tarball | `D:\...\dist\x.tgz` | 按扩展名识别 |
 | git | `user/repo`、`git+https://...` | 从仓库拉 |
 | registry | `@scope/name@1.2.3` | 从 npm 源装 |

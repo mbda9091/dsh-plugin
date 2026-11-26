@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, realpathSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs'
+import { dirname, isAbsolute, join, relative, resolve, sep, toNamespacedPath } from 'node:path'
 import type { CommandContext } from './command-context.js'
 import { commandEnv, configuredDsh, configuredPnpm } from './command-context.js'
 import { safeConfigPath } from './config-transaction.js'
@@ -164,13 +164,22 @@ export function verifyDevelopmentLinks(context: CommandContext, plugins: readonl
 }
 
 /** Inventory first, then delete with lstat per entry: never recurse through a link. */
-export function validateDevelopmentTree(context: CommandContext): void {
+export function validateDevelopmentTree(context: CommandContext, allowRecordedDanglingLinks = false): void {
   const p = developmentPaths(context.root), owner = readDevelopmentOwner(context)
   const visit = (path: string): void => {
     const stat = lstatSync(path)
     if (stat.isSymbolicLink()) {
-      const target = physicalPath(path)
       const expected = owner.links[relative(p.directory, path)]
+      let target: string
+      try { target = physicalPath(path) }
+      catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+        const destination = resolve(dirname(path), readlinkSync(path))
+        if (expected === undefined || !within(realpathSync(context.root), expected)
+          || toNamespacedPath(destination) !== toNamespacedPath(expected)) throw new Error(`unknown external development link: ${path}`)
+        if (!allowRecordedDanglingLinks) throw new Error('development source link is missing; use dev-web reset --yes then dev-install to recreate the managed development home')
+        return // Reset only unlinks this exact owned leaf, never its missing target.
+      }
       if (!within(p.directory, target) && (expected === undefined || target !== expected || !within(realpathSync(context.root), expected))) {
         throw new Error(`unknown external development link: ${path}`)
       }
@@ -180,7 +189,7 @@ export function validateDevelopmentTree(context: CommandContext): void {
 }
 
 export function removeDevelopment(context: CommandContext): void {
-  validateDevelopmentTree(context)
+  validateDevelopmentTree(context, true)
   const p = developmentPaths(context.root)
   if (existsSync(p.runtime)) throw new Error('development process identity is unresolved; stop it before reset')
   const remove = (path: string): void => {

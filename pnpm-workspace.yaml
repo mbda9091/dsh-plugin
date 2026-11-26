@@ -1,7 +1,7 @@
 packages:
-  - '*'
-  - 'packages/*'
-  - '!archive/**'
+  - 'plugins/*'
+  - 'plugins/common/*'
+  - '!archive-plugins/**'
 
 nodeLinker: hoisted
 # The public DSH host imports its declared peer services at runtime. Resolve

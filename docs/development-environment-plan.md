@@ -233,7 +233,7 @@ node scripts/bootstrap.mjs test-env --suite fast --only ISO-01,ISO-02
 - `real`：使用已安装的锁定 DSH/pnpm，在一次性目录验证真实解析、安装、启动与清理；所需 fixture 包由该套测试自己准备，不依赖上一次 `dist` 或个人 profile。涉及 `ART-06` 的 L5 时还需要声明的测试浏览器；其他环境场景不要求浏览器。工具不全时给出明确失败，不能静默切换假 CLI。依赖下载准备在测试之前完成，联网安装依赖的集成场景单列为有网络前提。
 - `all`：两套均运行，汇总各自结果。每步加入该步用例，后续尚未实现的场景在文档里保留待办，不注册成返回成功的空测试。阶段验收对照用例清单检查缺项。
 
-**实现布局：** `test/src/environment/` 存环境用例，按 `fast/`、`real/` 分组；共用 helper 放 `test/src/harness/`；`scripts/src/commands/test-env.ts` 负责选择、编译、执行和报告。采用单独的测试 tsconfig/编译输出（如 `test/.build-env/`，先加入忽略规则），只编译环境测试及必要 helper，避免因为旧测试 import 插件 `lib` 而迫使快速测试先构建所有插件。继续使用 `tsc` + `node:test`，不新增运行时转译器或另一套 Node 工具定位。
+**实现布局：** `test/src/common/environment/` 存环境用例，按 `fast/`、`real/` 分组；共用 helper 放 `test/src/common/harness/`；`scripts/src/commands/test-env.ts` 负责选择、编译、执行和报告。采用单独的测试 tsconfig/编译输出（如 `test/.build-env/`，先加入忽略规则），只编译环境测试及必要 helper，避免因为旧测试 import 插件 `lib` 而迫使快速测试先构建所有插件。继续使用 `tsc` + `node:test`，不新增运行时转译器或另一套 Node 工具定位。
 
 **入口不能依赖被测配置健康：** 在加载真实 `scripts/config/local.json` 前分发 `test-env`，测试在临时仓库副本内生成有效、旧版、损坏等配置；损坏的真实本机配置不得阻止快速测试运行。bootstrap 仍可编译脚本，其 `scripts/.build` 写入不算被测配置副作用；用例不能把这项例外扩大到备份、profile 或工具安装。
 

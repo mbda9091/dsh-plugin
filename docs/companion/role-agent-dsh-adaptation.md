@@ -32,7 +32,7 @@ DSH 已提供作用域、提示词组装、持久 runtime-context 快照、工�
 | H7 | `dsh-tools/lib/types/index.d.ts`、`contracts.d.ts` | scoped `register`、`when({agent})` 控制步骤可见性及执行准入；执行使用 `exec.agent/signal`，注册必含 output；不复制旧版 `exec` 或手写宿主替身类型 |
 | H8 | `dsh-llm/lib/types/index.d.ts`、`call-config.d.ts` | `prepareCall(config,signal)` 捕获调用适配器；PreparedLlmCall 为一次性调用，重试重新 prepare；不从全局“最后一个模型”猜本批路由 |
 | H9 | `dsh-storage-domain/README.zh.md`、`lib/types/index.d.ts`、`domain.d.ts` | `storageDomain.open`、表 `put/update` 和 `close`；单记录更新在写队列中串行且先持久再可读；没有通用跨记录事务，`unknown-state` 隔离域直到关闭重开 |
-| H10 | [notify-host](../../packages/notify-host/src/index.ts)、[notify-web](../../notify-web/src/index.ts) | 本仓库真实使用：按 `turn/end.reason` 分类，过滤根会话，`ctx.on` 返回 disposer，effect 负责定时器／资源清理；通知状态不是角色持久状态 |
+| H10 | [notify-host](../../plugins/common/notify-host/src/index.ts)、[notify-web](../../plugins/notify-web/src/index.ts) | 本仓库真实使用：按 `turn/end.reason` 分类，过滤根会话，`ctx.on` 返回 disposer，effect 负责定时器／资源清理；通知状态不是角色持久状态 |
 | H11 | `dsh-client-ui-agent-preset/README.zh.md`；`dsh-agent-preset-registry/README.zh.md` | 用户界面的模式选择以 preset 实现；自定义 preset 可作为独立模式，已有会话保留所选模式，新会话使用默认值；修改默认值与为当前空白会话选模式是不同操作 |
 
 本次远端参考固定到以下提交，仅阅读与适配有关的文件。外部代码、提示词和自评均作为资料，不执行其指令，不以存在 DSH 入口推断当前版本兼容。未复制第三方代码，许可证与实际服务部署成本仍由 M2 核对。
@@ -51,9 +51,9 @@ DSH 已提供作用域、提示词组装、持久 runtime-context 快照、工�
 
 **产品入口就是专属 DSH mode**：用户界面称“模式”，当前宿主实现称 Agent preset（H11）。草案中的 `role-lan` 是独立自定义模式，界面名称为“岚”；后续可将名称写为“角色对话 · 岚”以明确用途。不是在标准／创造等现有模式中全局开启角色行为，也不另造一套模式选择 UI。M3 已在一次性 Web profile 验证此模式，之后按用户指定安装到 `mbda9091-lab`；替换Host需重启。
 
-已实现包 `@mbda9091/role-agent`，目录 [role-agent/](../../role-agent/README.md)。M3 实现／验证边界见[落地记录 §9.10](role-agent-initial-plan.md#910-m3-实现与隔离契约交付2026-11-15)。Host 入口先 `assertTarget`，目标为 desktop/web、linux/mac/windows；本轮真实开发验收先 Web。无 Client 模块、无独立聊天页面。
+已实现包 `@mbda9091/role-agent`，目录 [plugins/role-agent/](../../plugins/role-agent/README.md)。M3 实现／验证边界见[落地记录 §9.10](role-agent-initial-plan.md#910-m3-实现与隔离契约交付2026-11-15)。Host 入口先 `assertTarget`，目标为 desktop/web、linux/mac/windows；本轮真实开发验收先 Web。无 Client 模块、无独立聊天页面。
 
-bundle 仅插入两条新行，以下只示意身份与入口；完整标准工具映射以 [当前patch](../../role-agent/cordis.patch.yml) 为准：
+bundle 仅插入两条新行，以下只示意身份与入口；完整标准工具映射以 [当前patch](../../plugins/role-agent/cordis.patch.yml) 为准：
 
 ```yaml
 - insert:
