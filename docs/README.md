@@ -36,6 +36,6 @@
 
 ## 当前独立调整
 
-- [环境测试宿主复用与推送后清理](environment-test-storage-plan.md)：M1 已提交 `911d6de`；v0.5 的 M2 已接入共同锁、7 天清理及 push 成功后触发，24 项定向回归通过；M3 同目录完整 CI、真实清理、688 文件字节复核及零重装暖复用通过，当前实现已提交 `d19adc3`；普通 git push 的 pre-push hook 接入为下一步，本次未改代码。不建设租约、预算或自动恢复体系，报告日志及验收产物保留。
+- [环境测试宿主复用与推送清理](environment-test-storage-plan.md)：M1–M3 的 v0.5 已提交并验收；v0.6 已改为原生 pre-push，普通 git push 推送前自动尝试清理，失败/dry-run 也可能触发，已提交 `ba03889`，本地验证通过、当前仓库已启用。保留共同锁、7 天和 keep，报告/产物/共享宿主不删。
 - [notify-web 用户提问提醒](notify-web-question-plan.md)：补齐标准 `ask_user_question` 的提醒、回答撤回及重连恢复；2026-11-16 已实现并安装日常 2.1.1，修正 PTC start 遗漏；自动验收及固定包 L4/L5 通过，待真实 OS 人工验收与提交对账。
 - [内部开发测试与外部交付分离](development-delivery-separation-plan.md)：已提交两个脚本入口、按用途解析输入，安装必填 profile，保留缓存及必要时构建打包，并合并 Linux Web 支持。本轮按用户确认的 macOS 范围已完成，验收基线 `4049f6f`，完整 CI 通过；Windows/Linux 与真实 DSH 沙箱暂缓。尚未归档，实现提交和证据见原文。
