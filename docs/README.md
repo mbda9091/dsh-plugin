@@ -39,6 +39,6 @@
 - [插件与测试目录整理](repository-layout-plan.md)：活跃插件统一 plugins，共享库放 plugins/common，停更插件放 archive-plugins；测试区分 common 与各插件，再保留 L1–L5 层级。插件/测试目录迁移的完整 CI 已通过；追加共享库移动的冻结安装、类型、L1–L3、fast、L5 和打包对比通过；已提交 `6341f2c`，原工作区安全登记已正常刷新。
 
 - [环境测试宿主复用与推送清理](environment-test-storage-plan.md)：M1–M3 的 v0.5 已提交并验收；v0.6 已改为原生 pre-push，普通 git push 推送前自动尝试清理，失败/dry-run 也可能触发，已提交 `ba03889`，本地验证通过、当前仓库已启用。保留共同锁、7 天和 keep，报告/产物/共享宿主不删。
-- [Codex 订阅登录插件](codex-subscription-login-plan.md)：0.1.0 已实现并提交 `35c4086`，首版仅覆盖 Linux Web，复用原生 `openai-codex` 授权，不修改 DSH 内部实现；2026-11-27 自动化通过，用户确认预览登录正常，已仅安装本插件至日常 `mbda9091-lab`，未迁移开发授权或重启日常 DSH；真实推理／刷新及其余边界待验收，极端竞争暂缓。
+- [Codex 订阅登录插件](codex-subscription-login-plan.md)：0.1.0 已实现，代码 `35c4086` 与文档对账 `8e48445` 已推送至 `origin/main`；首版仅覆盖 Linux Web，复用原生 `openai-codex` 授权，不修改 DSH 内部实现；2026-11-27 自动化通过，用户确认预览登录正常，已仅安装本插件至日常 `mbda9091-lab`，未迁移开发授权或重启日常 DSH；真实推理／刷新及其余边界待验收，极端竞争暂缓。
 - [notify-web 用户提问提醒](notify-web-question-plan.md)：补齐标准 `ask_user_question` 的提醒、回答撤回及重连恢复；2026-11-16 已实现并安装日常 2.1.1，修正 PTC start 遗漏；自动验收及固定包 L4/L5 通过，待真实 OS 人工验收与提交对账。
 - [内部开发测试与外部交付分离](development-delivery-separation-plan.md)：已提交两个脚本入口、按用途解析输入，安装必填 profile，保留缓存及必要时构建打包，并合并 Linux Web 支持。本轮按用户确认的 macOS 范围已完成，验收基线 `4049f6f`，完整 CI 通过；Windows/Linux 与真实 DSH 沙箱暂缓。尚未归档，实现提交和证据见原文。

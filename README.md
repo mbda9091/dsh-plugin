@@ -3,7 +3,7 @@
 开发测试入口为 `node scripts/dev.mjs`；安装入口为 `node scripts/install.mjs install --profile NAME`。无参数显示各自帮助。安装自动解析已准备好的 Node/DSH 环境，日常启动由用户管理。
 
 
-为 DeepSeek Harness（DSH）编写的自定义插件，提供浏览器提问／审批提醒、任务完成通知和角色对话。
+为 DeepSeek Harness（DSH）编写的自定义插件，提供浏览器提问／审批提醒、任务完成通知、角色对话和 Codex 订阅登录。
 
 每个插件都是独立的 npm 包和 Cordis bundle，可以按需安装到 DSH profile，单独启停。本仓库保存插件源码、构建脚本和文档，使用前需要安装 DSH 并构建插件。
 
@@ -11,6 +11,7 @@
 
 | 插件 | 用途 | 适用形态 | 平台 |
 | --- | --- | --- | --- |
+| [codex-login](plugins/codex-login/README.md) | 原生 Codex 订阅登录，无需 API Key | Web | Linux |
 | [notify-web](plugins/notify-web/README.md) | 浏览器系统通知；点击后聚焦标签页并切换到对应会话 | Web | Windows、macOS、Linux |
 | [role-agent](plugins/role-agent/README.md) | 专用角色对话、可追溯记忆与成长 | 桌面、Web | Windows、macOS、Linux |
 
@@ -51,7 +52,7 @@ node scripts/dev.mjs build
 node -p "require('node:path').resolve('plugins/notify-web')"
 ```
 
-把输出填入 Web 插件安装页面。`notify-web` 仅适用于 Web；`role-agent` 同时支持桌面和 Web，具体以插件声明为准。
+把输出填入 Web 插件安装页面。`codex-login` 首版仅适用于 Linux Web；`notify-web` 仅适用于 Web；`role-agent` 同时支持桌面和 Web，具体以插件声明为准。
 
 替换已加载的 Host 代码或安装包后，按宿主提示重启 DSH；更新 Client 代码后刷新页面。
 
@@ -148,7 +149,7 @@ Corepack 安装也自动发现 pnpm，无需初始化 JSON 或填写 pnpm 绝对
 
 启动器打印访问地址；有桌面会话时可去掉 `--no-open`，通过 `xdg-open` 打开默认浏览器。自动化测试可用 `node node_modules/playwright-core/cli.js install --with-deps chromium` 准备浏览器及系统依赖。
 
-Linux 支持 `notify-web` 和 `role-agent`。通过 `node scripts/install.mjs install --profile <名称>` 安装到外部 profile，平台默认识别为 Linux；不要求固定产物验收证据，固定包验收由内部测试负责。日常 DSH 启动由用户自行管理；仓库的 `web`、`daily-launcher` 入口已移除，开发环境使用 `dev-web`。
+Linux 支持 `codex-login`、`notify-web` 和 `role-agent`。通过 `node scripts/install.mjs install --profile <名称>` 安装到外部 profile，平台默认识别为 Linux；不要求固定产物验收证据，固定包验收由内部测试负责。日常 DSH 启动由用户自行管理；仓库的 `web`、`daily-launcher` 入口已移除，开发环境使用 `dev-web`。
 
 ### WSL 默认工作区与验收边界
 
