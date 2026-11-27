@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { checkTestBrowser, commandEnv, loadCommandContext } from '../core/command-context.js'
 import type { CommandContext } from '../core/command-context.js'
@@ -11,12 +11,18 @@ import type { TestReport } from '../core/test-run.js'
 import { runBuild } from './build.js'
 import type { ArtifactSet } from '../core/artifacts.js'
 import { artifactPrerequisites, installArtifacts, checkArtifactInstallations } from '../core/artifact-harness.js'
+import { discoverPlugins } from '../core/plugins.js'
+import { isTargetCompatible, resolveTarget } from '../core/targets.js'
+import { assertCodexBrowserReport } from '../core/codex-login-browser.js'
 
 export interface L5Options { readonly keep: boolean; readonly timeoutMs?: number; readonly artifacts?: ArtifactSet }
 
 /** Own both server and browser; never use an ambient GUI URL/profile. */
 export async function runL5(input: L5Options, settings: CommandContext = loadCommandContext({}, undefined, undefined, 'test'), onReport?: (report: TestReport) => void): Promise<number> {
   const options = { ...input, timeoutMs: input.timeoutMs ?? settings.config.test.timeoutMs }
+  const codexPlugin = discoverPlugins(repoRoot).find(plugin => plugin.dirName === 'codex-login')
+  const checkCodex = codexPlugin !== undefined && isTargetCompatible(codexPlugin, resolveTarget({ surface: 'web' }))
+    && (!options.artifacts || options.artifacts.packages.has(codexPlugin.packageName))
   return runIsolatedTest('l5', settings, options, async context => {
     const { runDir, step } = context
     await step(options.artifacts ? 'package-contracts' : 'build', async () => {
@@ -48,6 +54,18 @@ export async function runL5(input: L5Options, settings: CommandContext = loadCom
       return 'browser and pinned pnpm ready'
     })
     await step('profile-init', () => initProfile(context, 'profile-init', context.home))
+    const codexBrowser = async (url: string, mode: 'baseline' | 'fixture'): Promise<string> => {
+      if (!checkCodex) return ''
+      const directory = join(runDir, 'artifacts', `codex-${mode}`)
+      const result = await runToFilesAsync(process.execPath, [join(repoRoot, 'test/src/plugins/codex-login/e2e/web-l5.mjs')], {
+        cwd: runDir, signal: context.signal, timeoutMs: options.timeoutMs,
+        env: { ...childEnv(context, context.home), DSH_E2E_URL: url, DSH_E2E_MODE: mode, DSH_E2E_ARTIFACTS: directory },
+        stdoutPath: join(context.logDir, `codex-${mode}.out.log`), stderrPath: join(context.logDir, `codex-${mode}.err.log`),
+      })
+      if (result.status !== 0 || result.timedOut) throw new Error(`Codex browser check failed: ${result.stdout}\n${result.stderr}`)
+      assertCodexBrowserReport(JSON.parse(readFileSync(join(directory, 'results.json'), 'utf8')), mode)
+      return result.stdout.trim()
+    }
     const browser = (mode: 'baseline' | 'fixture') => step(mode, () => serveAndCheck(context, mode, async (url, stderr) => {
       if (/did not activate|@mbda9091\//.test(stderr)) throw new Error(`unexpected loader warnings: ${stderr}`)
       const result = await runToFilesAsync(process.execPath, [join(repoRoot, 'test/.build/plugins/notify-web/e2e/web-l5.js')], {
@@ -60,16 +78,20 @@ export async function runL5(input: L5Options, settings: CommandContext = loadCom
       })
       if (result.status !== 0 || result.timedOut) throw new Error(`browser checks failed (${result.status}, timedOut=${result.timedOut}):\n${result.stdout}\n${result.stderr}`)
       assertBrowserResults(join(runDir, 'artifacts', mode), mode)
+      const codexEvidence = await codexBrowser(url, mode)
       if (!existsSync(join(runDir, 'workspace/documents/deepseek-harness/default-workspace'))) {
         throw new Error('default workspace was not created inside the owned test directory')
       }
       if (mode === 'fixture' && options.artifacts) checkArtifactInstallations(context, options.artifacts)
-      return result.stdout.trim()
+      return [result.stdout.trim(), codexEvidence].filter(Boolean).join('\n')
     }))
     await browser('baseline')
     await step(options.artifacts ? 'install-artifacts' : 'install-fixture', async () => {
       const evidence = options.artifacts ? await installArtifacts(context, options.artifacts) : ''
-      const fixtures: readonly (readonly [string, string])[] = options.artifacts ? [['web-hello', 'test/fixtures/common/web-hello']] : [['web-hello', 'test/fixtures/common/web-hello'], ['notify-web', 'plugins/notify-web']]
+      const fixtures: readonly (readonly [string, string])[] = options.artifacts ? [['web-hello', 'test/fixtures/common/web-hello']] : [
+        ['web-hello', 'test/fixtures/common/web-hello'], ['notify-web', 'plugins/notify-web'],
+        ...(checkCodex ? [['codex-login', 'plugins/codex-login'] as const] : []),
+      ]
       for (const [name, target] of fixtures) {
         await runDsh(context, `install-${name}`, ['plugin', '--profile', 'web', 'add', join(repoRoot, target)], context.home)
       }

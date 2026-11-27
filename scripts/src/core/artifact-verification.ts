@@ -6,6 +6,7 @@ import { isRecord } from './json.js'
 import type { TestReport } from './test-run.js'
 import { platformFromNode, type Target } from './targets.js'
 import { browserChecks } from './browser-results.js'
+import { assertCodexBrowserReport } from './codex-login-browser.js'
 
 export const artifactSteps = {
   l4: ['context', 'package-contracts', 'profile-init', 'install-artifacts', 'host-capabilities', 'web-artifacts', 'cleanup'],
@@ -17,7 +18,7 @@ export interface Verification {
   tools: { node: string; pnpm: string; dsh: string }; platform: string; surface: 'web'
   contracts: { name: string; sha256: string; status: 'passed' }[]
   environment: { kind: string; steps: string[]; cleanup: string }[]
-  functions: { l4?: TestReport; l5?: TestReport; browser?: { baseline: unknown; fixture: unknown } }
+  functions: { l4?: TestReport; l5?: TestReport; browser?: { baseline: unknown; fixture: unknown; codex?: { baseline: unknown; fixture: unknown } } }
   coverage: { name: string; sha256: string; surface: string; platform: string; host: string; status: 'passed' | 'uncovered'; reason: string }[]
 }
 export function validateArtifactReport(report: unknown, kind: 'l4' | 'l5', set: ArtifactSet, startedAt: string): asserts report is TestReport {
@@ -59,6 +60,10 @@ export function validateVerification(set: ArtifactSet, value: unknown, target: T
       const expected = browserChecks[mode]
       const results: unknown = isRecord(browser) ? browser[mode] : undefined
       if (!Array.isArray(results) || results.length !== expected.length || results.some((r, i) => !isRecord(r) || r.name !== expected[i] || r.ok !== true)) throw new Error('incomplete artifact browser evidence')
+    }
+    if (set.manifest.packages.some(p => p.name === '@mbda9091/codex-login' && p.surfaces.includes('web') && p.platforms.includes(target.platform))) {
+      const codex = isRecord(browser) && isRecord(browser.codex) ? browser.codex : undefined
+      for (const mode of ['baseline', 'fixture'] as const) assertCodexBrowserReport(codex?.[mode], mode)
     }
   }
   if (environment.length !== kinds.length || kinds.some(kind => environment.filter((e: unknown) => isRecord(e) && e.kind === kind && typeof e.cleanup === 'string' && /^(removed|retained --keep)/.test(e.cleanup) && JSON.stringify(e.steps) === JSON.stringify(['context', 'profile-init', 'install-artifacts', 'cleanup'])).length !== 1)) throw new Error('incomplete artifact environment evidence')

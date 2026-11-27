@@ -1,0 +1,4 @@
+- id: codex-login
+  name: '@mbda9091/codex-login'
+  config:
+    loginTimeoutMs: 600000

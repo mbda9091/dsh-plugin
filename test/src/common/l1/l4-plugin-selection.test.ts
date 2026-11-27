@@ -23,6 +23,8 @@ describe('L1 L4 non-manifest plugin selection', () => {
     const windows = selectL4Plugins(repoRoot, { surface: 'web', platform: 'windows' })
     assert.deepEqual(windows.links.map(plugin => plugin.dirName), ['notify-web', 'role-agent'])
     assert.equal(windows.tarball.packageName, '@mbda9091/notify-web')
+    const linux = selectL4Plugins(repoRoot, { surface: 'web', platform: 'linux' })
+    assert.deepEqual(linux.links.map(plugin => plugin.dirName), ['notify-web', 'role-agent', 'codex-login'])
     for (const platform of ['mac', 'windows'] as const) {
       const target = { surface: 'web' as const, platform }
       const selection = selectL4Plugins(repoRoot, target)

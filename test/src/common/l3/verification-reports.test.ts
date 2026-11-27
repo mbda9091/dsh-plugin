@@ -5,7 +5,20 @@ import { dirname, join, relative } from 'node:path'
 import { runToFiles } from "../../../../scripts/.build/core/exec.js"
 import { assertBrowserResults } from "../../../../scripts/.build/core/browser-results.js"
 import { assertTestReport } from "../../../../scripts/.build/core/test-run.js"
+import { assertCodexBrowserReport, codexBrowserChecks } from "../../../../scripts/.build/core/codex-login-browser.js"
 import { makeTempDir, removeDir, repoRoot } from '../harness/tmp.js'
+
+it('L3 Codex browser evidence rejects missing, partial, misordered and failed checks', () => {
+  for (const mode of ['baseline', 'fixture'] as const) {
+    const checks = [...codexBrowserChecks[mode]]
+    assert.doesNotThrow(() => assertCodexBrowserReport({ passed: true, mode, checks }, mode))
+    for (const value of [undefined, { passed: true, mode, checks: checks.slice(1) }, { passed: false, mode, checks },
+      { passed: true, mode: 'other', checks }, { passed: true, mode, checks: [...checks, 'unexecuted'] }]) {
+      assert.throws(() => assertCodexBrowserReport(value, mode), /incomplete Codex/)
+    }
+    if (checks.length > 1) assert.throws(() => assertCodexBrowserReport({ passed: true, mode, checks: checks.reverse() }, mode), /incomplete Codex/)
+  }
+})
 
 /** Exercise the real orchestration in an isolated repository with fake stages.
  * No user profiles, real builds, or latest reports are modified by these failures.

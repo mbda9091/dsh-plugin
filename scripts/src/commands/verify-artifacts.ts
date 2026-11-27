@@ -35,13 +35,17 @@ export async function runVerifyArtifacts(input: { manifest: string; keep: boolea
       validateArtifactReport(record.functions.l4, 'l4', artifacts, record.startedAt)
       record.contracts = artifacts.manifest.packages.map(p => ({ name: p.name, sha256: p.sha256, status: 'passed' }))
       if (selected.some(p => p.client)) {
-        if (selected.some(p => p.client && p.name !== '@mbda9091/notify-web')) throw new Error('client plugin lacks an artifact L5 adapter')
+        if (selected.some(p => p.client && !['@mbda9091/notify-web', '@mbda9091/codex-login'].includes(p.name))) throw new Error('client plugin lacks an artifact L5 adapter')
         const l5 = await runL5(options, settings, report => { record.functions.l5 = report })
         if (l5 !== 0) throw new Error('artifact L5 failed')
         validateArtifactReport(record.functions.l5, 'l5', artifacts, record.startedAt)
         record.functions.browser = {
           baseline: JSON.parse(readFileSync(join(record.functions.l5.runDir, 'artifacts/baseline/results.json'), 'utf8')),
           fixture: JSON.parse(readFileSync(join(record.functions.l5.runDir, 'artifacts/fixture/results.json'), 'utf8')),
+          ...(selected.some(p => p.name === '@mbda9091/codex-login') ? { codex: {
+            baseline: JSON.parse(readFileSync(join(record.functions.l5.runDir, 'artifacts/codex-baseline/results.json'), 'utf8')),
+            fixture: JSON.parse(readFileSync(join(record.functions.l5.runDir, 'artifacts/codex-fixture/results.json'), 'utf8')),
+          } } : {}),
         }
       }
       for (const report of [record.functions.l4, record.functions.l5]) if (report) record.environment.push({ kind: report.kind, cleanup: report.cleanup, steps: ['context', 'profile-init', 'install-artifacts', 'cleanup'] })

@@ -1,0 +1,31 @@
+{
+  "name": "@mbda9091/codex-login",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sign in to the native Codex subscription provider from Linux Web model settings",
+  "exports": {
+    ".": { "types": "./lib/index.d.ts", "default": "./lib/index.js" },
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": ["lib/**/*.js", "lib/**/*.js.map", "lib/**/*.d.ts", "lib/**/*.d.ts.map", "client.js", "cordis.patch.yml", "profile.defaults.patch.yml", "locale/*.json", "icon.svg", "README.md"],
+  "scripts": { "build": "tsc -p tsconfig.json", "check": "tsc -p tsconfig.json --noEmit" },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.1.0",
+    "@deepseek-ai/dsh-authorization": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-credentials": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-settings": "0.2.2-rc.5",
+    "@types/node": "^24.0.0",
+    "typescript": "7.0.2"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "targets": { "surfaces": ["web"], "platforms": ["linux"] },
+    "client": { "platform": "web", "immediately": true, "inject": ["@deepseek-ai/dsh-client-ui-settings-models"] }
+  },
+  "dshPlugin": { "profileDefaults": "./profile.defaults.patch.yml" }
+}

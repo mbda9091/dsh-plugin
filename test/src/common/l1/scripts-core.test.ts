@@ -297,7 +297,7 @@ describe('L1 scripts/core: plugin discovery basics', () => {
 
   it('discovers the repository plugins in a stable order', () => {
     const plugins = discoverPlugins(repoRoot)
-    assert.deepEqual(plugins.map((plugin) => plugin.dirName), ['notify-web', 'role-agent'])
+    assert.deepEqual(plugins.map((plugin) => plugin.dirName), ['codex-login', 'notify-web', 'role-agent'])
     for (const plugin of plugins) {
       assert.equal(plugin.packageName, `@mbda9091/${plugin.dirName}`)
       assert.equal(plugin.dir, join(repoRoot, 'plugins', plugin.dirName))

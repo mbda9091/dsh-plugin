@@ -55,7 +55,7 @@ const WEB_PROFILE = 'web'
 /** Smoke-test candidates, filtered by their manifests rather than a second target matrix. */
 export function selectL4Plugins(root: string = repoRoot, target: Target = resolveTarget({ surface: 'web' })): { links: Plugin[]; tarball: Plugin } {
   const plugins = discoverPlugins(root)
-  const ids = ['notify-web', ...(plugins.some(p => p.dirName === 'role-agent') ? ['role-agent'] : [])]
+  const ids = ['notify-web', ...['role-agent', 'codex-login'].filter(id => plugins.some(p => p.dirName === id))]
   const links = ids.flatMap(id => {
     const plugin = plugins.find(plugin => plugin.dirName === id)
     if (!plugin) throw new Error(`L4 smoke plugin manifest is missing: ${id}`)
@@ -90,6 +90,7 @@ export async function runL4(input: L4Options, settings: CommandContext = loadCom
         if (/did not activate|@mbda9091\//.test(stderr)) throw new Error(`artifact activation failed: ${stderr}`)
         for (const item of webArtifacts(artifacts).filter(p => p.client)) if (!page.html.includes(item.name)) throw new Error(`missing client: ${item.name}`)
         if (artifacts.packages.has('@mbda9091/notify-web')) await checkSse(page.pageUrl, page.cookie)
+        if (artifacts.packages.has('@mbda9091/codex-login')) await checkCodexLogin(page.pageUrl, page.cookie)
         checkArtifactInstallations(context, artifacts)
         return `HTTP, client modules and applicable SSE passed; manifest ${artifacts.hash}`
       }))
@@ -108,6 +109,10 @@ export async function runL4(input: L4Options, settings: CommandContext = loadCom
         if (stderr.includes('did not activate')) throw new Error(`compatible plugins failed to activate:\n${stderr}`)
         if (/@mbda9091\//.test(stderr)) throw new Error(`unexpected @mbda9091 warning in server stderr:\n${stderr}`)
         const sse = await checkSse(page.pageUrl, page.cookie)
+        if (selectL4Plugins().links.some(p => p.dirName === 'codex-login')) {
+          if (!page.html.includes('@mbda9091/codex-login')) throw new Error('Codex client module is missing')
+          await checkCodexLogin(page.pageUrl, page.cookie)
+        }
         return `HTTP 200, boot HTML contains both client modules, no activation warnings, ${sse}`
       }),
     )
@@ -141,6 +146,18 @@ export async function runL4(input: L4Options, settings: CommandContext = loadCom
       )
     }
   }, onReport)
+}
+
+/** Read-only native-service probe: never initiates account authorization. */
+async function checkCodexLogin(pageUrl: string, cookie: string): Promise<void> {
+  const url = new URL('api/codex-login/status', pageUrl)
+  const denied = await fetch(url, { headers: { origin: url.origin } })
+  if (![401, 403].includes(denied.status)) throw new Error('Codex route accepted an unauthenticated request')
+  const response = await fetch(url, { headers: { cookie, origin: url.origin } })
+  const status: unknown = await response.json()
+  if (response.status !== 200 || !isRecord(status) || status.credential !== 'absent'
+    || !['route-missing', 'ready'].includes(String(status.environment))) throw new Error('Codex native status probe failed')
+  if (response.headers.get('cache-control') !== 'no-store') throw new Error('Codex status must disable caching')
 }
 
 interface L4Context extends WebHarness {

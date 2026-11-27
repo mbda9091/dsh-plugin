@@ -135,7 +135,7 @@ const plugins = discover()
 
 describe('L2 package contracts: discovery', () => {
   it('finds every active bundle package under plugins/ and nothing else', () => {
-    assert.deepEqual(plugins.map((plugin) => plugin.dirName), ['notify-web', 'role-agent'])
+    assert.deepEqual(plugins.map((plugin) => plugin.dirName), ['codex-login', 'notify-web', 'role-agent'])
   })
 
   it('keeps directory name, package suffix and loader row id aligned', () => {
